@@ -1,0 +1,77 @@
+# pubspec.yaml
+name: vaccigo
+description: "A Flutter vaccination tracking app."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.6 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Database
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Google Vision & ML Kit (DOWNGRADED to work with SDK 33)
+  google_ml_kit: ^0.16.3
+  
+  # Camera & Image (DOWNGRADED)
+  camera: ^0.10.5+9
+  image_picker: ^1.0.7
+  
+  # Network & HTTP
+  http: ^1.1.0
+  
+  # File & Path
+  path_provider: ^2.1.2
+  
+  # Permissions
+  permission_handler: ^11.3.0
+  
+  # UI
+  cupertino_icons: ^1.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  # Code generation
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.9
+  
+  # Linting
+  flutter_lints: ^2.0.0
+  
+  # App Icon Generator
+  flutter_launcher_icons: ^0.13.1
+
+# Flutter Launcher Icons Configuration
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/vaccigo_logo.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icons/vaccigo_logo.png"
+    background_color: "#7DD3D8"
+    theme_color: "#2C5F66"
+  windows:
+    generate: true
+    image_path: "assets/icons/vaccigo_logo.png"
+    icon_size: 48
+  macos:
+    generate: true
+    image_path: "assets/icons/vaccigo_logo.png"
+
+flutter:
+  uses-material-design: true
+  
+  # Assets
+  assets:
+    - assets/icons/
+    - assets/logos/
+    - assets/images/
