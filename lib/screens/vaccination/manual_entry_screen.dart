@@ -1,4 +1,4 @@
-// lib/screens/vaccination/manual_entry_screen.dart
+// lib/screens/vaccination/manual_entry_screen.dart - Updated
 import 'package:flutter/material.dart';
 
 class ManualEntryScreen extends StatefulWidget {
@@ -148,6 +148,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           hint: 'Ex: Pfizer-BioNTech COVID-19',
           controller: _vaccinController,
           icon: Icons.vaccines,
+          required: true,
         ),
         const SizedBox(height: 20),
         _buildTextField(
@@ -155,6 +156,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           hint: 'Ex: EW0553',
           controller: _lotController,
           icon: Icons.confirmation_number,
+          required: true,
         ),
         const SizedBox(height: 20),
         _buildTextField(
@@ -163,6 +165,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           controller: _dateController,
           icon: Icons.calendar_today,
           keyboardType: TextInputType.datetime,
+          required: true,
         ),
         const SizedBox(height: 20),
         _buildTextField(
@@ -171,6 +174,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           controller: _psController,
           icon: Icons.info_outline,
           maxLines: 3,
+          required: false,
         ),
       ],
     );
@@ -183,6 +187,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     required IconData icon,
     int maxLines = 1,
     TextInputType? keyboardType,
+    bool required = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,6 +208,15 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                 color: Color(0xFF2C5F66),
               ),
             ),
+            if (required)
+              const Text(
+                ' *',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
           ],
         ),
         const SizedBox(height: 8),
@@ -250,7 +264,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
               ),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (required && (value == null || value.trim().isEmpty)) {
                 return 'Ce champ est requis';
               }
               return null;
@@ -276,22 +290,30 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
       ),
       child: SizedBox(
         width: double.infinity,
-        child: ElevatedButton(
+        child: ElevatedButton.icon(
           onPressed: () {
             if (_formKey.currentState!.validate()) {
-              // Navigate to scan preview to show what was entered
+              // Navigate to scan preview with the manually entered data
               Navigator.pushReplacementNamed(
                 context, 
                 '/scan-preview',
                 arguments: {
-                  'vaccine': _vaccinController.text,
-                  'lot': _lotController.text,
-                  'date': _dateController.text,
-                  'ps': _psController.text,
+                  'vaccine': _vaccinController.text.trim(),
+                  'lot': _lotController.text.trim(),
+                  'date': _dateController.text.trim(),
+                  'ps': _psController.text.trim(),
                 },
               );
             }
           },
+          icon: const Icon(Icons.preview, size: 20),
+          label: const Text(
+            'Aperçu des informations',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF2C5F66),
             foregroundColor: Colors.white,
@@ -300,13 +322,6 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             elevation: 5,
-          ),
-          child: const Text(
-            'Aperçu des informations',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
           ),
         ),
       ),

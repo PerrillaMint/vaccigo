@@ -1,4 +1,4 @@
-// lib/services/database_service.dart - Enhanced Database Service
+// lib/services/database_service.dart - Enhanced with Email Validation
 import 'package:hive/hive.dart';
 import '../models/user.dart';
 import '../models/vaccination.dart';
@@ -11,9 +11,16 @@ class DatabaseService {
 
   // ==== USER OPERATIONS ====
   
-  // Create/Save User
+  // Create/Save User with email validation
   Future<void> saveUser(User user) async {
     final box = await Hive.openBox<User>(_userBoxName);
+    
+    // Check if email already exists
+    final existingUser = await getUserByEmail(user.email);
+    if (existingUser != null) {
+      throw Exception('Un compte existe déjà avec cette adresse email');
+    }
+    
     await box.add(user);
   }
 
@@ -38,9 +45,16 @@ class DatabaseService {
     return null;
   }
 
-  // Update user
+  // Update user with email validation
   Future<void> updateUser(int index, User user) async {
     final box = await Hive.openBox<User>(_userBoxName);
+    
+    // Check if email already exists (excluding current user)
+    final existingUser = await getUserByEmail(user.email);
+    if (existingUser != null && existingUser.key != user.key) {
+      throw Exception('Un compte existe déjà avec cette adresse email');
+    }
+    
     await box.putAt(index, user);
   }
 
@@ -54,10 +68,46 @@ class DatabaseService {
   Future<User?> getUserByEmail(String email) async {
     final box = await Hive.openBox<User>(_userBoxName);
     try {
-      return box.values.firstWhere((user) => user.email == email);
+      return box.values.firstWhere((user) => user.email.toLowerCase() == email.toLowerCase());
     } catch (e) {
       return null;
     }
+  }
+
+  // Check if email exists
+  Future<bool> emailExists(String email) async {
+    final user = await getUserByEmail(email);
+    return user != null;
+  }
+
+  // Remove duplicate users (keep the first one for each email)
+  Future<int> removeDuplicateUsers() async {
+    final box = await Hive.openBox<User>(_userBoxName);
+    final users = box.values.toList();
+    final seenEmails = <String>{};
+    final duplicateIndices = <int>[];
+    
+    for (int i = 0; i < users.length; i++) {
+      final email = users[i].email.toLowerCase();
+      if (seenEmails.contains(email)) {
+        duplicateIndices.add(i);
+      } else {
+        seenEmails.add(email);
+      }
+    }
+    
+    // Remove duplicates in reverse order to maintain indices
+    for (int i = duplicateIndices.length - 1; i >= 0; i--) {
+      await box.deleteAt(duplicateIndices[i]);
+    }
+    
+    return duplicateIndices.length;
+  }
+
+  // Get unique users (helper method)
+  Future<List<User>> getUniqueUsers() async {
+    await removeDuplicateUsers(); // Clean up first
+    return getAllUsers();
   }
 
   // ==== VACCINATION OPERATIONS ====
@@ -209,5 +259,18 @@ class DatabaseService {
         vaccines: [],
       ));
     }
+  }
+
+  // Clean up database (remove duplicates and orphaned data)
+  Future<Map<String, int>> cleanupDatabase() async {
+    final duplicatesRemoved = await removeDuplicateUsers();
+    
+    // You could add more cleanup logic here, such as:
+    // - Remove vaccinations for non-existent users
+    // - Remove orphaned data
+    
+    return {
+      'duplicateUsersRemoved': duplicatesRemoved,
+    };
   }
 }

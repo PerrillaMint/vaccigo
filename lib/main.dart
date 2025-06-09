@@ -1,4 +1,4 @@
-// lib/main.dart (updated initialization)
+// lib/main.dart 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/user.dart';
@@ -7,6 +7,7 @@ import 'models/vaccine_category.dart';
 import 'services/database_service.dart';
 import 'services/camera_service.dart';
 import 'screens/auth/welcome_screen.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/auth/card_selection_screen.dart';
 import 'screens/onboarding/travel_options_screen.dart';
 import 'screens/onboarding/camera_scan_screen.dart';
@@ -59,6 +60,7 @@ class MyApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const WelcomeScreen(),
+        '/login': (context) => const LoginScreen(),
         '/card-selection': (context) => const CardSelectionScreen(),
         '/travel-options': (context) => const TravelOptionsScreen(),
         '/camera-scan': (context) => const CameraScanScreen(),

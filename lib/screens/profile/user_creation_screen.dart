@@ -1,4 +1,4 @@
-// lib/screens/profile/user_creation_screen.dart
+// lib/screens/profile/user_creation_screen.dart - Enhanced with Email Validation
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
@@ -19,6 +19,19 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   final _databaseService = DatabaseService();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _isCheckingEmail = false;
+  Map<String, String>? _pendingVaccinationData;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Check if vaccination data was passed from verification
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    if (arguments is Map<String, String>) {
+      _pendingVaccinationData = arguments;
+    }
+  }
 
   @override
   void dispose() {
@@ -48,6 +61,14 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          // Cleanup button (for development/admin)
+          IconButton(
+            icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
+            onPressed: _showCleanupDialog,
+            tooltip: 'Nettoyer les doublons',
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -124,13 +145,50 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Créez votre profil pour accéder à votre carnet',
+            _pendingVaccinationData != null 
+                ? 'Créez votre compte pour sauvegarder votre vaccination'
+                : 'Créez votre profil pour accéder à votre carnet',
             style: TextStyle(
               fontSize: 14,
               color: const Color(0xFF2C5F66).withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
           ),
+          
+          // Show vaccination pending indicator
+          if (_pendingVaccinationData != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFF4CAF50).withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.vaccines,
+                    color: Color(0xFF4CAF50),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Vaccination ${_pendingVaccinationData!['vaccineName']?.split(' ').first ?? 'données'} en attente',
+                    style: const TextStyle(
+                      color: Color(0xFF4CAF50),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -222,6 +280,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
             controller: controller,
             obscureText: isPassword && _obscurePassword,
             keyboardType: keyboardType,
+            onChanged: isEmail ? (value) => _checkEmailAvailability(value) : null,
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(
@@ -260,7 +319,13 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
                         });
                       },
                     )
-                  : null,
+                  : isEmail && _isCheckingEmail
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -327,16 +392,56 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     );
   }
 
+  Future<void> _checkEmailAvailability(String email) async {
+    if (email.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      return;
+    }
+
+    setState(() => _isCheckingEmail = true);
+
+    try {
+      final exists = await _databaseService.emailExists(email);
+      if (exists && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning, color: Colors.white),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Cette adresse email est déjà utilisée'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Ignore errors during checking
+    } finally {
+      if (mounted) setState(() => _isCheckingEmail = false);
+    }
+  }
+
   Future<void> _createUser() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
       try {
+        // Double-check email availability before creating
+        final emailExists = await _databaseService.emailExists(_emailController.text);
+        if (emailExists) {
+          throw Exception('Cette adresse email est déjà utilisée');
+        }
+
         final user = User(
-          name: _nameController.text,
-          email: _emailController.text,
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim().toLowerCase(),
           password: _passwordController.text,
-          dateOfBirth: _dateOfBirthController.text,
+          dateOfBirth: _dateOfBirthController.text.trim(),
         );
 
         await _databaseService.saveUser(user);
@@ -344,7 +449,13 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Utilisateur créé avec succès!'),
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text('Utilisateur créé avec succès!'),
+                ],
+              ),
               backgroundColor: const Color(0xFF4CAF50),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -352,13 +463,26 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               ),
             ),
           );
-          Navigator.pushNamed(context, '/additional-info', arguments: user);
+          Navigator.pushNamed(
+            context, 
+            '/additional-info', 
+            arguments: {
+              'user': user,
+              'vaccinationData': _pendingVaccinationData,
+            },
+          );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Erreur: $e'),
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Erreur: $e')),
+                ],
+              ),
               backgroundColor: Colors.red,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -369,6 +493,73 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         }
       } finally {
         if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showCleanupDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Nettoyer la base de données',
+            style: TextStyle(
+              color: Color(0xFF2C5F66),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Cette action va supprimer tous les comptes en double (même email). Seul le premier compte sera conservé pour chaque adresse email.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performCleanup();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7DD3D8),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Nettoyer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performCleanup() async {
+    try {
+      final result = await _databaseService.cleanupDatabase();
+      final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du nettoyage: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }

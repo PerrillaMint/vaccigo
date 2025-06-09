@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart
+// lib/screens/auth/login_screen.dart - Enhanced
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
@@ -24,7 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _loadUsers() async {
     try {
-      final users = await _databaseService.getAllUsers();
+      // Use the enhanced method that automatically removes duplicates
+      final users = await _databaseService.getUniqueUsers();
       setState(() {
         _users = users;
         _isLoading = false;
@@ -33,7 +34,99 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Erreur: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showCleanupDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Nettoyer la base de données',
+            style: TextStyle(
+              color: Color(0xFF2C5F66),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Cette action va supprimer tous les comptes en double (même email). Seul le premier compte sera conservé pour chaque adresse email.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performCleanup();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7DD3D8),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Nettoyer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performCleanup() async {
+    try {
+      final result = await _databaseService.cleanupDatabase();
+      final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
+      
+      // Reload users after cleanup
+      await _loadUsers();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cleaning_services, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Erreur lors du nettoyage: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     }
@@ -58,6 +151,14 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          // Cleanup button (for development/admin)
+          IconButton(
+            icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
+            onPressed: _showCleanupDialog,
+            tooltip: 'Nettoyer les doublons',
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -127,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Choisissez un utilisateur existant ou créez-en un nouveau',
+            'Choisissez un utilisateur (comptes uniques par email)',
             style: TextStyle(
               fontSize: 14,
               color: const Color(0xFF2C5F66).withOpacity(0.7),
@@ -191,6 +292,9 @@ class _LoginScreenState extends State<LoginScreen> {
               backgroundColor: const Color(0xFF2C5F66),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
@@ -362,13 +466,19 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_selectedUser == null) return;
 
     try {
-      // In a real app, you might want to set this user as "current user"
-      // For now, we'll just navigate to the summary with this user
+      // Set this user as current user (you could implement a more sophisticated auth system)
+      // For now, we'll just navigate to the vaccination summary
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Connecté en tant que ${_selectedUser!.name}'),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('Connecté en tant que ${_selectedUser!.name}'),
+              ],
+            ),
             backgroundColor: const Color(0xFF4CAF50),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -384,8 +494,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur de connexion: $e'),
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Erreur de connexion: $e')),
+              ],
+            ),
             backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
