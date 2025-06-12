@@ -1,4 +1,4 @@
-// lib/screens/onboarding/scan_preview_screen.dart
+// lib/screens/onboarding/scan_preview_screen.dart - Enhanced for Logged-in Users
 import 'package:flutter/material.dart';
 import '../../models/scanned_vaccination_data.dart';
 import '../../models/vaccination.dart';
@@ -66,7 +66,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       _vaccineController.text = 'Pfizer-BioNTech COVID-19';
       _lotController.text = 'EW0553';
       _dateController.text = '15/03/2025';
-      _psController.text = 'Dr. Martin'; // More realistic pharmacist name
+      _psController.text = 'Dr. Martin';
     }
   }
 
@@ -116,7 +116,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               
               const SizedBox(height: 24),
               
-              // Information Preview Card - Similar to wireframe
+              // Information Preview Card
               Expanded(
                 child: SingleChildScrollView(
                   child: _buildVaccinationTable(),
@@ -178,7 +178,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         const SizedBox(height: 8),
         Text(
           _userExists 
-              ? 'Vérifiez les informations avant sauvegarde'
+              ? 'Vérifiez les informations avant d\'ajouter à votre carnet'
               : 'Vérifiez et créez votre compte pour sauvegarder',
           style: TextStyle(
             fontSize: 14,
@@ -248,13 +248,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header similar to wireframe
           const Text(
             'Information sur votre vaccination',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF6C5CE7), // Purple color from wireframe
+              color: Color(0xFF6C5CE7),
             ),
           ),
           const SizedBox(height: 16),
@@ -345,7 +344,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           child: ElevatedButton(
             onPressed: _isSaving ? null : _saveVaccination,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6C5CE7), // Purple from wireframe
+              backgroundColor: const Color(0xFF6C5CE7),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
@@ -362,9 +361,11 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : const Text(
-                    'Créer un compte et sauvegarder',
-                    style: TextStyle(
+                : Text(
+                    _userExists 
+                        ? 'Ajouter à mon carnet'
+                        : 'Créer un compte et sauvegarder',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -432,14 +433,13 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
     try {
       if (_userExists) {
-        // User is already signed in - save vaccination directly
+        // User is logged in - save directly
         final currentUser = await _databaseService.getCurrentUser();
         
         if (currentUser == null) {
           throw Exception('Erreur: utilisateur non trouvé');
         }
 
-        // Create vaccination record
         final vaccination = Vaccination(
           vaccineName: _vaccineController.text.trim(),
           lot: _lotController.text.trim(),
@@ -448,7 +448,6 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           userId: currentUser.key.toString(),
         );
 
-        // Save to database
         await _databaseService.saveVaccination(vaccination);
 
         if (mounted) {
@@ -458,7 +457,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 children: [
                   Icon(Icons.check_circle, color: Colors.white),
                   SizedBox(width: 8),
-                  Text('Vaccination enregistrée avec succès!'),
+                  Text('Vaccination ajoutée à votre carnet!'),
                 ],
               ),
               backgroundColor: Color(0xFF4CAF50),

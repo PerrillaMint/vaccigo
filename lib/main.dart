@@ -1,4 +1,4 @@
-// lib/main.dart 
+// lib/main.dart - Updated with Forgot Password Route
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/user.dart';
@@ -8,6 +8,7 @@ import 'services/database_service.dart';
 import 'services/camera_service.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/card_selection_screen.dart';
 import 'screens/onboarding/travel_options_screen.dart';
 import 'screens/onboarding/camera_scan_screen.dart';
@@ -61,6 +62,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
         '/card-selection': (context) => const CardSelectionScreen(),
         '/travel-options': (context) => const TravelOptionsScreen(),
         '/camera-scan': (context) => const CameraScanScreen(),

@@ -1,4 +1,4 @@
-// lib/services/database_service.dart - Enhanced with Email Validation
+// lib/services/database_service.dart - Enhanced with Current User Management
 import 'package:hive/hive.dart';
 import '../models/user.dart';
 import '../models/vaccination.dart';
@@ -8,6 +8,7 @@ class DatabaseService {
   static const String _userBoxName = 'users';
   static const String _vaccinationBoxName = 'vaccinations';
   static const String _categoryBoxName = 'vaccine_categories';
+  static const String _sessionBoxName = 'session';
 
   // ==== USER OPERATIONS ====
   
@@ -36,13 +37,39 @@ class DatabaseService {
     return box.getAt(index);
   }
 
-  // Get current user (first user)
+  // Get current user (from session)
   Future<User?> getCurrentUser() async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    if (box.values.isNotEmpty) {
-      return box.values.first;
+    try {
+      final sessionBox = await Hive.openBox(_sessionBoxName);
+      final currentUserKey = sessionBox.get('currentUserKey');
+      
+      if (currentUserKey != null) {
+        final userBox = await Hive.openBox<User>(_userBoxName);
+        return userBox.get(currentUserKey);
+      }
+      
+      // Fallback to first user if no session (for backward compatibility)
+      final userBox = await Hive.openBox<User>(_userBoxName);
+      if (userBox.values.isNotEmpty) {
+        return userBox.values.first;
+      }
+      
+      return null;
+    } catch (e) {
+      return null;
     }
-    return null;
+  }
+
+  // Set current user (for login session)
+  Future<void> setCurrentUser(User user) async {
+    final sessionBox = await Hive.openBox(_sessionBoxName);
+    await sessionBox.put('currentUserKey', user.key);
+  }
+
+  // Clear current user session (for logout)
+  Future<void> clearCurrentUser() async {
+    final sessionBox = await Hive.openBox(_sessionBoxName);
+    await sessionBox.delete('currentUserKey');
   }
 
   // Update user with email validation
@@ -61,6 +88,16 @@ class DatabaseService {
   // Delete user
   Future<void> deleteUser(int index) async {
     final box = await Hive.openBox<User>(_userBoxName);
+    final user = box.getAt(index);
+    
+    // Clear session if deleting current user
+    if (user != null) {
+      final currentUser = await getCurrentUser();
+      if (currentUser?.key == user.key) {
+        await clearCurrentUser();
+      }
+    }
+    
     await box.deleteAt(index);
   }
 
@@ -176,6 +213,23 @@ class DatabaseService {
     await box.deleteAt(index);
   }
 
+  // ==== SESSION MANAGEMENT ====
+  
+  // Check if user is logged in
+  Future<bool> isUserLoggedIn() async {
+    final currentUser = await getCurrentUser();
+    return currentUser != null;
+  }
+
+  // Get current user's vaccinations
+  Future<List<Vaccination>> getCurrentUserVaccinations() async {
+    final currentUser = await getCurrentUser();
+    if (currentUser != null) {
+      return getVaccinationsByUser(currentUser.key.toString());
+    }
+    return [];
+  }
+
   // ==== DATABASE MANAGEMENT ====
   
   // Clear all data
@@ -183,10 +237,12 @@ class DatabaseService {
     final userBox = await Hive.openBox<User>(_userBoxName);
     final vaccinationBox = await Hive.openBox<Vaccination>(_vaccinationBoxName);
     final categoryBox = await Hive.openBox<VaccineCategory>(_categoryBoxName);
+    final sessionBox = await Hive.openBox(_sessionBoxName);
     
     await userBox.clear();
     await vaccinationBox.clear();
     await categoryBox.clear();
+    await sessionBox.clear();
   }
 
   // Get database statistics
@@ -265,12 +321,55 @@ class DatabaseService {
   Future<Map<String, int>> cleanupDatabase() async {
     final duplicatesRemoved = await removeDuplicateUsers();
     
-    // You could add more cleanup logic here, such as:
-    // - Remove vaccinations for non-existent users
-    // - Remove orphaned data
+    // Remove vaccinations for non-existent users
+    final users = await getAllUsers();
+    final userIds = users.map((u) => u.key.toString()).toSet();
+    
+    final vaccinationBox = await Hive.openBox<Vaccination>(_vaccinationBoxName);
+    final vaccinationsToRemove = <int>[];
+    
+    for (int i = 0; i < vaccinationBox.length; i++) {
+      final vaccination = vaccinationBox.getAt(i);
+      if (vaccination != null && !userIds.contains(vaccination.userId)) {
+        vaccinationsToRemove.add(i);
+      }
+    }
+    
+    // Remove orphaned vaccinations in reverse order
+    for (int i = vaccinationsToRemove.length - 1; i >= 0; i--) {
+      await vaccinationBox.deleteAt(vaccinationsToRemove[i]);
+    }
     
     return {
       'duplicateUsersRemoved': duplicatesRemoved,
+      'orphanedVaccinationsRemoved': vaccinationsToRemove.length,
     };
+  }
+
+  // ==== PASSWORD RESET FUNCTIONALITY ====
+  
+  // Simulate password reset (in real app, this would trigger email)
+  Future<bool> requestPasswordReset(String email) async {
+    final user = await getUserByEmail(email);
+    if (user != null) {
+      // In a real app, this would:
+      // 1. Generate a secure reset token
+      // 2. Store it with expiration time
+      // 3. Send email with reset link
+      // For demo purposes, we'll just return true
+      return true;
+    }
+    return false;
+  }
+
+  // Update user password (for password reset)
+  Future<void> updateUserPassword(String email, String newPassword) async {
+    final user = await getUserByEmail(email);
+    if (user != null) {
+      user.password = newPassword;
+      await user.save();
+    } else {
+      throw Exception('Utilisateur non trouvé');
+    }
   }
 }

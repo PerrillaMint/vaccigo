@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart - Enhanced
+// lib/screens/auth/login_screen.dart - Enhanced with Password Authentication
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
@@ -12,8 +12,11 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final DatabaseService _databaseService = DatabaseService();
+  final _passwordController = TextEditingController();
   List<User> _users = [];
   bool _isLoading = true;
+  bool _obscurePassword = true;
+  bool _isPasswordWrong = false;
   User? _selectedUser;
 
   @override
@@ -22,9 +25,14 @@ class _LoginScreenState extends State<LoginScreen> {
     _loadUsers();
   }
 
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUsers() async {
     try {
-      // Use the enhanced method that automatically removes duplicates
       final users = await _databaseService.getUniqueUsers();
       setState(() {
         _users = users;
@@ -40,88 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 8),
                 Expanded(child: Text('Erreur: $e')),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  }
-
-  void _showCleanupDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Nettoyer la base de données',
-            style: TextStyle(
-              color: Color(0xFF2C5F66),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: const Text(
-            'Cette action va supprimer tous les comptes en double (même email). Seul le premier compte sera conservé pour chaque adresse email.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _performCleanup();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7DD3D8),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Nettoyer'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _performCleanup() async {
-    try {
-      final result = await _databaseService.cleanupDatabase();
-      final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
-      
-      // Reload users after cleanup
-      await _loadUsers();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.cleaning_services, color: Colors.white),
-                const SizedBox(width: 8),
-                Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
-              ],
-            ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Erreur lors du nettoyage: $e')),
               ],
             ),
             backgroundColor: Colors.red,
@@ -152,7 +78,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         centerTitle: true,
         actions: [
-          // Cleanup button (for development/admin)
           IconButton(
             icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
             onPressed: _showCleanupDialog,
@@ -165,12 +90,8 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              // Header Section
               _buildHeaderSection(),
-              
               const SizedBox(height: 32),
-              
-              // User List Section
               Expanded(
                 child: _isLoading 
                     ? const Center(child: CircularProgressIndicator())
@@ -178,8 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ? _buildEmptyState()
                         : _buildUsersList(),
               ),
-              
-              // Bottom Buttons
+              _buildPasswordField(),
               _buildBottomButtons(),
             ],
           ),
@@ -228,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Choisissez un utilisateur (comptes uniques par email)',
+            'Choisissez un utilisateur et entrez votre mot de passe',
             style: TextStyle(
               fontSize: 14,
               color: const Color(0xFF2C5F66).withOpacity(0.7),
@@ -403,6 +323,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   onTap: () {
                     setState(() {
                       _selectedUser = isSelected ? null : user;
+                      _passwordController.clear();
+                      _isPasswordWrong = false;
                     });
                   },
                 );
@@ -414,10 +336,82 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget _buildPasswordField() {
+    return Column(
+      children: [
+        if (_selectedUser != null) ...[
+          const SizedBox(height: 20),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: TextField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: 'Mot de passe',
+                hintText: 'Entrez votre mot de passe',
+                prefixIcon: const Icon(Icons.lock),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                ),
+                errorText: _isPasswordWrong ? 'Mot de passe incorrect' : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF7DD3D8), width: 2),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.red, width: 2),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              ),
+              onChanged: (value) {
+                if (_isPasswordWrong) {
+                  setState(() => _isPasswordWrong = false);
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
+              child: const Text(
+                'Mot de passe oublié?',
+                style: TextStyle(
+                  color: Color(0xFF7DD3D8),
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildBottomButtons() {
     return Column(
       children: [
-        // Login with selected user
         if (_selectedUser != null) ...[
           SizedBox(
             width: double.infinity,
@@ -439,7 +433,6 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 12),
         ],
         
-        // Create new user
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
@@ -465,9 +458,19 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithSelectedUser() async {
     if (_selectedUser == null) return;
 
+    if (_passwordController.text.isEmpty) {
+      setState(() => _isPasswordWrong = true);
+      return;
+    }
+
+    if (_selectedUser!.password != _passwordController.text) {
+      setState(() => _isPasswordWrong = true);
+      return;
+    }
+
     try {
-      // Set this user as current user (you could implement a more sophisticated auth system)
-      // For now, we'll just navigate to the vaccination summary
+      // Set as current user and navigate
+      await _databaseService.setCurrentUser(_selectedUser!);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -487,7 +490,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
         
-        // Navigate to vaccination summary
         Navigator.pushReplacementNamed(context, '/vaccination-summary');
       }
     } catch (e) {
@@ -499,6 +501,87 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: 8),
                 Expanded(child: Text('Erreur de connexion: $e')),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showCleanupDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Nettoyer la base de données',
+            style: TextStyle(
+              color: Color(0xFF2C5F66),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Cette action va supprimer tous les comptes en double (même email). Seul le premier compte sera conservé pour chaque adresse email.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performCleanup();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7DD3D8),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Nettoyer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performCleanup() async {
+    try {
+      final result = await _databaseService.cleanupDatabase();
+      final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
+      
+      await _loadUsers();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.cleaning_services, color: Colors.white),
+                const SizedBox(width: 8),
+                Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
+              ],
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Erreur lors du nettoyage: $e')),
               ],
             ),
             backgroundColor: Colors.red,
