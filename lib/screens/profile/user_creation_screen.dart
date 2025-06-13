@@ -1,336 +1,566 @@
-// lib/models/user.dart - FIXED with password hashing and validation
-import 'package:hive/hive.dart';
-import 'dart:convert';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
+// lib/screens/profile/user_creation_screen.dart - Enhanced with Email Validation
+import 'package:flutter/material.dart';
+import '../../models/user.dart';
+import '../../services/database_service.dart';
 
-part 'user.g.dart';
-
-@HiveType(typeId: 0)
-class User extends HiveObject {
-  @HiveField(0)
-  String name;
-  
-  @HiveField(1)
-  String email;
-
-  @HiveField(2)
-  String passwordHash; // FIXED: Store hash instead of plain password
-
-  @HiveField(3)
-  String dateOfBirth;
-
-  @HiveField(4)
-  String? diseases;
-
-  @HiveField(5)
-  String? treatments;
-
-  @HiveField(6)
-  String? allergies;
-
-  @HiveField(7)
-  String? salt; // FIXED: Add salt for password hashing
-
-  @HiveField(8)
-  DateTime createdAt; // FIXED: Add creation timestamp
-
-  @HiveField(9)
-  DateTime lastLogin; // FIXED: Track last login
-
-  @HiveField(10)
-  bool isActive; // FIXED: Add user status
-
-  User({
-    required this.name,
-    required this.email,
-    required String password, // Accept plain password in constructor
-    required this.dateOfBirth,
-    this.diseases,
-    this.treatments,
-    this.allergies,
-    DateTime? createdAt,
-    DateTime? lastLogin,
-    this.isActive = true,
-  }) : 
-    createdAt = createdAt ?? DateTime.now(),
-    lastLogin = lastLogin ?? DateTime.now()
-  {
-    // FIXED: Generate salt and hash password securely
-    salt = _generateSalt();
-    passwordHash = _hashPassword(password, salt!);
-  }
-
-  // FIXED: Secure password hashing
-  static String _generateSalt() {
-    final random = Random.secure();
-    final values = List<int>.generate(32, (i) => random.nextInt(256));
-    return base64.encode(values);
-  }
-
-  static String _hashPassword(String password, String salt) {
-    final bytes = utf8.encode(password + salt);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
-  // FIXED: Secure password verification
-  bool verifyPassword(String password) {
-    if (salt == null) return false;
-    final hashedInput = _hashPassword(password, salt!);
-    return hashedInput == passwordHash;
-  }
-
-  // FIXED: Update password securely
-  void updatePassword(String newPassword) {
-    salt = _generateSalt();
-    passwordHash = _hashPassword(newPassword, salt!);
-  }
-
-  // FIXED: Data validation
-  static String? validateName(String name) {
-    if (name.trim().isEmpty) {
-      return 'Le nom est requis';
-    }
-    if (name.trim().length < 2) {
-      return 'Le nom doit contenir au moins 2 caractères';
-    }
-    if (name.length > 100) {
-      return 'Le nom est trop long';
-    }
-    // Check for potentially harmful characters
-    if (RegExp(r'[<>"\'/\\]').hasMatch(name)) {
-      return 'Le nom contient des caractères invalides';
-    }
-    return null;
-  }
-
-  static String? validateEmail(String email) {
-    if (email.trim().isEmpty) {
-      return 'L\'email est requis';
-    }
-    
-    final sanitizedEmail = email.trim().toLowerCase();
-    
-    if (sanitizedEmail.length > 254) {
-      return 'L\'email est trop long';
-    }
-    
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
-    );
-    
-    if (!emailRegex.hasMatch(sanitizedEmail)) {
-      return 'Format d\'email invalide';
-    }
-    
-    return null;
-  }
-
-  static String? validatePassword(String password) {
-    if (password.isEmpty) {
-      return 'Le mot de passe est requis';
-    }
-    if (password.length < 8) {
-      return 'Le mot de passe doit contenir au moins 8 caractères';
-    }
-    if (password.length > 128) {
-      return 'Le mot de passe est trop long';
-    }
-    
-    // Check for at least one letter and one number
-    if (!RegExp(r'[a-zA-Z]').hasMatch(password)) {
-      return 'Le mot de passe doit contenir au moins une lettre';
-    }
-    if (!RegExp(r'[0-9]').hasMatch(password)) {
-      return 'Le mot de passe doit contenir au moins un chiffre';
-    }
-    
-    // Check for common weak passwords
-    final weakPasswords = [
-      '12345678', 'password', 'motdepasse', 'azerty123', 'qwerty123'
-    ];
-    if (weakPasswords.contains(password.toLowerCase())) {
-      return 'Ce mot de passe est trop faible';
-    }
-    
-    return null;
-  }
-
-  static String? validateDateOfBirth(String date) {
-    if (date.trim().isEmpty) {
-      return 'La date de naissance est requise';
-    }
-    
-    // Validate DD/MM/YYYY format
-    final dateRegex = RegExp(r'^\d{2}/\d{2}/\d{4}$');
-    if (!dateRegex.hasMatch(date)) {
-      return 'Format invalide. Utilisez JJ/MM/AAAA';
-    }
-    
-    try {
-      final parts = date.split('/');
-      final day = int.parse(parts[0]);
-      final month = int.parse(parts[1]);
-      final year = int.parse(parts[2]);
-      
-      // Basic validation
-      if (day < 1 || day > 31) return 'Jour invalide';
-      if (month < 1 || month > 12) return 'Mois invalide';
-      
-      final currentYear = DateTime.now().year;
-      if (year < 1900 || year > currentYear) return 'Année invalide';
-      
-      // Check if user is too young (medical app)
-      final birthDate = DateTime(year, month, day);
-      final age = currentYear - year;
-      if (age < 0) return 'Date de naissance future invalide';
-      if (age > 150) return 'Âge invalide';
-      
-      // Validate actual date
-      if (birthDate.day != day || birthDate.month != month || birthDate.year != year) {
-        return 'Date invalide';
-      }
-      
-      return null;
-    } catch (e) {
-      return 'Date invalide';
-    }
-  }
-
-  // FIXED: Sanitize input data
-  static String _sanitizeString(String input) {
-    return input
-        .replaceAll(RegExp(r'[<>"\'/\\]'), '') // Remove harmful chars
-        .replaceAll(RegExp(r'\s+'), ' ')       // Normalize whitespace
-        .trim();                               // Remove leading/trailing space
-  }
-
-  // FIXED: Validate all user data
-  static Map<String, String> validateUserData({
-    required String name,
-    required String email,
-    required String password,
-    required String dateOfBirth,
-    String? diseases,
-    String? treatments,
-    String? allergies,
-  }) {
-    final errors = <String, String>{};
-    
-    final nameError = validateName(name);
-    if (nameError != null) errors['name'] = nameError;
-    
-    final emailError = validateEmail(email);
-    if (emailError != null) errors['email'] = emailError;
-    
-    final passwordError = validatePassword(password);
-    if (passwordError != null) errors['password'] = passwordError;
-    
-    final dateError = validateDateOfBirth(dateOfBirth);
-    if (dateError != null) errors['dateOfBirth'] = dateError;
-    
-    return errors;
-  }
-
-  // FIXED: Secure factory constructor
-  factory User.createSecure({
-    required String name,
-    required String email,
-    required String password,
-    required String dateOfBirth,
-    String? diseases,
-    String? treatments,
-    String? allergies,
-  }) {
-    // Validate all data first
-    final errors = validateUserData(
-      name: name,
-      email: email,
-      password: password,
-      dateOfBirth: dateOfBirth,
-      diseases: diseases,
-      treatments: treatments,
-      allergies: allergies,
-    );
-    
-    if (errors.isNotEmpty) {
-      throw ValidationException('Données utilisateur invalides', errors);
-    }
-    
-    return User(
-      name: _sanitizeString(name),
-      email: email.trim().toLowerCase(),
-      password: password, // Will be hashed in constructor
-      dateOfBirth: dateOfBirth.trim(),
-      diseases: diseases?.isNotEmpty == true ? _sanitizeString(diseases!) : null,
-      treatments: treatments?.isNotEmpty == true ? _sanitizeString(treatments!) : null,
-      allergies: allergies?.isNotEmpty == true ? _sanitizeString(allergies!) : null,
-    );
-  }
-
-  // FIXED: Update last login timestamp
-  void updateLastLogin() {
-    lastLogin = DateTime.now();
-    save(); // Save to database
-  }
-
-  // FIXED: Deactivate user
-  void deactivate() {
-    isActive = false;
-    save();
-  }
-
-  // FIXED: Get age from date of birth
-  int get age {
-    try {
-      final parts = dateOfBirth.split('/');
-      final birthDate = DateTime(
-        int.parse(parts[2]), // year
-        int.parse(parts[1]), // month
-        int.parse(parts[0]), // day
-      );
-      final now = DateTime.now();
-      int age = now.year - birthDate.year;
-      if (now.month < birthDate.month || 
-          (now.month == birthDate.month && now.day < birthDate.day)) {
-        age--;
-      }
-      return age;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  // FIXED: Convert to safe JSON (no sensitive data)
-  Map<String, dynamic> toSafeJson() {
-    return {
-      'name': name,
-      'email': email,
-      'dateOfBirth': dateOfBirth,
-      'age': age,
-      'createdAt': createdAt.toIso8601String(),
-      'lastLogin': lastLogin.toIso8601String(),
-      'isActive': isActive,
-      // Note: password and medical info excluded for security
-    };
-  }
+class UserCreationScreen extends StatefulWidget {
+  const UserCreationScreen({Key? key}) : super(key: key);
 
   @override
-  String toString() {
-    return 'User{name: $name, email: $email, isActive: $isActive}';
-  }
+  State<UserCreationScreen> createState() => _UserCreationScreenState();
 }
 
-// FIXED: Custom validation exception
-class ValidationException implements Exception {
-  final String message;
-  final Map<String, String> errors;
-
-  ValidationException(this.message, this.errors);
+class _UserCreationScreenState extends State<UserCreationScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _dateOfBirthController = TextEditingController();
+  final _databaseService = DatabaseService();
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _isCheckingEmail = false;
+  Map<String, String>? _pendingVaccinationData;
 
   @override
-  String toString() {
-    return 'ValidationException: $message - Errors: $errors';
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Check if vaccination data was passed from verification
+    final arguments = ModalRoute.of(context)?.settings.arguments;
+    if (arguments is Map<String, String>) {
+      _pendingVaccinationData = arguments;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _dateOfBirthController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FCFD),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Créer un compte',
+          style: TextStyle(
+            color: Color(0xFF2C5F66),
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          // Cleanup button (for development/admin)
+          IconButton(
+            icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
+            onPressed: _showCleanupDialog,
+            tooltip: 'Nettoyer les doublons',
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Scrollable content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Section
+                      _buildHeaderSection(),
+                      
+                      const SizedBox(height: 30),
+                      
+                      // Form Fields
+                      _buildFormFields(),
+                      
+                      const SizedBox(height: 100), // Extra space for button
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
+            // Fixed bottom button
+            _buildBottomButton(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF7DD3D8).withOpacity(0.1),
+            const Color(0xFF7DD3D8).withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2C5F66).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: const Icon(
+              Icons.person_add,
+              size: 32,
+              color: Color(0xFF2C5F66),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Création d\'utilisateur',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF2C5F66),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _pendingVaccinationData != null 
+                ? 'Créez votre compte pour sauvegarder votre vaccination'
+                : 'Créez votre profil pour accéder à votre carnet',
+            style: TextStyle(
+              fontSize: 14,
+              color: const Color(0xFF2C5F66).withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          
+          // Show vaccination pending indicator
+          if (_pendingVaccinationData != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: const Color(0xFF4CAF50).withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.vaccines,
+                    color: Color(0xFF4CAF50),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Vaccination ${_pendingVaccinationData!['vaccineName']?.split(' ').first ?? 'données'} en attente',
+                    style: const TextStyle(
+                      color: Color(0xFF4CAF50),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormFields() {
+    return Column(
+      children: [
+        _buildTextField(
+          label: 'Nom complet',
+          hint: 'Votre nom et prénom',
+          controller: _nameController,
+          icon: Icons.person,
+          keyboardType: TextInputType.name,
+        ),
+        const SizedBox(height: 20),
+        _buildTextField(
+          label: 'Adresse email',
+          hint: 'votre@email.com',
+          controller: _emailController,
+          icon: Icons.email,
+          keyboardType: TextInputType.emailAddress,
+          isEmail: true,
+        ),
+        const SizedBox(height: 20),
+        _buildTextField(
+          label: 'Mot de passe',
+          hint: 'Minimum 6 caractères',
+          controller: _passwordController,
+          icon: Icons.lock,
+          isPassword: true,
+        ),
+        const SizedBox(height: 20),
+        _buildTextField(
+          label: 'Date de naissance',
+          hint: 'JJ/MM/AAAA',
+          controller: _dateOfBirthController,
+          icon: Icons.cake,
+          keyboardType: TextInputType.datetime,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required IconData icon,
+    bool isPassword = false,
+    bool isEmail = false,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: const Color(0xFF2C5F66),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF2C5F66),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: TextFormField(
+            controller: controller,
+            obscureText: isPassword && _obscurePassword,
+            keyboardType: keyboardType,
+            onChanged: isEmail ? (value) => _checkEmailAvailability(value) : null,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[400],
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[300]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF7DD3D8), width: 2),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.red, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              suffixIcon: isPassword
+                  ? IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.grey[400],
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    )
+                  : isEmail && _isCheckingEmail
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Veuillez entrer ${label.toLowerCase()}';
+              }
+              if (isEmail && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                return 'Email invalide';
+              }
+              if (isPassword && value.length < 6) {
+                return 'Le mot de passe doit contenir au moins 6 caractères';
+              }
+              return null;
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomButton(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _isLoading ? null : _createUser,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2C5F66),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 5,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text(
+                  'Créer mon compte',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _checkEmailAvailability(String email) async {
+    if (email.isEmpty || !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      return;
+    }
+
+    setState(() => _isCheckingEmail = true);
+
+    try {
+      final exists = await _databaseService.emailExists(email);
+      if (exists && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.warning, color: Colors.white),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Cette adresse email est déjà utilisée'),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Ignore errors during checking
+    } finally {
+      if (mounted) setState(() => _isCheckingEmail = false);
+    }
+  }
+
+  Future<void> _createUser() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+
+      try {
+        // Double-check email availability before creating
+        final emailExists = await _databaseService.emailExists(_emailController.text);
+        if (emailExists) {
+          throw Exception('Cette adresse email est déjà utilisée');
+        }
+
+        final user = User(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim().toLowerCase(),
+          password: _passwordController.text,
+          dateOfBirth: _dateOfBirthController.text.trim(),
+        );
+
+        await _databaseService.saveUser(user);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text('Utilisateur créé avec succès!'),
+                ],
+              ),
+              backgroundColor: const Color(0xFF4CAF50),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+          Navigator.pushNamed(
+            context, 
+            '/additional-info', 
+            arguments: {
+              'user': user,
+              'vaccinationData': _pendingVaccinationData,
+            },
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Erreur: $e')),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showCleanupDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Nettoyer la base de données',
+            style: TextStyle(
+              color: Color(0xFF2C5F66),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Cette action va supprimer tous les comptes en double (même email). Seul le premier compte sera conservé pour chaque adresse email.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performCleanup();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF7DD3D8),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Nettoyer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performCleanup() async {
+    try {
+      final result = await _databaseService.cleanupDatabase();
+      final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
+            backgroundColor: const Color(0xFF4CAF50),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du nettoyage: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
