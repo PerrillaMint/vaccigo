@@ -19,24 +19,28 @@ class UserAdapter extends TypeAdapter<User> {
     return User(
       name: fields[0] as String,
       email: fields[1] as String,
-      password: fields[2] as String,
+      passwordHash: fields[2] as String,
       dateOfBirth: fields[3] as String,
       diseases: fields[4] as String?,
       treatments: fields[5] as String?,
       allergies: fields[6] as String?,
+      salt: fields[7] as String?,
+      createdAt: fields[8] as DateTime?,
+      lastLogin: fields[9] as DateTime?,
+      isActive: fields[10] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, User obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
       ..write(obj.email)
       ..writeByte(2)
-      ..write(obj.password)
+      ..write(obj.passwordHash)
       ..writeByte(3)
       ..write(obj.dateOfBirth)
       ..writeByte(4)
@@ -44,7 +48,15 @@ class UserAdapter extends TypeAdapter<User> {
       ..writeByte(5)
       ..write(obj.treatments)
       ..writeByte(6)
-      ..write(obj.allergies);
+      ..write(obj.allergies)
+      ..writeByte(7)
+      ..write(obj.salt)
+      ..writeByte(8)
+      ..write(obj.createdAt)
+      ..writeByte(9)
+      ..write(obj.lastLogin)
+      ..writeByte(10)
+      ..write(obj.isActive);
   }
 
   @override

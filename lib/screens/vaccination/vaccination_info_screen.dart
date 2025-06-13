@@ -1,4 +1,4 @@
-// lib/screens/vaccination/vaccination_info_screen.dart - Enhanced with Add/Remove
+// lib/screens/vaccination/vaccination_info_screen.dart - FIXED method signatures
 import 'package:flutter/material.dart';
 import '../../models/vaccination.dart';
 import '../../services/database_service.dart';
@@ -33,7 +33,6 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
           _isLoading = false;
         });
       } else {
-        // If no current user, get all vaccinations
         final allVaccinations = await _databaseService.getAllVaccinations();
         setState(() {
           _vaccinations = allVaccinations;
@@ -87,12 +86,10 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with vaccination count
               _buildHeaderSection(),
               
               const SizedBox(height: 24),
               
-              // Vaccination Table Section
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
@@ -102,21 +99,18 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                       
                       const SizedBox(height: 32),
                       
-                      // Mes rappels Section
                       _buildRemindersSection(),
                       
                       const SizedBox(height: 32),
                       
-                      // Mes voyages Section
                       _buildTravelSection(),
                       
-                      const SizedBox(height: 100), // Space for bottom button
+                      const SizedBox(height: 100),
                     ],
                   ),
                 ),
               ),
               
-              // Information / Gestion Button (Bottom fixed - as per wireframe)
               _buildBottomButton(),
             ],
           ),
@@ -209,7 +203,6 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -224,12 +217,11 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF6C5CE7), // Purple color from wireframe
+                color: Color(0xFF6C5CE7),
               ),
             ),
           ),
           
-          // Table Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
@@ -238,12 +230,11 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                 _buildTableHeader('Lot', flex: 2),
                 _buildTableHeader('Date', flex: 2),
                 _buildTableHeader('PS', flex: 2),
-                _buildTableHeader('', flex: 1), // Actions column
+                _buildTableHeader('', flex: 1),
               ],
             ),
           ),
           
-          // Table Content
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.all(20),
@@ -420,12 +411,11 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF6C5CE7), // Purple color from wireframe
+              color: Color(0xFF6C5CE7),
             ),
           ),
           const SizedBox(height: 12),
           
-          // Simple reminder table
           Row(
             children: [
               _buildTableHeader('Vaccin', flex: 2),
@@ -480,7 +470,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF6C5CE7), // Purple color from wireframe
+                  color: Color(0xFF6C5CE7),
                 ),
               ),
               const Icon(
@@ -525,7 +515,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
           Navigator.pushNamed(context, '/vaccination-management');
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6C5CE7), // Purple color from wireframe
+          backgroundColor: const Color(0xFF6C5CE7),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
@@ -667,7 +657,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                _deleteVaccination(index);
+                _deleteVaccination(vaccination);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -681,9 +671,15 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
     );
   }
 
-  Future<void> _deleteVaccination(int index) async {
+  // FIXED: Use vaccination key instead of index for deletion
+  Future<void> _deleteVaccination(Vaccination vaccination) async {
     try {
-      await _databaseService.deleteVaccination(index);
+      final vaccinationKey = vaccination.key?.toString();
+      if (vaccinationKey == null) {
+        throw Exception('Vaccination key is null');
+      }
+      
+      await _databaseService.deleteVaccination(vaccinationKey);
       await _loadVaccinations(); // Reload the list
       
       if (mounted) {

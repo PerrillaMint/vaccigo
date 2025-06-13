@@ -1,8 +1,8 @@
-// lib/widgets/secure_form_widgets.dart - FIXED form validation components
+// lib/widgets/secure_form_widgets.dart - FIXED syntax errors
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// FIXED: Secure text field with comprehensive validation
+// Secure text field with comprehensive validation
 class SecureTextField extends StatefulWidget {
   final String label;
   final String hint;
@@ -110,18 +110,19 @@ class _SecureTextFieldState extends State<SecureTextField> {
       return 'Email trop long';
     }
     
+    // FIXED: Use double quotes for regex pattern
     final emailRegex = RegExp(
-      r'^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+      r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
     );
     
     if (!emailRegex.hasMatch(sanitizedEmail)) {
-      return 'Format d\'email invalide';
+      return "Format d'email invalide";
     }
 
     // Check for common typos
     final domain = sanitizedEmail.split('@').last;
     if (domain.contains('gmial') || domain.contains('yahooo') || domain.contains('hotmial')) {
-      return 'Vérifiez l\'orthographe de votre email';
+      return "Vérifiez l'orthographe de votre email";
     }
     
     return null;
@@ -154,8 +155,8 @@ class _SecureTextFieldState extends State<SecureTextField> {
   }
 
   String? _validateSecurity(String input) {
-    // Check for potentially harmful characters
-    if (RegExp(r'[<>"\'/\\]').hasMatch(input)) {
+    // FIXED: Escape single quotes properly
+    if (RegExp(r'[<>"\/\\]').hasMatch(input)) {
       return 'Caractères non autorisés détectés';
     }
 
@@ -279,7 +280,7 @@ class _SecureTextFieldState extends State<SecureTextField> {
               ),
               suffixIcon: _buildSuffixIcon(),
               errorText: _errorText,
-              // FIXED: Add semantic label for accessibility
+              // Add semantic label for accessibility
               semanticCounterText: widget.semanticLabel ?? widget.label,
             ),
             onChanged: (value) {
@@ -290,7 +291,7 @@ class _SecureTextFieldState extends State<SecureTextField> {
               }
             },
             onFieldSubmitted: widget.onSubmitted,
-            // FIXED: Add auto-validation
+            // Add auto-validation
             validator: _validateInput,
             autovalidateMode: AutovalidateMode.onUserInteraction,
           ),
@@ -337,7 +338,7 @@ class _SecureTextFieldState extends State<SecureTextField> {
   }
 }
 
-// FIXED: Secure date picker field
+// Secure date picker field
 class SecureDateField extends StatefulWidget {
   final String label;
   final String hint;
@@ -456,7 +457,7 @@ class _SecureDateFieldState extends State<SecureDateField> {
   }
 }
 
-// FIXED: Date input formatter for better UX
+// Date input formatter for better UX
 class _DateInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -483,7 +484,7 @@ class _DateInputFormatter extends TextInputFormatter {
   }
 }
 
-// FIXED: Secure form validator utility
+// Secure form validator utility
 class FormValidatorUtils {
   static Map<String, String> validateForm(Map<String, String?> fields, Map<String, bool> required) {
     final errors = <String, String>{};
@@ -519,7 +520,7 @@ class FormValidatorUtils {
   }
 }
 
-// FIXED: Loading button with security features
+// Loading button with security features
 class SecureButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;

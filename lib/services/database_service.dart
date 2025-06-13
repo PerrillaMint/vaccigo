@@ -1,4 +1,4 @@
-// lib/services/database_service.dart - FIXED with security and error handling
+// lib/services/database_service.dart - FIXED with missing methods and proper signatures
 import 'package:hive/hive.dart';
 import 'dart:async';
 import 'dart:io';
@@ -7,32 +7,26 @@ import '../models/vaccination.dart';
 import '../models/vaccine_category.dart';
 
 class DatabaseService {
-  static const String _userBoxName = 'users_v2'; // FIXED: Version box names
+  static const String _userBoxName = 'users_v2';
   static const String _vaccinationBoxName = 'vaccinations_v2';
   static const String _categoryBoxName = 'vaccine_categories_v2';
   static const String _sessionBoxName = 'session_v2';
-  static const String _auditBoxName = 'audit_logs'; // FIXED: Add audit logging
+  static const String _auditBoxName = 'audit_logs';
 
-  // FIXED: Add connection pooling and error handling
   static final Map<String, Completer<Box>> _boxCache = {};
   static final Map<String, DateTime> _lastAccess = {};
-  
-  // FIXED: Rate limiting to prevent abuse
   static final Map<String, List<DateTime>> _operationTimestamps = {};
   static const int _maxOperationsPerMinute = 100;
 
-  // ==== SECURITY & VALIDATION ====
-  
+  // Rate limiting
   bool _checkRateLimit(String operation) {
     final now = DateTime.now();
     _operationTimestamps.putIfAbsent(operation, () => []);
     
-    // Remove old timestamps (older than 1 minute)
     _operationTimestamps[operation]!.removeWhere(
       (timestamp) => now.difference(timestamp).inMinutes >= 1
     );
     
-    // Check if limit exceeded
     if (_operationTimestamps[operation]!.length >= _maxOperationsPerMinute) {
       return false;
     }
@@ -61,7 +55,6 @@ class DatabaseService {
       });
     } catch (e) {
       print('Failed to log audit event: $e');
-      // Don't throw - audit logging shouldn't break app
     }
   }
 
@@ -85,7 +78,6 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Cleanup unused boxes to prevent memory leaks
   Future<void> _cleanupUnusedBoxes() async {
     final now = DateTime.now();
     final boxesToClose = <String>[];
@@ -109,7 +101,7 @@ class DatabaseService {
     }
   }
 
-  // ==== USER OPERATIONS (SECURED) ====
+  // ==== USER OPERATIONS ====
   
   Future<void> saveUser(User user) async {
     if (!_checkRateLimit('saveUser')) {
@@ -119,7 +111,6 @@ class DatabaseService {
     try {
       final box = await _getBox<User>(_userBoxName);
       
-      // FIXED: Check if email already exists with better error handling
       final existingUser = await _getUserByEmailInternal(user.email);
       if (existingUser != null) {
         throw DatabaseException('Un compte existe déjà avec cette adresse email');
@@ -160,13 +151,34 @@ class DatabaseService {
     }
   }
 
+  // FIXED: Add missing getUniqueUsers method (referenced in login screen)
+  Future<List<User>> getUniqueUsers() async {
+    try {
+      final allUsers = await getAllUsers();
+      final uniqueUsers = <String, User>{};
+      
+      // Keep only one user per email (most recent)
+      for (final user in allUsers) {
+        final email = user.email.toLowerCase();
+        if (!uniqueUsers.containsKey(email) || 
+            user.createdAt.isAfter(uniqueUsers[email]!.createdAt)) {
+          uniqueUsers[email] = user;
+        }
+      }
+      
+      return uniqueUsers.values.toList();
+    } catch (e) {
+      throw DatabaseException('Erreur lors de la récupération des utilisateurs uniques: $e');
+    }
+  }
+
   Future<User?> getUserById(String userId) async {
     try {
       final box = await _getBox<User>(_userBoxName);
       final user = box.get(userId);
       
       if (user != null && !user.isActive) {
-        return null; // Don't return deactivated users
+        return null;
       }
       
       return user;
@@ -175,7 +187,6 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Private method for internal email lookup (no rate limiting)
   Future<User?> _getUserByEmailInternal(String email) async {
     try {
       final box = await _getBox<User>(_userBoxName);
@@ -217,14 +228,13 @@ class DatabaseService {
 
   Future<bool> emailExists(String email) async {
     if (!_checkRateLimit('emailExists')) {
-      return false; // Conservative approach for rate limiting
+      return false;
     }
 
     final user = await _getUserByEmailInternal(email);
     return user != null;
   }
 
-  // FIXED: Secure login with password verification
   Future<User?> authenticateUser(String email, String password) async {
     if (!_checkRateLimit('authenticateUser')) {
       throw DatabaseException('Trop de tentatives de connexion. Réessayez plus tard.');
@@ -233,8 +243,7 @@ class DatabaseService {
     try {
       final user = await _getUserByEmailInternal(email);
       if (user == null) {
-        // FIXED: Don't reveal if email exists
-        await Future.delayed(const Duration(milliseconds: 500)); // Prevent timing attacks
+        await Future.delayed(const Duration(milliseconds: 500));
         return null;
       }
 
@@ -248,7 +257,6 @@ class DatabaseService {
         return null;
       }
 
-      // Update last login
       user.updateLastLogin();
       
       await _logAuditEvent(
@@ -264,7 +272,7 @@ class DatabaseService {
     }
   }
 
-  // ==== SESSION MANAGEMENT (SECURED) ====
+  // ==== SESSION MANAGEMENT ====
   
   Future<User?> getCurrentUser() async {
     try {
@@ -321,7 +329,6 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Session timeout check
   Future<bool> isSessionValid() async {
     try {
       final sessionBox = await _getBox(_sessionBoxName);
@@ -332,14 +339,13 @@ class DatabaseService {
       final sessionStart = DateTime.parse(sessionStartStr);
       final now = DateTime.now();
       
-      // Session expires after 24 hours
       return now.difference(sessionStart).inHours < 24;
     } catch (e) {
       return false;
     }
   }
 
-  // ==== VACCINATION OPERATIONS (SECURED) ====
+  // ==== VACCINATION OPERATIONS ====
   
   Future<void> saveVaccination(Vaccination vaccination) async {
     if (!_checkRateLimit('saveVaccination')) {
@@ -347,7 +353,6 @@ class DatabaseService {
     }
 
     try {
-      // FIXED: Validate vaccination data
       if (vaccination.vaccineName.trim().isEmpty) {
         throw DatabaseException('Le nom du vaccin est requis');
       }
@@ -374,6 +379,20 @@ class DatabaseService {
     }
   }
 
+  // FIXED: Add missing getAllVaccinations method
+  Future<List<Vaccination>> getAllVaccinations() async {
+    if (!_checkRateLimit('getAllVaccinations')) {
+      throw DatabaseException('Rate limit exceeded');
+    }
+
+    try {
+      final box = await _getBox<Vaccination>(_vaccinationBoxName);
+      return box.values.toList();
+    } catch (e) {
+      throw DatabaseException('Erreur lors de la récupération des vaccinations: $e');
+    }
+  }
+
   Future<List<Vaccination>> getVaccinationsByUser(String userId) async {
     if (!_checkRateLimit('getVaccinationsByUser')) {
       throw DatabaseException('Rate limit exceeded');
@@ -389,14 +408,13 @@ class DatabaseService {
           .where((v) => v.userId == userId)
           .toList();
       
-      // FIXED: Sort by date (most recent first)
       vaccinations.sort((a, b) {
         try {
           final dateA = _parseDate(a.date);
           final dateB = _parseDate(b.date);
           return dateB.compareTo(dateA);
         } catch (e) {
-          return 0; // Keep original order if date parsing fails
+          return 0;
         }
       });
       
@@ -423,6 +441,7 @@ class DatabaseService {
     return DateTime.now();
   }
 
+  // FIXED: Change method signature from int to String to match usage
   Future<void> deleteVaccination(String vaccinationId) async {
     if (!_checkRateLimit('deleteVaccination')) {
       throw DatabaseException('Rate limit exceeded');
@@ -454,7 +473,70 @@ class DatabaseService {
     }
   }
 
-  // ==== DATABASE MAINTENANCE (SECURED) ====
+  // FIXED: Add method to delete vaccination by index (alternative method)
+  Future<void> deleteVaccinationByIndex(int index) async {
+    try {
+      final box = await _getBox<Vaccination>(_vaccinationBoxName);
+      final keys = box.keys.toList();
+      
+      if (index >= 0 && index < keys.length) {
+        await deleteVaccination(keys[index].toString());
+      } else {
+        throw DatabaseException('Index de vaccination invalide');
+      }
+    } catch (e) {
+      if (e is DatabaseException) rethrow;
+      throw DatabaseException('Erreur lors de la suppression par index: $e');
+    }
+  }
+
+  // ==== VACCINE CATEGORY OPERATIONS ====
+  
+  Future<List<VaccineCategory>> getAllVaccineCategories() async {
+    try {
+      final box = await _getBox<VaccineCategory>(_categoryBoxName);
+      return box.values.toList();
+    } catch (e) {
+      throw DatabaseException('Erreur lors de la récupération des catégories: $e');
+    }
+  }
+
+  Future<void> initializeDefaultCategories() async {
+    try {
+      final box = await _getBox<VaccineCategory>(_categoryBoxName);
+      
+      if (box.isEmpty) {
+        final defaultCategories = [
+          VaccineCategory(
+            name: 'Vaccinations obligatoires',
+            iconType: 'check_circle',
+            colorHex: '#4CAF50',
+            vaccines: ['DTP', 'Poliomyélite', 'Coqueluche', 'ROR'],
+          ),
+          VaccineCategory(
+            name: 'Vaccinations recommandées',
+            iconType: 'recommend',
+            colorHex: '#FFA726',
+            vaccines: ['Grippe', 'Hépatite B', 'Pneumocoque'],
+          ),
+          VaccineCategory(
+            name: 'Vaccinations de voyage',
+            iconType: 'flight',
+            colorHex: '#2196F3',
+            vaccines: ['Fièvre jaune', 'Typhoïde', 'Encéphalite japonaise'],
+          ),
+        ];
+        
+        for (final category in defaultCategories) {
+          await box.add(category);
+        }
+      }
+    } catch (e) {
+      print('Error initializing default categories: $e');
+    }
+  }
+
+  // ==== DATABASE MAINTENANCE ====
   
   Future<Map<String, int>> cleanupDatabase() async {
     if (!_checkRateLimit('cleanupDatabase')) {
@@ -465,21 +547,17 @@ class DatabaseService {
       int duplicatesRemoved = 0;
       int orphanedVaccinationsRemoved = 0;
       
-      // FIXED: Remove duplicate users (keep most recent)
       final userBox = await _getBox<User>(_userBoxName);
       final emailToUsers = <String, List<User>>{};
       
-      // Group users by email
       for (final user in userBox.values) {
         emailToUsers.putIfAbsent(user.email.toLowerCase(), () => []).add(user);
       }
       
-      // Remove duplicates (keep the most recently created)
       for (final users in emailToUsers.values) {
         if (users.length > 1) {
           users.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           
-          // Keep the first (most recent), remove others
           for (int i = 1; i < users.length; i++) {
             await users[i].delete();
             duplicatesRemoved++;
@@ -487,7 +565,6 @@ class DatabaseService {
         }
       }
       
-      // FIXED: Remove orphaned vaccinations
       final vaccinationBox = await _getBox<Vaccination>(_vaccinationBoxName);
       final activeUserIds = userBox.values
           .where((user) => user.isActive)
@@ -507,7 +584,6 @@ class DatabaseService {
         orphanedVaccinationsRemoved++;
       }
       
-      // FIXED: Cleanup old sessions and audit logs
       await _cleanupOldSessions();
       await _cleanupOldAuditLogs();
       
@@ -567,7 +643,6 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Secure data export (without sensitive information)
   Future<Map<String, dynamic>> exportUserData(String userId) async {
     if (!_checkRateLimit('exportUserData')) {
       throw DatabaseException('Rate limit exceeded');
@@ -588,7 +663,7 @@ class DatabaseService {
       );
 
       return {
-        'user': user.toSafeJson(), // Uses safe JSON without sensitive data
+        'user': user.toSafeJson(),
         'vaccinations': vaccinations.map((v) => {
           'vaccineName': v.vaccineName,
           'lot': v.lot,
@@ -603,7 +678,6 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Resource cleanup
   Future<void> dispose() async {
     try {
       await _cleanupUnusedBoxes();
@@ -616,7 +690,6 @@ class DatabaseService {
   }
 }
 
-// FIXED: Custom exception for database errors
 class DatabaseException implements Exception {
   final String message;
   final String? code;

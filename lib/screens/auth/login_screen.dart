@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart - Fixed security and state management issues
+// lib/screens/auth/login_screen.dart - FIXED with proper password verification
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
@@ -17,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = true;
   bool _obscurePassword = true;
   bool _isPasswordWrong = false;
-  bool _isLoggingIn = false;  // FIXED: Add login state
+  bool _isLoggingIn = false;
   User? _selectedUser;
 
   @override
@@ -28,17 +28,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    // FIXED: Clear sensitive data before disposal
     _passwordController.clear();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _loadUsers() async {
-    if (!mounted) return;  // FIXED: Check if mounted
+    if (!mounted) return;
     
     try {
-      final users = await _databaseService.getUniqueUsers();
+      final users = await _databaseService.getAllUsers(); // FIXED: Use proper method name
       if (mounted) {
         setState(() {
           _users = users;
@@ -75,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
-            onPressed: _isLoading ? null : _showCleanupDialog,  // FIXED: Disable when loading
+            onPressed: _isLoading ? null : _showCleanupDialog,
             tooltip: 'Nettoyer les doublons',
           ),
         ],
@@ -315,7 +314,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Color(0xFF4CAF50),
                         )
                       : null,
-                  onTap: _isLoggingIn ? null : () {  // FIXED: Disable during login
+                  onTap: _isLoggingIn ? null : () {
                     setState(() {
                       _selectedUser = isSelected ? null : user;
                       _passwordController.clear();
@@ -351,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: TextField(
               controller: _passwordController,
               obscureText: _obscurePassword,
-              enabled: !_isLoggingIn,  // FIXED: Disable during login
+              enabled: !_isLoggingIn,
               decoration: InputDecoration(
                 labelText: 'Mot de passe',
                 hintText: 'Entrez votre mot de passe',
@@ -384,7 +383,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   setState(() => _isPasswordWrong = false);
                 }
               },
-              // FIXED: Add onSubmitted for better UX
               onSubmitted: _isLoggingIn ? null : (value) => _loginWithSelectedUser(),
             ),
           ),
@@ -414,7 +412,7 @@ class _LoginScreenState extends State<LoginScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isLoggingIn ? null : _loginWithSelectedUser,  // FIXED: Disable during login
+              onPressed: _isLoggingIn ? null : _loginWithSelectedUser,
               icon: _isLoggingIn 
                   ? const SizedBox(
                       width: 16,
@@ -447,7 +445,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _isLoggingIn ? null : () {  // FIXED: Disable during login
+            onPressed: _isLoggingIn ? null : () {
               Navigator.pushNamed(context, '/user-creation');
             },
             icon: const Icon(Icons.person_add),
@@ -474,19 +472,19 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    if (_selectedUser!.password != _passwordController.text) {
-      setState(() => _isPasswordWrong = true);
-      return;
-    }
-
-    setState(() => _isLoggingIn = true);  // FIXED: Set login state
+    setState(() => _isLoggingIn = true);
 
     try {
+      // FIXED: Use proper password verification instead of direct comparison
+      if (!_selectedUser!.verifyPassword(_passwordController.text)) {
+        setState(() => _isPasswordWrong = true);
+        return;
+      }
+
       // Set as current user and navigate
       await _databaseService.setCurrentUser(_selectedUser!);
       
       if (mounted) {
-        // FIXED: Clear sensitive data and selection state
         setState(() {
           _selectedUser = null;
           _isPasswordWrong = false;
@@ -518,7 +516,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isLoggingIn = false);  // FIXED: Reset login state
+        setState(() => _isLoggingIn = false);
       }
     }
   }
@@ -565,12 +563,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _performCleanup() async {
     try {
-      setState(() => _isLoading = true);  // FIXED: Show loading during cleanup
+      setState(() => _isLoading = true);
       
       final result = await _databaseService.cleanupDatabase();
       final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
       
-      await _loadUsers();  // FIXED: Reload users after cleanup
+      await _loadUsers();
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

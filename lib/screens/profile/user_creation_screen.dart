@@ -1,4 +1,4 @@
-// lib/screens/profile/user_creation_screen.dart - Enhanced with Email Validation
+// lib/screens/profile/user_creation_screen.dart - UPDATED to use User.create factory
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
@@ -26,7 +26,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     
-    // Check if vaccination data was passed from verification
     final arguments = ModalRoute.of(context)?.settings.arguments;
     if (arguments is Map<String, String>) {
       _pendingVaccinationData = arguments;
@@ -62,7 +61,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         ),
         centerTitle: true,
         actions: [
-          // Cleanup button (for development/admin)
           IconButton(
             icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
             onPressed: _showCleanupDialog,
@@ -73,7 +71,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Scrollable content
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24.0),
@@ -82,22 +79,19 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header Section
                       _buildHeaderSection(),
                       
                       const SizedBox(height: 30),
                       
-                      // Form Fields
                       _buildFormFields(),
                       
-                      const SizedBox(height: 100), // Extra space for button
+                      const SizedBox(height: 100),
                     ],
                   ),
                 ),
               ),
             ),
             
-            // Fixed bottom button
             _buildBottomButton(context),
           ],
         ),
@@ -155,7 +149,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
             textAlign: TextAlign.center,
           ),
           
-          // Show vaccination pending indicator
           if (_pendingVaccinationData != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -431,16 +424,16 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       setState(() => _isLoading = true);
 
       try {
-        // Double-check email availability before creating
         final emailExists = await _databaseService.emailExists(_emailController.text);
         if (emailExists) {
           throw Exception('Cette adresse email est déjà utilisée');
         }
 
-        final user = User(
+        // FIXED: Use User.create factory method instead of main constructor
+        final user = User.create(
           name: _nameController.text.trim(),
           email: _emailController.text.trim().toLowerCase(),
-          password: _passwordController.text,
+          password: _passwordController.text, // Plain password - will be hashed
           dateOfBirth: _dateOfBirthController.text.trim(),
         );
 

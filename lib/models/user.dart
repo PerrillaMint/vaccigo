@@ -1,4 +1,4 @@
-// lib/models/user.dart - FIXED with password hashing and validation
+// lib/models/user.dart - FIXED for proper Hive auto-generation
 import 'package:hive/hive.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -15,7 +15,7 @@ class User extends HiveObject {
   String email;
 
   @HiveField(2)
-  String passwordHash; // FIXED: Store hash instead of plain password
+  String passwordHash; // Store hash directly
 
   @HiveField(3)
   String dateOfBirth;
@@ -30,38 +30,66 @@ class User extends HiveObject {
   String? allergies;
 
   @HiveField(7)
-  String? salt; // FIXED: Add salt for password hashing
+  String? salt;
 
   @HiveField(8)
-  DateTime createdAt; // FIXED: Add creation timestamp
+  DateTime createdAt;
 
   @HiveField(9)
-  DateTime lastLogin; // FIXED: Track last login
+  DateTime lastLogin;
 
   @HiveField(10)
-  bool isActive; // FIXED: Add user status
+  bool isActive;
 
+  // Main constructor - Hive will use this for reconstruction
   User({
     required this.name,
     required this.email,
-    required String password, // Accept plain password in constructor
+    required this.passwordHash, // Accept hash directly
     required this.dateOfBirth,
     this.diseases,
     this.treatments,
     this.allergies,
+    this.salt,
     DateTime? createdAt,
     DateTime? lastLogin,
     this.isActive = true,
   }) : 
     createdAt = createdAt ?? DateTime.now(),
-    lastLogin = lastLogin ?? DateTime.now()
-  {
-    // FIXED: Generate salt and hash password securely
-    salt = _generateSalt();
-    passwordHash = _hashPassword(password, salt!);
+    lastLogin = lastLogin ?? DateTime.now();
+
+  // Factory constructor for creating new users with plain password
+  factory User.create({
+    required String name,
+    required String email,
+    required String password, // Plain password input
+    required String dateOfBirth,
+    String? diseases,
+    String? treatments,
+    String? allergies,
+    DateTime? createdAt,
+    DateTime? lastLogin,
+    bool isActive = true,
+  }) {
+    final salt = _generateSalt();
+    final passwordHash = _hashPassword(password, salt);
+    
+    return User(
+      name: name,
+      email: email,
+      passwordHash: passwordHash,
+      dateOfBirth: dateOfBirth,
+      diseases: diseases,
+      treatments: treatments,
+      allergies: allergies,
+      salt: salt,
+      createdAt: createdAt,
+      lastLogin: lastLogin,
+      isActive: isActive,
+    );
   }
 
-  // FIXED: Secure password hashing
+  // Secure password hashing
   static String _generateSalt() {
     final random = Random.secure();
     final values = List<int>.generate(32, (i) => random.nextInt(256));
@@ -74,20 +102,20 @@ class User extends HiveObject {
     return digest.toString();
   }
 
-  // FIXED: Secure password verification
+  // Secure password verification
   bool verifyPassword(String password) {
     if (salt == null) return false;
     final hashedInput = _hashPassword(password, salt!);
     return hashedInput == passwordHash;
   }
 
-  // FIXED: Update password securely
+  // Update password securely
   void updatePassword(String newPassword) {
     salt = _generateSalt();
     passwordHash = _hashPassword(newPassword, salt!);
   }
 
-  // FIXED: Data validation
+  // Data validation methods
   static String? validateName(String name) {
     if (name.trim().isEmpty) {
       return 'Le nom est requis';
@@ -98,8 +126,7 @@ class User extends HiveObject {
     if (name.length > 100) {
       return 'Le nom est trop long';
     }
-    // Check for potentially harmful characters
-    if (RegExp(r'[<>"\'/\\]').hasMatch(name)) {
+    if (RegExp(r'[<>"\/\\]').hasMatch(name)) {
       return 'Le nom contient des caractères invalides';
     }
     return null;
@@ -107,21 +134,21 @@ class User extends HiveObject {
 
   static String? validateEmail(String email) {
     if (email.trim().isEmpty) {
-      return 'L\'email est requis';
+      return "L'email est requis";
     }
     
     final sanitizedEmail = email.trim().toLowerCase();
     
     if (sanitizedEmail.length > 254) {
-      return 'L\'email est trop long';
+      return "L'email est trop long";
     }
     
     final emailRegex = RegExp(
-      r'^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$'
+      r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
     );
     
     if (!emailRegex.hasMatch(sanitizedEmail)) {
-      return 'Format d\'email invalide';
+      return "Format d'email invalide";
     }
     
     return null;
@@ -138,7 +165,6 @@ class User extends HiveObject {
       return 'Le mot de passe est trop long';
     }
     
-    // Check for at least one letter and one number
     if (!RegExp(r'[a-zA-Z]').hasMatch(password)) {
       return 'Le mot de passe doit contenir au moins une lettre';
     }
@@ -146,7 +172,6 @@ class User extends HiveObject {
       return 'Le mot de passe doit contenir au moins un chiffre';
     }
     
-    // Check for common weak passwords
     final weakPasswords = [
       '12345678', 'password', 'motdepasse', 'azerty123', 'qwerty123'
     ];
@@ -162,7 +187,6 @@ class User extends HiveObject {
       return 'La date de naissance est requise';
     }
     
-    // Validate DD/MM/YYYY format
     final dateRegex = RegExp(r'^\d{2}/\d{2}/\d{4}$');
     if (!dateRegex.hasMatch(date)) {
       return 'Format invalide. Utilisez JJ/MM/AAAA';
@@ -174,20 +198,17 @@ class User extends HiveObject {
       final month = int.parse(parts[1]);
       final year = int.parse(parts[2]);
       
-      // Basic validation
       if (day < 1 || day > 31) return 'Jour invalide';
       if (month < 1 || month > 12) return 'Mois invalide';
       
       final currentYear = DateTime.now().year;
       if (year < 1900 || year > currentYear) return 'Année invalide';
       
-      // Check if user is too young (medical app)
-      final birthDate = DateTime(year, month, day);
       final age = currentYear - year;
       if (age < 0) return 'Date de naissance future invalide';
       if (age > 150) return 'Âge invalide';
       
-      // Validate actual date
+      final birthDate = DateTime(year, month, day);
       if (birthDate.day != day || birthDate.month != month || birthDate.year != year) {
         return 'Date invalide';
       }
@@ -198,15 +219,15 @@ class User extends HiveObject {
     }
   }
 
-  // FIXED: Sanitize input data
+  // Sanitize input data
   static String _sanitizeString(String input) {
     return input
-        .replaceAll(RegExp(r'[<>"\'/\\]'), '') // Remove harmful chars
+        .replaceAll(RegExp(r'[<>"\/\\]'), '') // Remove harmful chars
         .replaceAll(RegExp(r'\s+'), ' ')       // Normalize whitespace
         .trim();                               // Remove leading/trailing space
   }
 
-  // FIXED: Validate all user data
+  // Validate all user data
   static Map<String, String> validateUserData({
     required String name,
     required String email,
@@ -233,7 +254,7 @@ class User extends HiveObject {
     return errors;
   }
 
-  // FIXED: Secure factory constructor
+  // Secure factory constructor
   factory User.createSecure({
     required String name,
     required String email,
@@ -243,7 +264,6 @@ class User extends HiveObject {
     String? treatments,
     String? allergies,
   }) {
-    // Validate all data first
     final errors = validateUserData(
       name: name,
       email: email,
@@ -258,10 +278,10 @@ class User extends HiveObject {
       throw ValidationException('Données utilisateur invalides', errors);
     }
     
-    return User(
+    return User.create(
       name: _sanitizeString(name),
       email: email.trim().toLowerCase(),
-      password: password, // Will be hashed in constructor
+      password: password, // Will be hashed in factory
       dateOfBirth: dateOfBirth.trim(),
       diseases: diseases?.isNotEmpty == true ? _sanitizeString(diseases!) : null,
       treatments: treatments?.isNotEmpty == true ? _sanitizeString(treatments!) : null,
@@ -269,19 +289,19 @@ class User extends HiveObject {
     );
   }
 
-  // FIXED: Update last login timestamp
+  // Update last login timestamp
   void updateLastLogin() {
     lastLogin = DateTime.now();
     save(); // Save to database
   }
 
-  // FIXED: Deactivate user
+  // Deactivate user
   void deactivate() {
     isActive = false;
     save();
   }
 
-  // FIXED: Get age from date of birth
+  // Get age from date of birth
   int get age {
     try {
       final parts = dateOfBirth.split('/');
@@ -302,7 +322,7 @@ class User extends HiveObject {
     }
   }
 
-  // FIXED: Convert to safe JSON (no sensitive data)
+  // Convert to safe JSON (no sensitive data)
   Map<String, dynamic> toSafeJson() {
     return {
       'name': name,
@@ -312,7 +332,6 @@ class User extends HiveObject {
       'createdAt': createdAt.toIso8601String(),
       'lastLogin': lastLogin.toIso8601String(),
       'isActive': isActive,
-      // Note: password and medical info excluded for security
     };
   }
 
@@ -322,7 +341,7 @@ class User extends HiveObject {
   }
 }
 
-// FIXED: Custom validation exception
+// Custom validation exception
 class ValidationException implements Exception {
   final String message;
   final Map<String, String> errors;
