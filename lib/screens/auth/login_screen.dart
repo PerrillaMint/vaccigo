@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart - Enhanced with Password Authentication
+// lib/screens/auth/login_screen.dart - Fixed security and state management issues
 import 'package:flutter/material.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = true;
   bool _obscurePassword = true;
   bool _isPasswordWrong = false;
+  bool _isLoggingIn = false;  // FIXED: Add login state
   User? _selectedUser;
 
   @override
@@ -27,33 +28,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    // FIXED: Clear sensitive data before disposal
+    _passwordController.clear();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _loadUsers() async {
+    if (!mounted) return;  // FIXED: Check if mounted
+    
     try {
       final users = await _databaseService.getUniqueUsers();
-      setState(() {
-        _users = users;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Erreur: $e')),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        setState(() {
+          _users = users;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showErrorMessage('Erreur de chargement: $e');
       }
     }
   }
@@ -80,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
-            onPressed: _showCleanupDialog,
+            onPressed: _isLoading ? null : _showCleanupDialog,  // FIXED: Disable when loading
             tooltip: 'Nettoyer les doublons',
           ),
         ],
@@ -320,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Color(0xFF4CAF50),
                         )
                       : null,
-                  onTap: () {
+                  onTap: _isLoggingIn ? null : () {  // FIXED: Disable during login
                     setState(() {
                       _selectedUser = isSelected ? null : user;
                       _passwordController.clear();
@@ -356,13 +351,14 @@ class _LoginScreenState extends State<LoginScreen> {
             child: TextField(
               controller: _passwordController,
               obscureText: _obscurePassword,
+              enabled: !_isLoggingIn,  // FIXED: Disable during login
               decoration: InputDecoration(
                 labelText: 'Mot de passe',
                 hintText: 'Entrez votre mot de passe',
                 prefixIcon: const Icon(Icons.lock),
                 suffixIcon: IconButton(
                   icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  onPressed: _isLoggingIn ? null : () => setState(() => _obscurePassword = !_obscurePassword),
                 ),
                 errorText: _isPasswordWrong ? 'Mot de passe incorrect' : null,
                 border: OutlineInputBorder(
@@ -388,13 +384,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   setState(() => _isPasswordWrong = false);
                 }
               },
+              // FIXED: Add onSubmitted for better UX
+              onSubmitted: _isLoggingIn ? null : (value) => _loginWithSelectedUser(),
             ),
           ),
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
+              onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/forgot-password'),
               child: const Text(
                 'Mot de passe oublié?',
                 style: TextStyle(
@@ -416,9 +414,22 @@ class _LoginScreenState extends State<LoginScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _loginWithSelectedUser,
-              icon: const Icon(Icons.login),
-              label: Text('Se connecter avec ${_selectedUser!.name}'),
+              onPressed: _isLoggingIn ? null : _loginWithSelectedUser,  // FIXED: Disable during login
+              icon: _isLoggingIn 
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.login),
+              label: Text(
+                _isLoggingIn 
+                    ? 'Connexion...'
+                    : 'Se connecter avec ${_selectedUser!.name}',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2C5F66),
                 foregroundColor: Colors.white,
@@ -436,7 +447,7 @@ class _LoginScreenState extends State<LoginScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: () {
+            onPressed: _isLoggingIn ? null : () {  // FIXED: Disable during login
               Navigator.pushNamed(context, '/user-creation');
             },
             icon: const Icon(Icons.person_add),
@@ -456,7 +467,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loginWithSelectedUser() async {
-    if (_selectedUser == null) return;
+    if (_selectedUser == null || _isLoggingIn) return;
 
     if (_passwordController.text.isEmpty) {
       setState(() => _isPasswordWrong = true);
@@ -468,11 +479,20 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
+    setState(() => _isLoggingIn = true);  // FIXED: Set login state
+
     try {
       // Set as current user and navigate
       await _databaseService.setCurrentUser(_selectedUser!);
       
       if (mounted) {
+        // FIXED: Clear sensitive data and selection state
+        setState(() {
+          _selectedUser = null;
+          _isPasswordWrong = false;
+        });
+        _passwordController.clear();
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -494,19 +514,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Erreur de connexion: $e')),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showErrorMessage('Erreur de connexion: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoggingIn = false);  // FIXED: Reset login state
       }
     }
   }
@@ -553,10 +565,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _performCleanup() async {
     try {
+      setState(() => _isLoading = true);  // FIXED: Show loading during cleanup
+      
       final result = await _databaseService.cleanupDatabase();
       final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
       
-      await _loadUsers();
+      await _loadUsers();  // FIXED: Reload users after cleanup
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -575,20 +589,27 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Erreur lors du nettoyage: $e')),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        setState(() => _isLoading = false);
+        _showErrorMessage('Erreur lors du nettoyage: $e');
       }
+    }
+  }
+
+  void _showErrorMessage(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text(message)),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 }

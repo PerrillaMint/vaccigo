@@ -1,7 +1,7 @@
-// lib/screens/splash_screen.dart
+// lib/screens/splash_screen.dart - Fixed with missing imports
 import 'package:flutter/material.dart';
-import '../../widgets/vaccigo_logo.dart';
-import '../../constants/app_colors.dart';
+import '../widgets/vaccigo_logo.dart';  // FIXED: Added missing import
+import '../constants/app_colors.dart';   // FIXED: Added missing import
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);

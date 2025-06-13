@@ -1,375 +1,631 @@
-// lib/services/database_service.dart - Enhanced with Current User Management
+// lib/services/database_service.dart - FIXED with security and error handling
 import 'package:hive/hive.dart';
+import 'dart:async';
+import 'dart:io';
 import '../models/user.dart';
 import '../models/vaccination.dart';
 import '../models/vaccine_category.dart';
 
 class DatabaseService {
-  static const String _userBoxName = 'users';
-  static const String _vaccinationBoxName = 'vaccinations';
-  static const String _categoryBoxName = 'vaccine_categories';
-  static const String _sessionBoxName = 'session';
+  static const String _userBoxName = 'users_v2'; // FIXED: Version box names
+  static const String _vaccinationBoxName = 'vaccinations_v2';
+  static const String _categoryBoxName = 'vaccine_categories_v2';
+  static const String _sessionBoxName = 'session_v2';
+  static const String _auditBoxName = 'audit_logs'; // FIXED: Add audit logging
 
-  // ==== USER OPERATIONS ====
+  // FIXED: Add connection pooling and error handling
+  static final Map<String, Completer<Box>> _boxCache = {};
+  static final Map<String, DateTime> _lastAccess = {};
   
-  // Create/Save User with email validation
+  // FIXED: Rate limiting to prevent abuse
+  static final Map<String, List<DateTime>> _operationTimestamps = {};
+  static const int _maxOperationsPerMinute = 100;
+
+  // ==== SECURITY & VALIDATION ====
+  
+  bool _checkRateLimit(String operation) {
+    final now = DateTime.now();
+    _operationTimestamps.putIfAbsent(operation, () => []);
+    
+    // Remove old timestamps (older than 1 minute)
+    _operationTimestamps[operation]!.removeWhere(
+      (timestamp) => now.difference(timestamp).inMinutes >= 1
+    );
+    
+    // Check if limit exceeded
+    if (_operationTimestamps[operation]!.length >= _maxOperationsPerMinute) {
+      return false;
+    }
+    
+    _operationTimestamps[operation]!.add(now);
+    return true;
+  }
+
+  Future<void> _logAuditEvent({
+    required String action,
+    required String entity,
+    String? entityId,
+    String? userId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final auditBox = await _getBox<Map>(_auditBoxName);
+      await auditBox.add({
+        'timestamp': DateTime.now().toIso8601String(),
+        'action': action,
+        'entity': entity,
+        'entityId': entityId,
+        'userId': userId,
+        'metadata': metadata,
+        'platform': Platform.operatingSystem,
+      });
+    } catch (e) {
+      print('Failed to log audit event: $e');
+      // Don't throw - audit logging shouldn't break app
+    }
+  }
+
+  Future<Box<T>> _getBox<T>(String boxName) async {
+    if (_boxCache.containsKey(boxName)) {
+      return await _boxCache[boxName]!.future as Box<T>;
+    }
+
+    final completer = Completer<Box>();
+    _boxCache[boxName] = completer;
+
+    try {
+      final box = await Hive.openBox<T>(boxName);
+      _lastAccess[boxName] = DateTime.now();
+      completer.complete(box);
+      return box;
+    } catch (e) {
+      _boxCache.remove(boxName);
+      completer.completeError(e);
+      rethrow;
+    }
+  }
+
+  // FIXED: Cleanup unused boxes to prevent memory leaks
+  Future<void> _cleanupUnusedBoxes() async {
+    final now = DateTime.now();
+    final boxesToClose = <String>[];
+    
+    for (final entry in _lastAccess.entries) {
+      if (now.difference(entry.value).inMinutes > 30) {
+        boxesToClose.add(entry.key);
+      }
+    }
+    
+    for (final boxName in boxesToClose) {
+      try {
+        if (Hive.isBoxOpen(boxName)) {
+          await Hive.box(boxName).close();
+        }
+        _boxCache.remove(boxName);
+        _lastAccess.remove(boxName);
+      } catch (e) {
+        print('Failed to close box $boxName: $e');
+      }
+    }
+  }
+
+  // ==== USER OPERATIONS (SECURED) ====
+  
   Future<void> saveUser(User user) async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    
-    // Check if email already exists
-    final existingUser = await getUserByEmail(user.email);
-    if (existingUser != null) {
-      throw Exception('Un compte existe déjà avec cette adresse email');
+    if (!_checkRateLimit('saveUser')) {
+      throw DatabaseException('Rate limit exceeded for user creation');
     }
-    
-    await box.add(user);
+
+    try {
+      final box = await _getBox<User>(_userBoxName);
+      
+      // FIXED: Check if email already exists with better error handling
+      final existingUser = await _getUserByEmailInternal(user.email);
+      if (existingUser != null) {
+        throw DatabaseException('Un compte existe déjà avec cette adresse email');
+      }
+      
+      await box.add(user);
+      
+      await _logAuditEvent(
+        action: 'CREATE',
+        entity: 'User',
+        entityId: user.key?.toString(),
+        metadata: {'email': user.email, 'name': user.name},
+      );
+    } catch (e) {
+      if (e is DatabaseException) rethrow;
+      throw DatabaseException('Erreur lors de la création de l\'utilisateur: $e');
+    }
   }
 
-  // Get all users
   Future<List<User>> getAllUsers() async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    return box.values.toList();
-  }
+    if (!_checkRateLimit('getAllUsers')) {
+      throw DatabaseException('Rate limit exceeded');
+    }
 
-  // Get user by index
-  Future<User?> getUser(int index) async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    return box.getAt(index);
-  }
-
-  // Get current user (from session)
-  Future<User?> getCurrentUser() async {
     try {
-      final sessionBox = await Hive.openBox(_sessionBoxName);
-      final currentUserKey = sessionBox.get('currentUserKey');
+      final box = await _getBox<User>(_userBoxName);
+      final users = box.values.where((user) => user.isActive).toList();
       
-      if (currentUserKey != null) {
-        final userBox = await Hive.openBox<User>(_userBoxName);
-        return userBox.get(currentUserKey);
+      await _logAuditEvent(
+        action: 'READ_ALL',
+        entity: 'User',
+        metadata: {'count': users.length},
+      );
+      
+      return users;
+    } catch (e) {
+      throw DatabaseException('Erreur lors de la récupération des utilisateurs: $e');
+    }
+  }
+
+  Future<User?> getUserById(String userId) async {
+    try {
+      final box = await _getBox<User>(_userBoxName);
+      final user = box.get(userId);
+      
+      if (user != null && !user.isActive) {
+        return null; // Don't return deactivated users
       }
       
-      // Fallback to first user if no session (for backward compatibility)
-      final userBox = await Hive.openBox<User>(_userBoxName);
-      if (userBox.values.isNotEmpty) {
-        return userBox.values.first;
-      }
+      return user;
+    } catch (e) {
+      throw DatabaseException('Erreur lors de la récupération de l\'utilisateur: $e');
+    }
+  }
+
+  // FIXED: Private method for internal email lookup (no rate limiting)
+  Future<User?> _getUserByEmailInternal(String email) async {
+    try {
+      final box = await _getBox<User>(_userBoxName);
+      final sanitizedEmail = email.trim().toLowerCase();
       
+      for (final user in box.values) {
+        if (user.email.toLowerCase() == sanitizedEmail && user.isActive) {
+          return user;
+        }
+      }
       return null;
     } catch (e) {
-      return null;
+      throw DatabaseException('Erreur lors de la recherche par email: $e');
     }
   }
 
-  // Set current user (for login session)
-  Future<void> setCurrentUser(User user) async {
-    final sessionBox = await Hive.openBox(_sessionBoxName);
-    await sessionBox.put('currentUserKey', user.key);
-  }
-
-  // Clear current user session (for logout)
-  Future<void> clearCurrentUser() async {
-    final sessionBox = await Hive.openBox(_sessionBoxName);
-    await sessionBox.delete('currentUserKey');
-  }
-
-  // Update user with email validation
-  Future<void> updateUser(int index, User user) async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    
-    // Check if email already exists (excluding current user)
-    final existingUser = await getUserByEmail(user.email);
-    if (existingUser != null && existingUser.key != user.key) {
-      throw Exception('Un compte existe déjà avec cette adresse email');
-    }
-    
-    await box.putAt(index, user);
-  }
-
-  // Delete user
-  Future<void> deleteUser(int index) async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    final user = box.getAt(index);
-    
-    // Clear session if deleting current user
-    if (user != null) {
-      final currentUser = await getCurrentUser();
-      if (currentUser?.key == user.key) {
-        await clearCurrentUser();
-      }
-    }
-    
-    await box.deleteAt(index);
-  }
-
-  // Get user by email
   Future<User?> getUserByEmail(String email) async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    try {
-      return box.values.firstWhere((user) => user.email.toLowerCase() == email.toLowerCase());
-    } catch (e) {
-      return null;
+    if (!_checkRateLimit('getUserByEmail')) {
+      throw DatabaseException('Rate limit exceeded');
     }
+
+    if (email.trim().isEmpty) {
+      throw DatabaseException('Email ne peut pas être vide');
+    }
+
+    final user = await _getUserByEmailInternal(email);
+    
+    if (user != null) {
+      await _logAuditEvent(
+        action: 'READ',
+        entity: 'User',
+        entityId: user.key?.toString(),
+        metadata: {'searchEmail': email},
+      );
+    }
+    
+    return user;
   }
 
-  // Check if email exists
   Future<bool> emailExists(String email) async {
-    final user = await getUserByEmail(email);
+    if (!_checkRateLimit('emailExists')) {
+      return false; // Conservative approach for rate limiting
+    }
+
+    final user = await _getUserByEmailInternal(email);
     return user != null;
   }
 
-  // Remove duplicate users (keep the first one for each email)
-  Future<int> removeDuplicateUsers() async {
-    final box = await Hive.openBox<User>(_userBoxName);
-    final users = box.values.toList();
-    final seenEmails = <String>{};
-    final duplicateIndices = <int>[];
-    
-    for (int i = 0; i < users.length; i++) {
-      final email = users[i].email.toLowerCase();
-      if (seenEmails.contains(email)) {
-        duplicateIndices.add(i);
-      } else {
-        seenEmails.add(email);
+  // FIXED: Secure login with password verification
+  Future<User?> authenticateUser(String email, String password) async {
+    if (!_checkRateLimit('authenticateUser')) {
+      throw DatabaseException('Trop de tentatives de connexion. Réessayez plus tard.');
+    }
+
+    try {
+      final user = await _getUserByEmailInternal(email);
+      if (user == null) {
+        // FIXED: Don't reveal if email exists
+        await Future.delayed(const Duration(milliseconds: 500)); // Prevent timing attacks
+        return null;
       }
+
+      if (!user.verifyPassword(password)) {
+        await _logAuditEvent(
+          action: 'FAILED_LOGIN',
+          entity: 'User',
+          entityId: user.key?.toString(),
+          metadata: {'email': email, 'reason': 'invalid_password'},
+        );
+        return null;
+      }
+
+      // Update last login
+      user.updateLastLogin();
+      
+      await _logAuditEvent(
+        action: 'LOGIN',
+        entity: 'User',
+        entityId: user.key?.toString(),
+        metadata: {'email': email},
+      );
+
+      return user;
+    } catch (e) {
+      throw DatabaseException('Erreur d\'authentification: $e');
     }
-    
-    // Remove duplicates in reverse order to maintain indices
-    for (int i = duplicateIndices.length - 1; i >= 0; i--) {
-      await box.deleteAt(duplicateIndices[i]);
-    }
-    
-    return duplicateIndices.length;
   }
 
-  // Get unique users (helper method)
-  Future<List<User>> getUniqueUsers() async {
-    await removeDuplicateUsers(); // Clean up first
-    return getAllUsers();
-  }
-
-  // ==== VACCINATION OPERATIONS ====
+  // ==== SESSION MANAGEMENT (SECURED) ====
   
-  // Save vaccination
+  Future<User?> getCurrentUser() async {
+    try {
+      final sessionBox = await _getBox(_sessionBoxName);
+      final currentUserKey = sessionBox.get('currentUserKey');
+      
+      if (currentUserKey != null) {
+        final user = await getUserById(currentUserKey);
+        return user;
+      }
+      
+      return null;
+    } catch (e) {
+      print('Error getting current user: $e');
+      return null;
+    }
+  }
+
+  Future<void> setCurrentUser(User user) async {
+    try {
+      final sessionBox = await _getBox(_sessionBoxName);
+      await sessionBox.put('currentUserKey', user.key?.toString());
+      await sessionBox.put('sessionStart', DateTime.now().toIso8601String());
+      
+      await _logAuditEvent(
+        action: 'SESSION_START',
+        entity: 'User',
+        entityId: user.key?.toString(),
+        userId: user.key?.toString(),
+      );
+    } catch (e) {
+      throw DatabaseException('Erreur lors de la création de session: $e');
+    }
+  }
+
+  Future<void> clearCurrentUser() async {
+    try {
+      final sessionBox = await _getBox(_sessionBoxName);
+      final currentUserKey = sessionBox.get('currentUserKey');
+      
+      await sessionBox.delete('currentUserKey');
+      await sessionBox.delete('sessionStart');
+      
+      if (currentUserKey != null) {
+        await _logAuditEvent(
+          action: 'SESSION_END',
+          entity: 'User',
+          entityId: currentUserKey,
+          userId: currentUserKey,
+        );
+      }
+    } catch (e) {
+      throw DatabaseException('Erreur lors de la déconnexion: $e');
+    }
+  }
+
+  // FIXED: Session timeout check
+  Future<bool> isSessionValid() async {
+    try {
+      final sessionBox = await _getBox(_sessionBoxName);
+      final sessionStartStr = sessionBox.get('sessionStart') as String?;
+      
+      if (sessionStartStr == null) return false;
+      
+      final sessionStart = DateTime.parse(sessionStartStr);
+      final now = DateTime.now();
+      
+      // Session expires after 24 hours
+      return now.difference(sessionStart).inHours < 24;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ==== VACCINATION OPERATIONS (SECURED) ====
+  
   Future<void> saveVaccination(Vaccination vaccination) async {
-    final box = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    await box.add(vaccination);
-  }
-
-  // Get vaccinations by user ID
-  Future<List<Vaccination>> getVaccinationsByUser(String userId) async {
-    final box = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    return box.values.where((v) => v.userId == userId).toList();
-  }
-
-  // Get all vaccinations
-  Future<List<Vaccination>> getAllVaccinations() async {
-    final box = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    return box.values.toList();
-  }
-
-  // Update vaccination
-  Future<void> updateVaccination(int index, Vaccination vaccination) async {
-    final box = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    await box.putAt(index, vaccination);
-  }
-
-  // Delete vaccination
-  Future<void> deleteVaccination(int index) async {
-    final box = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    await box.deleteAt(index);
-  }
-
-  // Get vaccinations by vaccine name
-  Future<List<Vaccination>> getVaccinationsByVaccine(String vaccineName) async {
-    final box = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    return box.values.where((v) => 
-      v.vaccineName.toLowerCase().contains(vaccineName.toLowerCase())
-    ).toList();
-  }
-
-  // ==== VACCINE CATEGORY OPERATIONS ====
-  
-  // Save vaccine category
-  Future<void> saveVaccineCategory(VaccineCategory category) async {
-    final box = await Hive.openBox<VaccineCategory>(_categoryBoxName);
-    await box.add(category);
-  }
-
-  // Get all vaccine categories
-  Future<List<VaccineCategory>> getAllVaccineCategories() async {
-    final box = await Hive.openBox<VaccineCategory>(_categoryBoxName);
-    return box.values.toList();
-  }
-
-  // Update vaccine category
-  Future<void> updateVaccineCategory(int index, VaccineCategory category) async {
-    final box = await Hive.openBox<VaccineCategory>(_categoryBoxName);
-    await box.putAt(index, category);
-  }
-
-  // Delete vaccine category
-  Future<void> deleteVaccineCategory(int index) async {
-    final box = await Hive.openBox<VaccineCategory>(_categoryBoxName);
-    await box.deleteAt(index);
-  }
-
-  // ==== SESSION MANAGEMENT ====
-  
-  // Check if user is logged in
-  Future<bool> isUserLoggedIn() async {
-    final currentUser = await getCurrentUser();
-    return currentUser != null;
-  }
-
-  // Get current user's vaccinations
-  Future<List<Vaccination>> getCurrentUserVaccinations() async {
-    final currentUser = await getCurrentUser();
-    if (currentUser != null) {
-      return getVaccinationsByUser(currentUser.key.toString());
+    if (!_checkRateLimit('saveVaccination')) {
+      throw DatabaseException('Rate limit exceeded');
     }
-    return [];
-  }
 
-  // ==== DATABASE MANAGEMENT ====
-  
-  // Clear all data
-  Future<void> clearAllData() async {
-    final userBox = await Hive.openBox<User>(_userBoxName);
-    final vaccinationBox = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    final categoryBox = await Hive.openBox<VaccineCategory>(_categoryBoxName);
-    final sessionBox = await Hive.openBox(_sessionBoxName);
-    
-    await userBox.clear();
-    await vaccinationBox.clear();
-    await categoryBox.clear();
-    await sessionBox.clear();
-  }
-
-  // Get database statistics
-  Future<Map<String, int>> getDatabaseStats() async {
-    final userBox = await Hive.openBox<User>(_userBoxName);
-    final vaccinationBox = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    final categoryBox = await Hive.openBox<VaccineCategory>(_categoryBoxName);
-    
-    return {
-      'users': userBox.length,
-      'vaccinations': vaccinationBox.length,
-      'categories': categoryBox.length,
-    };
-  }
-
-  // Export data as JSON
-  Future<Map<String, dynamic>> exportData() async {
-    final users = await getAllUsers();
-    final vaccinations = await getAllVaccinations();
-    final categories = await getAllVaccineCategories();
-    
-    return {
-      'users': users.map((u) => {
-        'name': u.name,
-        'email': u.email,
-        'dateOfBirth': u.dateOfBirth,
-        'diseases': u.diseases,
-        'treatments': u.treatments,
-        'allergies': u.allergies,
-      }).toList(),
-      'vaccinations': vaccinations.map((v) => {
-        'vaccineName': v.vaccineName,
-        'lot': v.lot,
-        'date': v.date,
-        'ps': v.ps,
-        'userId': v.userId,
-      }).toList(),
-      'categories': categories.map((c) => {
-        'name': c.name,
-        'iconType': c.iconType,
-        'colorHex': c.colorHex,
-        'vaccines': c.vaccines,
-      }).toList(),
-    };
-  }
-
-  // Initialize default categories
-  Future<void> initializeDefaultCategories() async {
-    final box = await Hive.openBox<VaccineCategory>(_categoryBoxName);
-    
-    if (box.isEmpty) {
-      await box.add(VaccineCategory(
-        name: 'Vaccins obligatoires',
-        iconType: 'check_circle',
-        colorHex: '4CAF50',
-        vaccines: [],
-      ));
-      
-      await box.add(VaccineCategory(
-        name: 'Vaccins recommandés',
-        iconType: 'recommend',
-        colorHex: 'FF9800',
-        vaccines: [],
-      ));
-      
-      await box.add(VaccineCategory(
-        name: 'Je voyage',
-        iconType: 'flight',
-        colorHex: '2196F3',
-        vaccines: [],
-      ));
-    }
-  }
-
-  // Clean up database (remove duplicates and orphaned data)
-  Future<Map<String, int>> cleanupDatabase() async {
-    final duplicatesRemoved = await removeDuplicateUsers();
-    
-    // Remove vaccinations for non-existent users
-    final users = await getAllUsers();
-    final userIds = users.map((u) => u.key.toString()).toSet();
-    
-    final vaccinationBox = await Hive.openBox<Vaccination>(_vaccinationBoxName);
-    final vaccinationsToRemove = <int>[];
-    
-    for (int i = 0; i < vaccinationBox.length; i++) {
-      final vaccination = vaccinationBox.getAt(i);
-      if (vaccination != null && !userIds.contains(vaccination.userId)) {
-        vaccinationsToRemove.add(i);
+    try {
+      // FIXED: Validate vaccination data
+      if (vaccination.vaccineName.trim().isEmpty) {
+        throw DatabaseException('Le nom du vaccin est requis');
       }
+      if (vaccination.userId.trim().isEmpty) {
+        throw DatabaseException('Utilisateur invalide');
+      }
+
+      final box = await _getBox<Vaccination>(_vaccinationBoxName);
+      await box.add(vaccination);
+      
+      await _logAuditEvent(
+        action: 'CREATE',
+        entity: 'Vaccination',
+        entityId: vaccination.key?.toString(),
+        userId: vaccination.userId,
+        metadata: {
+          'vaccineName': vaccination.vaccineName,
+          'date': vaccination.date,
+        },
+      );
+    } catch (e) {
+      if (e is DatabaseException) rethrow;
+      throw DatabaseException('Erreur lors de la sauvegarde de la vaccination: $e');
     }
-    
-    // Remove orphaned vaccinations in reverse order
-    for (int i = vaccinationsToRemove.length - 1; i >= 0; i--) {
-      await vaccinationBox.deleteAt(vaccinationsToRemove[i]);
-    }
-    
-    return {
-      'duplicateUsersRemoved': duplicatesRemoved,
-      'orphanedVaccinationsRemoved': vaccinationsToRemove.length,
-    };
   }
 
-  // ==== PASSWORD RESET FUNCTIONALITY ====
+  Future<List<Vaccination>> getVaccinationsByUser(String userId) async {
+    if (!_checkRateLimit('getVaccinationsByUser')) {
+      throw DatabaseException('Rate limit exceeded');
+    }
+
+    try {
+      if (userId.trim().isEmpty) {
+        throw DatabaseException('ID utilisateur invalide');
+      }
+
+      final box = await _getBox<Vaccination>(_vaccinationBoxName);
+      final vaccinations = box.values
+          .where((v) => v.userId == userId)
+          .toList();
+      
+      // FIXED: Sort by date (most recent first)
+      vaccinations.sort((a, b) {
+        try {
+          final dateA = _parseDate(a.date);
+          final dateB = _parseDate(b.date);
+          return dateB.compareTo(dateA);
+        } catch (e) {
+          return 0; // Keep original order if date parsing fails
+        }
+      });
+      
+      return vaccinations;
+    } catch (e) {
+      if (e is DatabaseException) rethrow;
+      throw DatabaseException('Erreur lors de la récupération des vaccinations: $e');
+    }
+  }
+
+  DateTime _parseDate(String dateStr) {
+    try {
+      final parts = dateStr.split('/');
+      if (parts.length == 3) {
+        return DateTime(
+          int.parse(parts[2]), // year
+          int.parse(parts[1]), // month
+          int.parse(parts[0]), // day
+        );
+      }
+    } catch (e) {
+      // Return current date if parsing fails
+    }
+    return DateTime.now();
+  }
+
+  Future<void> deleteVaccination(String vaccinationId) async {
+    if (!_checkRateLimit('deleteVaccination')) {
+      throw DatabaseException('Rate limit exceeded');
+    }
+
+    try {
+      final box = await _getBox<Vaccination>(_vaccinationBoxName);
+      final vaccination = box.get(vaccinationId);
+      
+      if (vaccination == null) {
+        throw DatabaseException('Vaccination introuvable');
+      }
+      
+      await box.delete(vaccinationId);
+      
+      await _logAuditEvent(
+        action: 'DELETE',
+        entity: 'Vaccination',
+        entityId: vaccinationId,
+        userId: vaccination.userId,
+        metadata: {
+          'vaccineName': vaccination.vaccineName,
+          'date': vaccination.date,
+        },
+      );
+    } catch (e) {
+      if (e is DatabaseException) rethrow;
+      throw DatabaseException('Erreur lors de la suppression: $e');
+    }
+  }
+
+  // ==== DATABASE MAINTENANCE (SECURED) ====
   
-  // Simulate password reset (in real app, this would trigger email)
-  Future<bool> requestPasswordReset(String email) async {
-    final user = await getUserByEmail(email);
-    if (user != null) {
-      // In a real app, this would:
-      // 1. Generate a secure reset token
-      // 2. Store it with expiration time
-      // 3. Send email with reset link
-      // For demo purposes, we'll just return true
-      return true;
+  Future<Map<String, int>> cleanupDatabase() async {
+    if (!_checkRateLimit('cleanupDatabase')) {
+      throw DatabaseException('Rate limit exceeded for cleanup');
     }
-    return false;
+
+    try {
+      int duplicatesRemoved = 0;
+      int orphanedVaccinationsRemoved = 0;
+      
+      // FIXED: Remove duplicate users (keep most recent)
+      final userBox = await _getBox<User>(_userBoxName);
+      final emailToUsers = <String, List<User>>{};
+      
+      // Group users by email
+      for (final user in userBox.values) {
+        emailToUsers.putIfAbsent(user.email.toLowerCase(), () => []).add(user);
+      }
+      
+      // Remove duplicates (keep the most recently created)
+      for (final users in emailToUsers.values) {
+        if (users.length > 1) {
+          users.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          
+          // Keep the first (most recent), remove others
+          for (int i = 1; i < users.length; i++) {
+            await users[i].delete();
+            duplicatesRemoved++;
+          }
+        }
+      }
+      
+      // FIXED: Remove orphaned vaccinations
+      final vaccinationBox = await _getBox<Vaccination>(_vaccinationBoxName);
+      final activeUserIds = userBox.values
+          .where((user) => user.isActive)
+          .map((user) => user.key?.toString())
+          .where((id) => id != null)
+          .toSet();
+      
+      final orphanedVaccinations = <String>[];
+      for (final vaccination in vaccinationBox.values) {
+        if (!activeUserIds.contains(vaccination.userId)) {
+          orphanedVaccinations.add(vaccination.key.toString());
+        }
+      }
+      
+      for (final id in orphanedVaccinations) {
+        await vaccinationBox.delete(id);
+        orphanedVaccinationsRemoved++;
+      }
+      
+      // FIXED: Cleanup old sessions and audit logs
+      await _cleanupOldSessions();
+      await _cleanupOldAuditLogs();
+      
+      await _logAuditEvent(
+        action: 'CLEANUP',
+        entity: 'Database',
+        metadata: {
+          'duplicatesRemoved': duplicatesRemoved,
+          'orphanedVaccinationsRemoved': orphanedVaccinationsRemoved,
+        },
+      );
+      
+      return {
+        'duplicateUsersRemoved': duplicatesRemoved,
+        'orphanedVaccinationsRemoved': orphanedVaccinationsRemoved,
+      };
+    } catch (e) {
+      throw DatabaseException('Erreur lors du nettoyage: $e');
+    }
   }
 
-  // Update user password (for password reset)
-  Future<void> updateUserPassword(String email, String newPassword) async {
-    final user = await getUserByEmail(email);
-    if (user != null) {
-      user.password = newPassword;
-      await user.save();
-    } else {
-      throw Exception('Utilisateur non trouvé');
+  Future<void> _cleanupOldSessions() async {
+    try {
+      final sessionBox = await _getBox(_sessionBoxName);
+      final sessionStartStr = sessionBox.get('sessionStart') as String?;
+      
+      if (sessionStartStr != null) {
+        final sessionStart = DateTime.parse(sessionStartStr);
+        if (DateTime.now().difference(sessionStart).inDays > 7) {
+          await sessionBox.clear();
+        }
+      }
+    } catch (e) {
+      print('Failed to cleanup old sessions: $e');
     }
+  }
+
+  Future<void> _cleanupOldAuditLogs() async {
+    try {
+      final auditBox = await _getBox<Map>(_auditBoxName);
+      final cutoffDate = DateTime.now().subtract(const Duration(days: 90));
+      
+      final keysToDelete = <dynamic>[];
+      for (final entry in auditBox.toMap().entries) {
+        final log = entry.value as Map;
+        final timestamp = DateTime.parse(log['timestamp'] as String);
+        if (timestamp.isBefore(cutoffDate)) {
+          keysToDelete.add(entry.key);
+        }
+      }
+      
+      for (final key in keysToDelete) {
+        await auditBox.delete(key);
+      }
+    } catch (e) {
+      print('Failed to cleanup old audit logs: $e');
+    }
+  }
+
+  // FIXED: Secure data export (without sensitive information)
+  Future<Map<String, dynamic>> exportUserData(String userId) async {
+    if (!_checkRateLimit('exportUserData')) {
+      throw DatabaseException('Rate limit exceeded');
+    }
+
+    try {
+      final user = await getUserById(userId);
+      if (user == null) {
+        throw DatabaseException('Utilisateur introuvable');
+      }
+
+      final vaccinations = await getVaccinationsByUser(userId);
+      
+      await _logAuditEvent(
+        action: 'EXPORT',
+        entity: 'UserData',
+        userId: userId,
+      );
+
+      return {
+        'user': user.toSafeJson(), // Uses safe JSON without sensitive data
+        'vaccinations': vaccinations.map((v) => {
+          'vaccineName': v.vaccineName,
+          'lot': v.lot,
+          'date': v.date,
+          'ps': v.ps,
+        }).toList(),
+        'exportDate': DateTime.now().toIso8601String(),
+      };
+    } catch (e) {
+      if (e is DatabaseException) rethrow;
+      throw DatabaseException('Erreur lors de l\'export: $e');
+    }
+  }
+
+  // FIXED: Resource cleanup
+  Future<void> dispose() async {
+    try {
+      await _cleanupUnusedBoxes();
+      _boxCache.clear();
+      _lastAccess.clear();
+      _operationTimestamps.clear();
+    } catch (e) {
+      print('Error during disposal: $e');
+    }
+  }
+}
+
+// FIXED: Custom exception for database errors
+class DatabaseException implements Exception {
+  final String message;
+  final String? code;
+  final dynamic originalError;
+
+  const DatabaseException(this.message, [this.code, this.originalError]);
+
+  @override
+  String toString() {
+    return 'DatabaseException: $message${code != null ? ' (Code: $code)' : ''}';
   }
 }

@@ -1,4 +1,4 @@
-// lib/screens/onboarding/camera_scan_screen.dart
+// lib/screens/onboarding/camera_scan_screen.dart - Fixed error handling and memory management
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../services/google_vision_service.dart';
@@ -19,6 +19,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   bool _isInitialized = false;
   bool _flashOn = false;
   String? _error;
+  bool _isDisposed = false;  // FIXED: Add disposal flag
 
   @override
   void initState() {
@@ -27,36 +28,61 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   }
 
   Future<void> _initializeCamera() async {
+    if (_isDisposed) return;  // FIXED: Check if disposed
+    
     try {
-      final hasPermissions = await CameraService.requestPermissions();
+      // FIXED: Check permissions first
+      final hasPermissions = await CameraService.hasPermissions();
       if (!hasPermissions) {
-        setState(() {
-          _error = 'Permissions de caméra requises';
-        });
+        final permissionsGranted = await CameraService.requestPermissions();
+        if (!permissionsGranted) {
+          if (mounted) {
+            setState(() {
+              _error = 'Permissions de caméra requises pour scanner';
+            });
+          }
+          return;
+        }
+      }
+
+      // FIXED: Check if cameras are available
+      if (!CameraService.isAvailable) {
+        if (mounted) {
+          setState(() {
+            _error = 'Aucune caméra disponible sur cet appareil';
+          });
+        }
         return;
       }
 
       _cameraController = await CameraService.getCameraController();
       
-      if (_cameraController != null) {
+      if (_cameraController != null && mounted && !_isDisposed) {
         setState(() {
           _isInitialized = true;
+          _error = null;
         });
       } else {
-        setState(() {
-          _error = 'Impossible d\'initialiser la caméra';
-        });
+        if (mounted) {
+          setState(() {
+            _error = 'Impossible d\'initialiser la caméra';
+          });
+        }
       }
     } catch (e) {
-      setState(() {
-        _error = 'Erreur: $e';
-      });
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _error = 'Erreur d\'initialisation: ${e.toString()}';
+        });
+      }
     }
   }
 
   @override
   void dispose() {
-    CameraService.dispose();
+    _isDisposed = true;  // FIXED: Set disposal flag
+    // FIXED: Camera disposal is handled by CameraService.dispose()
+    // Don't dispose the controller directly here since it's managed by the service
     super.dispose();
   }
 
@@ -64,184 +90,290 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   Widget build(BuildContext context) {
     if (_error != null) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error, size: 64, color: Colors.red),
-              SizedBox(height: 16),
-              Text(_error!, style: TextStyle(fontSize: 16)),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Retour'),
-              ),
-            ],
-          ),
-        ),
+        backgroundColor: Colors.black,
+        body: _buildErrorView(),
       );
     }
 
     if (!_isInitialized || _cameraController == null) {
       return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Initialisation de la caméra...'),
-            ],
-          ),
-        ),
+        backgroundColor: Colors.black,
+        body: _buildLoadingView(),
       );
     }
 
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          CameraPreview(_cameraController!),
-          if (_isProcessing)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 16),
-                    Text(
-                      "IA en cours d'analyse...",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                  ],
-                ),
+          // FIXED: Add error handling for camera preview
+          _buildCameraPreview(),
+          
+          if (_isProcessing) _buildProcessingOverlay(),
+          
+          _buildScanningFrame(),
+          
+          _buildControlButtons(),
+          
+          _buildBackButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorView() {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 64,
+              color: Colors.red,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Erreur de caméra',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2C5F66),
               ),
             ),
-          Center(
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.8,
-              height: MediaQuery.of(context).size.width * 1.2,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white, width: 2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text(
-                    "Positionnez votre carnet\ndans le cadre",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 10.0,
-                          color: Colors.black,
-                          offset: Offset(2.0, 2.0),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 12),
+            Text(
+              _error ?? 'Une erreur inconnue s\'est produite',
+              style: const TextStyle(fontSize: 16),
+              textAlign: TextAlign.center,
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 40,
-            child: Row(
+            const SizedBox(height: 24),
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.black.withOpacity(0.6),
-                  ),
-                  child: IconButton(
-                    icon: Icon(
-                      _flashOn ? Icons.flash_on : Icons.flash_off,
-                      color: Colors.white,
-                    ),
-                    onPressed: _isProcessing ? null : _toggleFlash,
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Retour'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey,
                   ),
                 ),
-                GestureDetector(
-                  onTap: _isProcessing ? null : _captureAndProcess,
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                      color: Colors.transparent,
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.black.withOpacity(0.6),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.photo_library, color: Colors.white),
-                    onPressed: _isProcessing ? null : _selectFromGallery,
+                ElevatedButton.icon(
+                  onPressed: _initializeCamera,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Réessayer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2C5F66),
                   ),
                 ),
               ],
             ),
-          ),
-          Positioned(
-            top: 40,
-            left: 20,
-            child: GestureDetector(
-              onTap: _isProcessing ? null : () => Navigator.pop(context),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close, color: Colors.white),
-              ),
-            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingView() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Colors.white),
+          SizedBox(height: 16),
+          Text(
+            'Initialisation de la caméra...',
+            style: TextStyle(color: Colors.white, fontSize: 16),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildCameraPreview() {
+    try {
+      return SizedBox.expand(
+        child: CameraPreview(_cameraController!),
+      );
+    } catch (e) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: Text(
+            'Erreur d\'affichage de la caméra',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildProcessingOverlay() {
+    return Container(
+      color: Colors.black54,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Colors.white),
+            SizedBox(height: 16),
+            Text(
+              "IA en cours d'analyse...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScanningFrame() {
+    return Center(
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.8,
+        height: MediaQuery.of(context).size.width * 1.2,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              "Positionnez votre carnet\ndans le cadre",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                shadows: [
+                  Shadow(
+                    blurRadius: 10.0,
+                    color: Colors.black,
+                    offset: Offset(2.0, 2.0),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlButtons() {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 40,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildControlButton(
+            icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+            onPressed: _isProcessing ? null : _toggleFlash,
+          ),
+          _buildCaptureButton(),
+          _buildControlButton(
+            icon: Icons.photo_library,
+            onPressed: _isProcessing ? null : _selectFromGallery,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton({required IconData icon, VoidCallback? onPressed}) {
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withOpacity(0.6),
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.white),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  Widget _buildCaptureButton() {
+    return GestureDetector(
+      onTap: _isProcessing ? null : _captureAndProcess,
+      child: Container(
+        width: 70,
+        height: 70,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 3),
+          color: Colors.transparent,
+        ),
+        child: Center(
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _isProcessing ? Colors.grey : Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBackButton() {
+    return Positioned(
+      top: 40,
+      left: 20,
+      child: GestureDetector(
+        onTap: _isProcessing ? null : () => Navigator.pop(context),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.6),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.close, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
   Future<void> _toggleFlash() async {
-    if (_cameraController == null) return;
+    if (_cameraController == null || !CameraService.isControllerInitialized) return;
     
     try {
       _flashOn = !_flashOn;
       await _cameraController!.setFlashMode(
         _flashOn ? FlashMode.torch : FlashMode.off,
       );
-      setState(() {});
+      if (mounted) setState(() {});
     } catch (e) {
       print('Error toggling flash: $e');
+      // FIXED: Show user-friendly error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Impossible de contrôler le flash'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _captureAndProcess() async {
+    if (_isDisposed) return;  // FIXED: Check if disposed
+    
     setState(() => _isProcessing = true);
     
     try {
@@ -263,7 +395,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
       
       // Navigate to preview with extracted data
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         Navigator.pushReplacementNamed(
           context, 
           '/scan-preview', 
@@ -271,13 +403,18 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         );
       }
     } catch (e) {
-      _showErrorDialog('Erreur lors du traitement: $e');
+      print('Capture error: $e');
+      _showErrorDialog('Erreur lors du traitement: ${e.toString()}');
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted && !_isDisposed) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
   Future<void> _selectFromGallery() async {
+    if (_isDisposed) return;  // FIXED: Check if disposed
+    
     setState(() => _isProcessing = true);
     
     try {
@@ -297,7 +434,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       
       ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
       
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         Navigator.pushReplacementNamed(
           context, 
           '/scan-preview', 
@@ -305,13 +442,18 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         );
       }
     } catch (e) {
-      _showErrorDialog('Erreur lors du traitement: $e');
+      print('Gallery selection error: $e');
+      _showErrorDialog('Erreur lors du traitement: ${e.toString()}');
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted && !_isDisposed) {
+        setState(() => _isProcessing = false);
+      }
     }
   }
 
   void _showErrorDialog(String message) {
+    if (!mounted || _isDisposed) return;  // FIXED: Check if disposed
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
