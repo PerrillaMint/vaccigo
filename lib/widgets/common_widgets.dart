@@ -1,4 +1,4 @@
-// lib/widgets/common_widgets.dart
+// lib/widgets/common_widgets.dart - FIXED LinearGradient issue
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
@@ -36,7 +36,15 @@ class AppPageHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient.scale(0.1),
+        // FIXED: Use proper gradient with opacity instead of .scale()
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.secondary.withOpacity(0.1),
+            AppColors.light.withOpacity(0.1),
+          ],
+        ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: AppColors.secondary.withOpacity(0.3),

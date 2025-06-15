@@ -1,4 +1,4 @@
-// lib/screens/onboarding/scan_preview_screen.dart - Updated with new design
+// lib/screens/onboarding/scan_preview_screen.dart - FIXED layout issues and state management
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -22,6 +22,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   bool _isSaving = false;
   bool _userExists = false;
   ScannedVaccinationData? _scannedData;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -33,44 +34,65 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     _checkUserExists();
   }
 
-  Future<void> _checkUserExists() async {
-    try {
-      final currentUser = await _databaseService.getCurrentUser();
-      setState(() {
-        _userExists = currentUser != null;
-      });
-    } catch (e) {
-      setState(() {
-        _userExists = false;
-      });
-    }
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     
-    final arguments = ModalRoute.of(context)?.settings.arguments;
-    
-    if (arguments is ScannedVaccinationData) {
-      // From camera scan
-      _scannedData = arguments;
-      _vaccineController.text = arguments.vaccineName;
-      _lotController.text = arguments.lot;
-      _dateController.text = arguments.date;
-      _psController.text = arguments.ps;
-    } else if (arguments is Map<String, String>) {
-      // From manual entry
-      _vaccineController.text = arguments['vaccine'] ?? '';
-      _lotController.text = arguments['lot'] ?? '';
-      _dateController.text = arguments['date'] ?? '';
-      _psController.text = arguments['ps'] ?? '';
-    } else {
-      // Demo data if no arguments
-      _vaccineController.text = 'Pfizer-BioNTech COVID-19';
-      _lotController.text = 'EW0553';
-      _dateController.text = '15/03/2025';
-      _psController.text = 'Dr. Martin';
+    if (_isLoading) {
+      _loadArgumentData();
+    }
+  }
+
+  void _loadArgumentData() {
+    try {
+      final arguments = ModalRoute.of(context)?.settings.arguments;
+      
+      if (arguments is ScannedVaccinationData) {
+        // From camera scan
+        _scannedData = arguments;
+        _vaccineController.text = arguments.vaccineName;
+        _lotController.text = arguments.lot;
+        _dateController.text = arguments.date;
+        _psController.text = arguments.ps;
+      } else if (arguments is Map<String, String>) {
+        // From manual entry
+        _vaccineController.text = arguments['vaccine'] ?? '';
+        _lotController.text = arguments['lot'] ?? '';
+        _dateController.text = arguments['date'] ?? '';
+        _psController.text = arguments['ps'] ?? '';
+      } else {
+        // Demo data if no arguments
+        _vaccineController.text = 'Pfizer-BioNTech COVID-19';
+        _lotController.text = 'EW0553';
+        _dateController.text = '15/03/2025';
+        _psController.text = 'Dr. Martin';
+      }
+      
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading argument data: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _checkUserExists() async {
+    try {
+      final currentUser = await _databaseService.getCurrentUser();
+      if (mounted) {
+        setState(() {
+          _userExists = currentUser != null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _userExists = false;
+        });
+      }
     }
   }
 
@@ -85,6 +107,17 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primary,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const CustomAppBar(
@@ -92,21 +125,20 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       ),
       body: Column(
         children: [
+          // Header
+          _buildHeader(),
+          
+          // Content
           Expanded(
-            child: SafePageWrapper(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header section
-                  _buildHeaderSection(),
-                  
-                  const SizedBox(height: AppSpacing.xl),
-                  
-                  // Vaccination preview card
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: _buildVaccinationPreview(),
-                    ),
-                  ),
+                  _buildVaccinationPreviewCard(),
+                  const SizedBox(height: 24),
+                  _buildDataCompletenessCard(),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -119,53 +151,173 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     );
   }
 
-  Widget _buildHeaderSection() {
-    return AppPageHeader(
-      title: 'Informations détectées',
-      subtitle: _userExists 
-          ? 'Vérifiez les informations avant d\'ajouter à votre carnet'
-          : 'Vérifiez et créez votre compte pour sauvegarder',
-      icon: Icons.preview,
-      trailing: Column(
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.secondary.withOpacity(0.1),
+            AppColors.light.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.secondary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
         children: [
-          // Confidence indicator
-          if (_scannedData != null && _scannedData!.confidence > 0.0)
-            StatusBadge(
-              text: 'Confiance: ${(_scannedData!.confidence * 100).toStringAsFixed(1)}%',
-              type: _scannedData!.confidence > 0.8 
-                  ? StatusType.success 
-                  : StatusType.warning,
-              icon: _scannedData!.confidence > 0.8 
-                  ? Icons.check_circle 
-                  : Icons.warning,
+          const Icon(
+            Icons.preview,
+            size: 32,
+            color: AppColors.primary,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Informations détectées',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
             ),
-          
-          const SizedBox(height: AppSpacing.sm),
-          
-          // User status indicator
-          StatusBadge(
-            text: _userExists ? 'Utilisateur connecté' : 'Compte requis',
-            type: _userExists ? StatusType.success : StatusType.info,
-            icon: _userExists ? Icons.person : Icons.person_add,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _userExists 
+                ? 'Vérifiez les informations avant d\'ajouter à votre carnet'
+                : 'Vérifiez et créez votre compte pour sauvegarder',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Confidence indicator
+              if (_scannedData != null && _scannedData!.confidence > 0.0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8, 
+                    vertical: 4
+                  ),
+                  decoration: BoxDecoration(
+                    color: _scannedData!.confidence > 0.8 
+                        ? AppColors.success.withOpacity(0.1)
+                        : AppColors.warning.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _scannedData!.confidence > 0.8 
+                          ? AppColors.success
+                          : AppColors.warning,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _scannedData!.confidence > 0.8 
+                            ? Icons.check_circle 
+                            : Icons.warning,
+                        size: 12,
+                        color: _scannedData!.confidence > 0.8 
+                            ? AppColors.success 
+                            : AppColors.warning,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Confiance: ${(_scannedData!.confidence * 100).toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: _scannedData!.confidence > 0.8 
+                              ? AppColors.success 
+                              : AppColors.warning,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
+              const SizedBox(width: 8),
+              
+              // User status indicator
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8, 
+                  vertical: 4
+                ),
+                decoration: BoxDecoration(
+                  color: _userExists 
+                      ? AppColors.success.withOpacity(0.1)
+                      : AppColors.info.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _userExists ? AppColors.success : AppColors.info,
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _userExists ? Icons.person : Icons.person_add,
+                      size: 12,
+                      color: _userExists ? AppColors.success : AppColors.info,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _userExists ? 'Utilisateur connecté' : 'Compte requis',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _userExists ? AppColors.success : AppColors.info,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVaccinationPreview() {
-    return AppCard(
+  Widget _buildVaccinationPreviewCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.accent.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
               ),
             ),
             child: const Row(
@@ -175,7 +327,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                   color: AppColors.accent,
                   size: 20,
                 ),
-                SizedBox(width: AppSpacing.sm),
+                SizedBox(width: 8),
                 Text(
                   'Aperçu de votre vaccination',
                   style: TextStyle(
@@ -188,42 +340,47 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             ),
           ),
           
-          const SizedBox(height: AppSpacing.lg),
-          
-          // Vaccination details
-          _buildVaccinationDetail(
-            icon: Icons.vaccines,
-            label: 'Vaccin',
-            value: _vaccineController.text.isEmpty ? 'Non détecté' : _vaccineController.text,
-            isEmpty: _vaccineController.text.isEmpty,
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildVaccinationDetail(
+                  icon: Icons.vaccines,
+                  label: 'Vaccin',
+                  value: _vaccineController.text.isEmpty 
+                      ? 'Non détecté' 
+                      : _vaccineController.text,
+                  isEmpty: _vaccineController.text.isEmpty,
+                ),
+                _buildVaccinationDetail(
+                  icon: Icons.confirmation_number,
+                  label: 'Lot',
+                  value: _lotController.text.isEmpty 
+                      ? 'Non détecté' 
+                      : _lotController.text,
+                  isEmpty: _lotController.text.isEmpty,
+                ),
+                _buildVaccinationDetail(
+                  icon: Icons.calendar_today,
+                  label: 'Date',
+                  value: _dateController.text.isEmpty 
+                      ? 'Non détecté' 
+                      : _dateController.text,
+                  isEmpty: _dateController.text.isEmpty,
+                ),
+                _buildVaccinationDetail(
+                  icon: Icons.info_outline,
+                  label: 'Informations supplémentaires',
+                  value: _psController.text.isEmpty 
+                      ? 'Aucune information' 
+                      : _psController.text,
+                  isEmpty: _psController.text.isEmpty,
+                  isOptional: true,
+                ),
+              ],
+            ),
           ),
-          
-          _buildVaccinationDetail(
-            icon: Icons.confirmation_number,
-            label: 'Lot',
-            value: _lotController.text.isEmpty ? 'Non détecté' : _lotController.text,
-            isEmpty: _lotController.text.isEmpty,
-          ),
-          
-          _buildVaccinationDetail(
-            icon: Icons.calendar_today,
-            label: 'Date',
-            value: _dateController.text.isEmpty ? 'Non détecté' : _dateController.text,
-            isEmpty: _dateController.text.isEmpty,
-          ),
-          
-          _buildVaccinationDetail(
-            icon: Icons.info_outline,
-            label: 'Informations supplémentaires',
-            value: _psController.text.isEmpty ? 'Aucune information' : _psController.text,
-            isEmpty: _psController.text.isEmpty,
-            isOptional: true,
-          ),
-          
-          const SizedBox(height: AppSpacing.lg),
-          
-          // Data completeness indicator
-          _buildCompletenessIndicator(),
         ],
       ),
     );
@@ -237,8 +394,8 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     bool isOptional = false,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isEmpty && !isOptional 
             ? AppColors.warning.withOpacity(0.05)
@@ -254,7 +411,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(AppSpacing.sm),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: isEmpty && !isOptional 
                   ? AppColors.warning.withOpacity(0.1)
@@ -270,7 +427,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             ),
           ),
           
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: 12),
           
           Expanded(
             child: Column(
@@ -280,14 +437,14 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                   children: [
                     Text(
                       label,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
                       ),
                     ),
                     if (!isOptional && isEmpty) ...[
-                      const SizedBox(width: AppSpacing.xs),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.warning,
                         size: 12,
@@ -296,7 +453,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                     ],
                   ],
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: 4),
                 Text(
                   value,
                   style: TextStyle(
@@ -316,8 +473,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     );
   }
 
-  Widget _buildCompletenessIndicator() {
-    final requiredFields = [_vaccineController.text, _lotController.text, _dateController.text];
+  Widget _buildDataCompletenessCard() {
+    final requiredFields = [
+      _vaccineController.text, 
+      _lotController.text, 
+      _dateController.text
+    ];
     final completedFields = requiredFields.where((field) => field.isNotEmpty).length;
     final completeness = completedFields / requiredFields.length;
     
@@ -340,10 +501,11 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: indicatorColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
+        color: indicatorColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: indicatorColor.withOpacity(0.3),
           width: 1,
@@ -356,7 +518,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             color: indicatorColor,
             size: 20,
           ),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,7 +531,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                     color: indicatorColor,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: 4),
                 Text(
                   '$completedFields sur ${requiredFields.length} champs requis complétés',
                   style: TextStyle(
@@ -387,7 +549,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
   Widget _buildActionButtons() {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
@@ -399,39 +561,63 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Main validation button
-          AppButton(
-            text: _userExists 
-                ? 'Ajouter à mon carnet'
-                : 'Créer un compte et sauvegarder',
-            icon: _userExists ? Icons.add : Icons.person_add,
-            isLoading: _isSaving,
-            onPressed: _saveVaccination,
-            width: double.infinity,
+          ElevatedButton.icon(
+            onPressed: _isSaving ? null : _saveVaccination,
+            icon: _isSaving 
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Icon(_userExists ? Icons.add : Icons.person_add),
+            label: Text(
+              _isSaving 
+                  ? 'Sauvegarde...'
+                  : _userExists 
+                      ? 'Ajouter à mon carnet'
+                      : 'Créer un compte et sauvegarder'
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
           
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 12),
           
           // Secondary action buttons
           Row(
             children: [
               Expanded(
-                child: AppButton(
-                  text: 'Rescanner',
-                  icon: Icons.camera_alt,
-                  style: AppButtonStyle.secondary,
+                child: OutlinedButton.icon(
                   onPressed: _isSaving ? null : () {
                     Navigator.pushReplacementNamed(context, '/camera-scan');
                   },
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Rescanner'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: 12),
               Expanded(
-                child: AppButton(
-                  text: 'Corriger',
-                  icon: Icons.edit,
-                  style: AppButtonStyle.secondary,
+                child: OutlinedButton.icon(
                   onPressed: _isSaving ? null : () {
                     Navigator.pushReplacementNamed(
                       context, 
@@ -444,6 +630,16 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                       },
                     );
                   },
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Corriger'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.secondary,
+                    side: const BorderSide(color: AppColors.secondary),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -454,6 +650,8 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   }
 
   Future<void> _saveVaccination() async {
+    if (_isSaving) return;
+    
     setState(() => _isSaving = true);
 
     try {
@@ -469,7 +667,9 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           vaccineName: _vaccineController.text.trim(),
           lot: _lotController.text.trim(),
           date: _dateController.text.trim(),
-          ps: _psController.text.trim().isEmpty ? 'Information non fournie' : _psController.text.trim(),
+          ps: _psController.text.trim().isEmpty 
+              ? 'Information non fournie' 
+              : _psController.text.trim(),
           userId: currentUser.key.toString(),
         );
 
@@ -481,7 +681,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               content: Row(
                 children: [
                   Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: AppSpacing.sm),
+                  SizedBox(width: 8),
                   Text('Vaccination ajoutée à votre carnet!'),
                 ],
               ),
@@ -497,7 +697,9 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           'vaccineName': _vaccineController.text.trim(),
           'lot': _lotController.text.trim(),
           'date': _dateController.text.trim(),
-          'ps': _psController.text.trim().isEmpty ? 'Information non fournie' : _psController.text.trim(),
+          'ps': _psController.text.trim().isEmpty 
+              ? 'Information non fournie' 
+              : _psController.text.trim(),
         };
 
         if (mounted) {
@@ -522,7 +724,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             content: Row(
               children: [
                 const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: 8),
                 Expanded(child: Text('Erreur: $e')),
               ],
             ),

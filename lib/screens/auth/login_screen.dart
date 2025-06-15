@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart - Updated with new design system
+// lib/screens/auth/login_screen.dart - FIXED layout constraints and improved design
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -68,123 +68,276 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
-      body: SafePageWrapper(
-        hasScrollView: true,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              child: Column(
-                children: [
-                  // Header
-                  AppPageHeader(
-                    title: 'Sélectionnez votre profil',
-                    subtitle: 'Choisissez un utilisateur et entrez votre mot de passe',
-                    icon: Icons.person,
-                  ),
-                  
-                  const SizedBox(height: AppSpacing.xl),
-                  
-                  // Content
-                  Container(
-                    constraints: BoxConstraints(
-                      minHeight: constraints.maxHeight * 0.4,
-                    ),
-                    child: _isLoading 
-                        ? const AppLoading(message: 'Chargement des utilisateurs...')
-                        : _users.isEmpty 
-                            ? _buildEmptyState()
-                            : _buildUsersList(),
-                  ),
-                  
-                  // Password field
-                  if (_selectedUser != null) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    _buildPasswordField(),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header - Fixed
+            _buildHeader(),
+            
+            // Content - Scrollable
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Main content
+                    if (_isLoading)
+                      _buildLoadingState()
+                    else if (_users.isEmpty)
+                      _buildEmptyState()
+                    else
+                      _buildUsersList(),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Password field
+                    if (_selectedUser != null)
+                      _buildPasswordField(),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Action buttons
+                    _buildActionButtons(),
+                    
+                    const SizedBox(height: 24),
                   ],
-                  
-                  const SizedBox(height: AppSpacing.lg),
-                  
-                  // Bottom buttons
-                  _buildBottomButtons(),
-                ],
+                ),
               ),
-            );
-          },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.secondary.withOpacity(0.1),
+            AppColors.light.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.secondary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.person,
+              size: 28,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Sélectionnez votre profil',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Choisissez un utilisateur et entrez votre mot de passe',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Container(
+      height: 200,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            SizedBox(height: 16),
+            Text(
+              'Chargement des utilisateurs...',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return EmptyState(
-      title: 'Aucun utilisateur trouvé',
-      message: 'Créez votre premier profil utilisateur pour commencer',
-      icon: Icons.person_add,
-      action: AppButton(
-        text: 'Créer un utilisateur',
-        icon: Icons.add,
-        onPressed: () => Navigator.pushNamed(context, '/user-creation'),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.person_add,
+            size: 64,
+            color: AppColors.textMuted,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Aucun utilisateur trouvé',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Créez votre premier profil utilisateur pour commencer',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/user-creation'),
+            icon: const Icon(Icons.add),
+            label: const Text('Créer un utilisateur'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildUsersList() {
-    return AppCard(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Utilisateurs existants',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Text(
+                  'Utilisateurs existants',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              StatusBadge(
-                text: '${_users.length} utilisateur(s)',
-                type: StatusType.info,
-              ),
-            ],
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.info.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    '${_users.length} utilisateur(s)',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.info,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           
-          const SizedBox(height: AppSpacing.md),
-          
           // Users list
-          Container(
-            constraints: const BoxConstraints(maxHeight: 300),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _users.length,
-              separatorBuilder: (context, index) => Divider(
-                color: AppColors.primary.withOpacity(0.1),
-                height: 1,
-              ),
-              itemBuilder: (context, index) {
-                final user = _users[index];
-                final isSelected = _selectedUser == user;
-                
-                return ListTile(
+          Column(
+            children: List.generate(_users.length, (index) {
+              final user = _users[index];
+              final isSelected = _selectedUser == user;
+              
+              return Container(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected 
+                      ? AppColors.secondary.withOpacity(0.1)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected 
+                        ? AppColors.secondary
+                        : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, 
-                    vertical: AppSpacing.sm
+                    horizontal: 16, 
+                    vertical: 8
                   ),
                   leading: Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: isSelected 
                           ? AppColors.secondary.withOpacity(0.2)
                           : AppColors.secondary.withOpacity(0.1),
                       shape: BoxShape.circle,
-                      border: isSelected 
-                          ? Border.all(color: AppColors.secondary, width: 2)
-                          : null,
                     ),
                     child: Icon(
                       Icons.person,
@@ -226,64 +379,146 @@ class _LoginScreenState extends State<LoginScreen> {
                       _isPasswordWrong = false;
                     });
                   },
-                );
-              },
-            ),
+                ),
+              );
+            }),
           ),
+          
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
   Widget _buildPasswordField() {
-    return AppTextField(
-      label: 'Mot de passe',
-      hint: 'Entrez votre mot de passe',
-      controller: _passwordController,
-      prefixIcon: Icons.lock,
-      isPassword: true,
-      isRequired: true,
-      enabled: !_isLoggingIn,
-      validator: (value) {
-        if (_isPasswordWrong) return 'Mot de passe incorrect';
-        return null;
-      },
-      onChanged: (value) {
-        if (_isPasswordWrong) {
-          setState(() => _isPasswordWrong = false);
-        }
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(
+              Icons.lock,
+              size: 20,
+              color: AppColors.primary,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Mot de passe',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primary,
+              ),
+            ),
+            Text(
+              ' *',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          enabled: !_isLoggingIn,
+          decoration: InputDecoration(
+            hintText: 'Entrez votre mot de passe',
+            filled: true,
+            fillColor: AppColors.surface,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                color: AppColors.textMuted,
+              ),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            errorText: _isPasswordWrong ? 'Mot de passe incorrect' : null,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          onChanged: (value) {
+            if (_isPasswordWrong) {
+              setState(() => _isPasswordWrong = false);
+            }
+          },
+        ),
+      ],
     );
   }
 
-  Widget _buildBottomButtons() {
+  Widget _buildActionButtons() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_selectedUser != null) ...[
-          AppButton(
-            text: _isLoggingIn 
-                ? 'Connexion...'
-                : 'Se connecter avec ${_selectedUser!.name}',
-            icon: _isLoggingIn ? null : Icons.login,
-            isLoading: _isLoggingIn,
-            onPressed: _loginWithSelectedUser,
-            width: double.infinity,
+          ElevatedButton.icon(
+            onPressed: _isLoggingIn ? null : _loginWithSelectedUser,
+            icon: _isLoggingIn 
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.login),
+            label: Text(
+              _isLoggingIn 
+                  ? 'Connexion...'
+                  : 'Se connecter avec ${_selectedUser!.name}',
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          AppButton(
-            text: 'Mot de passe oublié?',
-            style: AppButtonStyle.text,
+          const SizedBox(height: 12),
+          TextButton(
             onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/forgot-password'),
+            child: const Text('Mot de passe oublié?'),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 12),
         ],
         
-        AppButton(
-          text: 'Créer un nouvel utilisateur',
-          icon: Icons.person_add,
-          style: AppButtonStyle.secondary,
+        OutlinedButton.icon(
           onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/user-creation'),
-          width: double.infinity,
+          icon: const Icon(Icons.person_add),
+          label: const Text('Créer un nouvel utilisateur'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.secondary,
+            side: const BorderSide(color: AppColors.secondary),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         ),
       ],
     );
@@ -319,7 +554,7 @@ class _LoginScreenState extends State<LoginScreen> {
             content: Row(
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: 8),
                 Text('Connecté en tant que ${_selectedUser!.name}'),
               ],
             ),
@@ -394,7 +629,7 @@ class _LoginScreenState extends State<LoginScreen> {
             content: Row(
               children: [
                 const Icon(Icons.cleaning_services, color: Colors.white),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: 8),
                 Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
               ],
             ),
@@ -417,7 +652,7 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Row(
             children: [
               const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: AppSpacing.sm),
+              const SizedBox(width: 8),
               Expanded(child: Text(message)),
             ],
           ),

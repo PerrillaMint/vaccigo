@@ -1,4 +1,4 @@
-// lib/screens/auth/forgot_password_screen.dart - Updated with new design
+// lib/screens/auth/forgot_password_screen.dart - FIXED layout constraints
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -32,44 +32,31 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       ),
       body: SafePageWrapper(
         hasScrollView: true,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  // Header section
-                  AppPageHeader(
-                    title: 'Réinitialiser votre mot de passe',
-                    subtitle: _emailSent
-                        ? 'Un email de réinitialisation a été envoyé'
-                        : 'Entrez votre email pour réinitialiser votre mot de passe',
-                    icon: Icons.lock_reset,
-                  ),
-                  
-                  SizedBox(height: constraints.maxHeight * 0.1),
-                  
-                  // Content
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (!_emailSent) ...[
-                        _buildEmailForm(),
-                      ] else ...[
-                        _buildSuccessState(),
-                      ],
-                    ],
-                  ),
-                  
-                  // Info section
-                  _buildInfoSection(),
-                ],
-              ),
-            );
-          },
+        child: Column(
+          children: [
+            // Header section
+            AppPageHeader(
+              title: 'Réinitialiser votre mot de passe',
+              subtitle: _emailSent
+                  ? 'Un email de réinitialisation a été envoyé'
+                  : 'Entrez votre email pour réinitialiser votre mot de passe',
+              icon: Icons.lock_reset,
+            ),
+            
+            const SizedBox(height: AppSpacing.xl),
+            
+            // Content
+            if (!_emailSent) ...[
+              _buildEmailForm(),
+            ] else ...[
+              _buildSuccessState(),
+            ],
+            
+            const SizedBox(height: AppSpacing.xl),
+            
+            // Info section
+            _buildInfoSection(),
+          ],
         ),
       ),
     );

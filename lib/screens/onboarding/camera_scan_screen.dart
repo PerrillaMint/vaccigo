@@ -1,9 +1,10 @@
-// lib/screens/onboarding/camera_scan_screen.dart - Fixed error handling and memory management
+// lib/screens/onboarding/camera_scan_screen.dart - FIXED memory management and error handling
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../services/google_vision_service.dart';
 import '../../services/camera_service.dart';
 import '../../models/scanned_vaccination_data.dart';
+import '../../constants/app_colors.dart';
 
 class CameraScanScreen extends StatefulWidget {
   const CameraScanScreen({Key? key}) : super(key: key);
@@ -12,31 +13,68 @@ class CameraScanScreen extends StatefulWidget {
   State<CameraScanScreen> createState() => _CameraScanScreenState();
 }
 
-class _CameraScanScreenState extends State<CameraScanScreen> {
+class _CameraScanScreenState extends State<CameraScanScreen>
+    with WidgetsBindingObserver {
   final GoogleVisionService _visionService = GoogleVisionService();
   CameraController? _cameraController;
   bool _isProcessing = false;
   bool _isInitialized = false;
   bool _flashOn = false;
   String? _error;
-  bool _isDisposed = false;  // FIXED: Add disposal flag
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeCamera();
   }
 
-  Future<void> _initializeCamera() async {
-    if (_isDisposed) return;  // FIXED: Check if disposed
+  @override
+  void dispose() {
+    _isDisposed = true;
+    WidgetsBinding.instance.removeObserver(this);
+    _disposeCamera();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
     
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    switch (state) {
+      case AppLifecycleState.inactive:
+        _disposeCamera();
+        break;
+      case AppLifecycleState.resumed:
+        if (!_isDisposed) {
+          _initializeCamera();
+        }
+        break;
+      default:
+        break;
+    }
+  }
+
+  Future<void> _initializeCamera() async {
+    if (_isDisposed) return;
+    
+    setState(() {
+      _error = null;
+      _isInitialized = false;
+    });
+
     try {
-      // FIXED: Check permissions first
+      // Check permissions first
       final hasPermissions = await CameraService.hasPermissions();
       if (!hasPermissions) {
         final permissionsGranted = await CameraService.requestPermissions();
         if (!permissionsGranted) {
-          if (mounted) {
+          if (mounted && !_isDisposed) {
             setState(() {
               _error = 'Permissions de caméra requises pour scanner';
             });
@@ -45,9 +83,9 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         }
       }
 
-      // FIXED: Check if cameras are available
+      // Check if cameras are available
       if (!CameraService.isAvailable) {
-        if (mounted) {
+        if (mounted && !_isDisposed) {
           setState(() {
             _error = 'Aucune caméra disponible sur cet appareil';
           });
@@ -55,6 +93,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         return;
       }
 
+      // Get camera controller
       _cameraController = await CameraService.getCameraController();
       
       if (_cameraController != null && mounted && !_isDisposed) {
@@ -62,59 +101,56 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
           _isInitialized = true;
           _error = null;
         });
-      } else {
-        if (mounted) {
-          setState(() {
-            _error = 'Impossible d\'initialiser la caméra';
-          });
-        }
       }
     } catch (e) {
       if (mounted && !_isDisposed) {
         setState(() {
           _error = 'Erreur d\'initialisation: ${e.toString()}';
+          _isInitialized = false;
         });
       }
     }
   }
 
-  @override
-  void dispose() {
-    _isDisposed = true;  // FIXED: Set disposal flag
-    // FIXED: Camera disposal is handled by CameraService.dispose()
-    // Don't dispose the controller directly here since it's managed by the service
-    super.dispose();
+  Future<void> _disposeCamera() async {
+    if (_cameraController != null) {
+      try {
+        await _cameraController!.dispose();
+      } catch (e) {
+        debugPrint('Error disposing camera: $e');
+      } finally {
+        _cameraController = null;
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: _buildErrorView(),
-      );
+      return _buildErrorView();
     }
 
     if (!_isInitialized || _cameraController == null) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: _buildLoadingView(),
-      );
+      return _buildLoadingView();
     }
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // FIXED: Add error handling for camera preview
+          // Camera preview
           _buildCameraPreview(),
           
+          // Processing overlay
           if (_isProcessing) _buildProcessingOverlay(),
           
+          // Scanning frame
           _buildScanningFrame(),
           
+          // Control buttons
           _buildControlButtons(),
           
+          // Back button
           _buildBackButton(),
         ],
       ),
@@ -122,58 +158,82 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   }
 
   Widget _buildErrorView() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.all(24),
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Erreur de caméra',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2C5F66),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Colors.red,
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              const Text(
+                'Erreur de caméra',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _error ?? 'Une erreur inconnue s\'est produite',
+                style: const TextStyle(fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Retour'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: _initializeCamera,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Réessayer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingView() {
+    return const Scaffold(
+      backgroundColor: Colors.black,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Colors.white),
+            SizedBox(height: 16),
             Text(
-              _error ?? 'Une erreur inconnue s\'est produite',
-              style: const TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('Retour'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey,
-                  ),
-                ),
-                ElevatedButton.icon(
-                  onPressed: _initializeCamera,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Réessayer'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2C5F66),
-                  ),
-                ),
-              ],
+              'Initialisation de la caméra...',
+              style: TextStyle(color: Colors.white, fontSize: 16),
             ),
           ],
         ),
@@ -181,38 +241,26 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     );
   }
 
-  Widget _buildLoadingView() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: Colors.white),
-          SizedBox(height: 16),
-          Text(
-            'Initialisation de la caméra...',
-            style: TextStyle(color: Colors.white, fontSize: 16),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildCameraPreview() {
-    try {
-      return SizedBox.expand(
-        child: CameraPreview(_cameraController!),
-      );
-    } catch (e) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return Container(
         color: Colors.black,
         child: const Center(
-          child: Text(
-            'Erreur d\'affichage de la caméra',
-            style: TextStyle(color: Colors.white),
-          ),
+          child: CircularProgressIndicator(color: Colors.white),
         ),
       );
     }
+
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _cameraController!.value.previewSize!.height,
+          height: _cameraController!.value.previewSize!.width,
+          child: CameraPreview(_cameraController!),
+        ),
+      ),
+    );
   }
 
   Widget _buildProcessingOverlay() {
@@ -290,7 +338,10 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     );
   }
 
-  Widget _buildControlButton({required IconData icon, VoidCallback? onPressed}) {
+  Widget _buildControlButton({
+    required IconData icon, 
+    VoidCallback? onPressed
+  }) {
     return Container(
       width: 50,
       height: 50,
@@ -332,7 +383,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
 
   Widget _buildBackButton() {
     return Positioned(
-      top: 40,
+      top: MediaQuery.of(context).padding.top + 10,
       left: 20,
       child: GestureDetector(
         onTap: _isProcessing ? null : () => Navigator.pop(context),
@@ -349,7 +400,9 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   }
 
   Future<void> _toggleFlash() async {
-    if (_cameraController == null || !CameraService.isControllerInitialized) return;
+    if (_cameraController == null || !CameraService.isControllerInitialized) {
+      return;
+    }
     
     try {
       _flashOn = !_flashOn;
@@ -358,8 +411,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       );
       if (mounted) setState(() {});
     } catch (e) {
-      print('Error toggling flash: $e');
-      // FIXED: Show user-friendly error
+      debugPrint('Error toggling flash: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -372,7 +424,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   }
 
   Future<void> _captureAndProcess() async {
-    if (_isDisposed) return;  // FIXED: Check if disposed
+    if (_isDisposed || _isProcessing) return;
     
     setState(() => _isProcessing = true);
     
@@ -403,7 +455,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         );
       }
     } catch (e) {
-      print('Capture error: $e');
+      debugPrint('Capture error: $e');
       _showErrorDialog('Erreur lors du traitement: ${e.toString()}');
     } finally {
       if (mounted && !_isDisposed) {
@@ -413,7 +465,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   }
 
   Future<void> _selectFromGallery() async {
-    if (_isDisposed) return;  // FIXED: Check if disposed
+    if (_isDisposed || _isProcessing) return;
     
     setState(() => _isProcessing = true);
     
@@ -442,7 +494,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
         );
       }
     } catch (e) {
-      print('Gallery selection error: $e');
+      debugPrint('Gallery selection error: $e');
       _showErrorDialog('Erreur lors du traitement: ${e.toString()}');
     } finally {
       if (mounted && !_isDisposed) {
@@ -452,7 +504,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
   }
 
   void _showErrorDialog(String message) {
-    if (!mounted || _isDisposed) return;  // FIXED: Check if disposed
+    if (!mounted || _isDisposed) return;
     
     showDialog(
       context: context,

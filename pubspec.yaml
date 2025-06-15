@@ -11,6 +11,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  
+  # ADD THIS: For date picker localization
+  flutter_localizations:
+    sdk: flutter
 
   # Core dependencies
   cupertino_icons: ^1.0.6
@@ -35,8 +39,14 @@ dependencies:
   # Machine Learning
   google_ml_kit: ^0.16.3
   
-  # FIXED: Added missing crypto dependency
+  # Security
   crypto: ^3.0.3
+  
+  # ADD THESE: Missing utilities causing some issues
+  collection: ^1.17.1
+  meta: ^1.9.1
+  intl: ^0.18.1
+  path: ^1.8.3
 
 dev_dependencies:
   flutter_test:
