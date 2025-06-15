@@ -1,5 +1,7 @@
-// lib/screens/profile/user_creation_screen.dart - UPDATED to use User.create factory
+// lib/screens/profile/user_creation_screen.dart - Updated with new design
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
 
@@ -18,7 +20,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   final _dateOfBirthController = TextEditingController();
   final _databaseService = DatabaseService();
   bool _isLoading = false;
-  bool _obscurePassword = true;
   bool _isCheckingEmail = false;
   Map<String, String>? _pendingVaccinationData;
 
@@ -44,144 +45,57 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Créer un compte',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: CustomAppBar(
+        title: 'Créer un compte',
         actions: [
           IconButton(
-            icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
+            icon: const Icon(Icons.cleaning_services, color: AppColors.secondary),
             onPressed: _showCleanupDialog,
             tooltip: 'Nettoyer les doublons',
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeaderSection(),
-                      
-                      const SizedBox(height: 30),
-                      
-                      _buildFormFields(),
-                      
-                      const SizedBox(height: 100),
-                    ],
-                  ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SafePageWrapper(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Header
+                    AppPageHeader(
+                      title: 'Création d\'utilisateur',
+                      subtitle: _pendingVaccinationData != null 
+                          ? 'Créez votre compte pour sauvegarder votre vaccination'
+                          : 'Créez votre profil pour accéder à votre carnet',
+                      icon: Icons.person_add,
+                      trailing: _pendingVaccinationData != null 
+                          ? StatusBadge(
+                              text: 'Vaccination ${_pendingVaccinationData!['vaccineName']?.split(' ').first ?? 'données'} en attente',
+                              type: StatusType.success,
+                              icon: Icons.vaccines,
+                            )
+                          : null,
+                    ),
+                    
+                    const SizedBox(height: AppSpacing.xl),
+                    
+                    // Form fields
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: _buildFormFields(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            
-            _buildBottomButton(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF7DD3D8).withOpacity(0.1),
-            const Color(0xFF7DD3D8).withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2C5F66).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: const Icon(
-              Icons.person_add,
-              size: 32,
-              color: Color(0xFF2C5F66),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Création d\'utilisateur',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C5F66),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _pendingVaccinationData != null 
-                ? 'Créez votre compte pour sauvegarder votre vaccination'
-                : 'Créez votre profil pour accéder à votre carnet',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF2C5F66).withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
           ),
           
-          if (_pendingVaccinationData != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: const Color(0xFF4CAF50).withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.vaccines,
-                    color: Color(0xFF4CAF50),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Vaccination ${_pendingVaccinationData!['vaccineName']?.split(' ').first ?? 'données'} en attente',
-                    style: const TextStyle(
-                      color: Color(0xFF4CAF50),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          // Bottom button
+          _buildBottomButton(),
         ],
       ),
     );
@@ -190,159 +104,167 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   Widget _buildFormFields() {
     return Column(
       children: [
-        _buildTextField(
+        AppTextField(
           label: 'Nom complet',
           hint: 'Votre nom et prénom',
           controller: _nameController,
-          icon: Icons.person,
+          prefixIcon: Icons.person,
+          isRequired: true,
           keyboardType: TextInputType.name,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Veuillez entrer votre nom complet';
+            }
+            if (value.trim().length < 2) {
+              return 'Le nom doit contenir au moins 2 caractères';
+            }
+            return null;
+          },
         ),
-        const SizedBox(height: 20),
-        _buildTextField(
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        AppTextField(
           label: 'Adresse email',
           hint: 'votre@email.com',
           controller: _emailController,
-          icon: Icons.email,
+          prefixIcon: Icons.email,
+          isRequired: true,
           keyboardType: TextInputType.emailAddress,
-          isEmail: true,
+          onChanged: _checkEmailAvailability,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Veuillez entrer votre adresse email';
+            }
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              return 'Format d\'email invalide';
+            }
+            return null;
+          },
         ),
-        const SizedBox(height: 20),
-        _buildTextField(
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        AppTextField(
           label: 'Mot de passe',
-          hint: 'Minimum 6 caractères',
+          hint: 'Minimum 8 caractères',
           controller: _passwordController,
-          icon: Icons.lock,
+          prefixIcon: Icons.lock,
           isPassword: true,
+          isRequired: true,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Veuillez entrer un mot de passe';
+            }
+            if (value.length < 8) {
+              return 'Le mot de passe doit contenir au moins 8 caractères';
+            }
+            if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+              return 'Le mot de passe doit contenir au moins une lettre';
+            }
+            if (!RegExp(r'[0-9]').hasMatch(value)) {
+              return 'Le mot de passe doit contenir au moins un chiffre';
+            }
+            return null;
+          },
         ),
-        const SizedBox(height: 20),
-        _buildTextField(
-          label: 'Date de naissance',
-          hint: 'JJ/MM/AAAA',
-          controller: _dateOfBirthController,
-          icon: Icons.cake,
-          keyboardType: TextInputType.datetime,
-        ),
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        _buildDateField(),
+        
+        const SizedBox(height: AppSpacing.xxl),
       ],
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    required IconData icon,
-    bool isPassword = false,
-    bool isEmail = false,
-    TextInputType? keyboardType,
-  }) {
+  Widget _buildDateField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(
-              icon,
+            const Icon(
+              Icons.cake,
               size: 20,
-              color: const Color(0xFF2C5F66),
+              color: AppColors.primary,
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
+            const SizedBox(width: AppSpacing.sm),
+            const Text(
+              'Date de naissance',
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF2C5F66),
+                color: AppColors.primary,
+              ),
+            ),
+            const Text(
+              ' *',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
+        const SizedBox(height: AppSpacing.sm),
+        TextFormField(
+          controller: _dateOfBirthController,
+          readOnly: true,
+          decoration: const InputDecoration(
+            hintText: 'JJ/MM/AAAA',
+            suffixIcon: Icon(Icons.calendar_today, color: AppColors.textMuted),
           ),
-          child: TextFormField(
-            controller: controller,
-            obscureText: isPassword && _obscurePassword,
-            keyboardType: keyboardType,
-            onChanged: isEmail ? (value) => _checkEmailAvailability(value) : null,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF7DD3D8), width: 2),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.red, width: 2),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-              suffixIcon: isPassword
-                  ? IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off,
-                        color: Colors.grey[400],
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    )
-                  : isEmail && _isCheckingEmail
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : null,
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Veuillez entrer ${label.toLowerCase()}';
-              }
-              if (isEmail && !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                return 'Email invalide';
-              }
-              if (isPassword && value.length < 6) {
-                return 'Le mot de passe doit contenir au moins 6 caractères';
-              }
-              return null;
-            },
-          ),
+          onTap: _selectDate,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Veuillez sélectionner votre date de naissance';
+            }
+            return null;
+          },
         ),
       ],
     );
   }
 
-  Widget _buildBottomButton(BuildContext context) {
+  Future<void> _selectDate() async {
+    final DateTime now = DateTime.now();
+    final DateTime firstDate = DateTime(1900);
+    final DateTime lastDate = now;
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 25, now.month, now.day),
+      firstDate: firstDate,
+      lastDate: lastDate,
+      locale: const Locale('fr', 'FR'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: AppColors.onPrimary,
+              surface: AppColors.surface,
+              onSurface: AppColors.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final formattedDate = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+      _dateOfBirthController.text = formattedDate;
+    }
+  }
+
+  Widget _buildBottomButton() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -351,36 +273,12 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           ),
         ],
       ),
-      child: SizedBox(
+      child: AppButton(
+        text: 'Créer mon compte',
+        icon: Icons.person_add,
+        isLoading: _isLoading,
+        onPressed: _createUser,
         width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _isLoading ? null : _createUser,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2C5F66),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 5,
-          ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Text(
-                  'Créer mon compte',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-        ),
       ),
     );
   }
@@ -396,19 +294,16 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       final exists = await _databaseService.emailExists(email);
       if (exists && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.warning, color: Colors.white),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text('Cette adresse email est déjà utilisée'),
-                ),
+                Icon(Icons.warning, color: Colors.white),
+                SizedBox(width: AppSpacing.sm),
+                Text('Cette adresse email est déjà utilisée'),
               ],
             ),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
+            backgroundColor: AppColors.warning,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -429,11 +324,10 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           throw Exception('Cette adresse email est déjà utilisée');
         }
 
-        // FIXED: Use User.create factory method instead of main constructor
         final user = User.create(
           name: _nameController.text.trim(),
           email: _emailController.text.trim().toLowerCase(),
-          password: _passwordController.text, // Plain password - will be hashed
+          password: _passwordController.text,
           dateOfBirth: _dateOfBirthController.text.trim(),
         );
 
@@ -441,21 +335,18 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text('Utilisateur créé avec succès!'),
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: AppSpacing.sm),
+                  Text('Utilisateur créé avec succès!'),
                 ],
               ),
-              backgroundColor: const Color(0xFF4CAF50),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              backgroundColor: AppColors.success,
             ),
           );
+          
           Navigator.pushNamed(
             context, 
             '/additional-info', 
@@ -472,15 +363,11 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               content: Row(
                 children: [
                   const Icon(Icons.error, color: Colors.white),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text('Erreur: $e')),
                 ],
               ),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -501,7 +388,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           title: const Text(
             'Nettoyer la base de données',
             style: TextStyle(
-              color: Color(0xFF2C5F66),
+              color: AppColors.primary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -519,8 +406,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
                 _performCleanup();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7DD3D8),
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.secondary,
               ),
               child: const Text('Nettoyer'),
             ),
@@ -539,8 +425,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -549,8 +434,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors du nettoyage: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.error,
           ),
         );
       }

@@ -1,5 +1,7 @@
-// lib/screens/auth/card_selection_screen.dart
+// lib/screens/auth/card_selection_screen.dart - Updated with new design
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 
 class CardSelectionScreen extends StatelessWidget {
   const CardSelectionScreen({Key? key}) : super(key: key);
@@ -7,122 +9,68 @@ class CardSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Vaccigo',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(
+        title: 'Vaccigo',
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height - 200,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            children: [
+              // Header
+              AppPageHeader(
+                title: 'Veuillez choisir votre carnet',
+                subtitle: 'Sélectionnez le type de carnet que vous souhaitez utiliser',
+                icon: Icons.book_outlined,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  const SizedBox(height: 20),
-                  
-                  // Title Section
-                  _buildTitleSection(),
-                  
-                  const SizedBox(height: 60),
-                  
-                  // Cards Section
-                  _buildCardsSection(context),
-                  
-                  const SizedBox(height: 40),
-                  
-                  // Info Section
-                  _buildInfoSection(),
-                  
-                  const SizedBox(height: 20),
-                ],
+              
+              const SizedBox(height: AppSpacing.xxl),
+              
+              // Cards
+              _buildOptionCard(
+                context,
+                title: 'Mes Vaccins',
+                subtitle: 'Gérer mon carnet de vaccination personnel',
+                icon: Icons.vaccines,
+                color: AppColors.success,
+                onTap: () => Navigator.pushNamed(context, '/travel-options'),
               ),
-            ),
+              
+              const SizedBox(height: AppSpacing.lg),
+              
+              _buildOptionCard(
+                context,
+                title: 'Mes Voyages',
+                subtitle: 'Préparer mes voyages à l\'étranger',
+                icon: Icons.flight,
+                color: AppColors.accent,
+                onTap: () {
+                  // Future feature for travel planning
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Fonctionnalité à venir!'),
+                      backgroundColor: AppColors.info,
+                    ),
+                  );
+                },
+              ),
+              
+              const SizedBox(height: AppSpacing.xxl),
+              
+              // Info section
+              _buildInfoSection(),
+              
+              const SizedBox(height: AppSpacing.xl),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTitleSection() {
-    return Column(
-      children: [
-        const Text(
-          'Veuillez choisir',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF2C5F66),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const Text(
-          'votre carnet',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2C5F66),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: 60,
-          height: 4,
-          decoration: BoxDecoration(
-            color: const Color(0xFF7DD3D8),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCardsSection(BuildContext context) {
-    return Column(
-      children: [
-        _buildCardButton(
-          context,
-          title: 'Mes Vaccins',
-          subtitle: 'Gérer mon carnet de vaccination',
-          icon: Icons.vaccines,
-          color: const Color(0xFF4CAF50),
-          onTap: () {
-            Navigator.pushNamed(context, '/travel-options');
-          },
-        ),
-        const SizedBox(height: 20),
-        _buildCardButton(
-          context,
-          title: 'Mes Voyages',
-          subtitle: 'Préparer mes voyages à l\'étranger',
-          icon: Icons.flight,
-          color: const Color(0xFFFFA726),
-          onTap: () {
-            // Navigation for voyages option
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCardButton(
+  Widget _buildOptionCard(
     BuildContext context, {
     required String title,
     required String subtitle,
@@ -132,28 +80,12 @@ class CardSelectionScreen extends StatelessWidget {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: color.withOpacity(0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-          border: Border.all(
-            color: color.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
+      child: AppCard(
         child: Row(
           children: [
+            // Icon container
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(16),
@@ -164,7 +96,10 @@ class CardSelectionScreen extends StatelessWidget {
                 color: color,
               ),
             ),
-            const SizedBox(width: 20),
+            
+            const SizedBox(width: AppSpacing.lg),
+            
+            // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,17 +112,19 @@ class CardSelectionScreen extends StatelessWidget {
                       color: color,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     subtitle,
                     style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
+            
+            // Arrow
             Icon(
               Icons.arrow_forward_ios,
               color: color,
@@ -200,30 +137,26 @@ class CardSelectionScreen extends StatelessWidget {
   }
 
   Widget _buildInfoSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF7DD3D8).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFF7DD3D8).withOpacity(0.3),
-          width: 1,
-        ),
+    return AppCard(
+      backgroundColor: AppColors.secondary.withOpacity(0.1),
+      border: Border.all(
+        color: AppColors.secondary.withOpacity(0.3),
+        width: 1,
       ),
       child: Row(
         children: [
           const Icon(
             Icons.info_outline,
-            color: Color(0xFF2C5F66),
+            color: AppColors.primary,
             size: 24,
           ),
-          const SizedBox(width: 12),
-          Expanded(
+          const SizedBox(width: AppSpacing.md),
+          const Expanded(
             child: Text(
-              'Votre carnet numérique vous accompagne partout',
+              'Votre carnet numérique vous accompagne partout et reste accessible même hors ligne',
               style: TextStyle(
                 fontSize: 14,
-                color: const Color(0xFF2C5F66).withOpacity(0.8),
+                color: AppColors.primary,
               ),
             ),
           ),

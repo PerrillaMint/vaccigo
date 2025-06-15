@@ -1,5 +1,7 @@
-// lib/screens/onboarding/travel_options_screen.dart
+// lib/screens/onboarding/travel_options_screen.dart - Updated with new design
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 
 class TravelOptionsScreen extends StatelessWidget {
   const TravelOptionsScreen({Key? key}) : super(key: key);
@@ -7,286 +9,266 @@ class TravelOptionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Vaccinations',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(
+        title: 'Vaccinations',
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
+      body: SafePageWrapper(
+        hasScrollView: true,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return ConstrainedBox(
               constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height - 200,
+                minHeight: constraints.maxHeight,
               ),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  const SizedBox(height: 20),
+                  // Header
+                  AppPageHeader(
+                    title: 'Vous souhaitez voyager à l\'étranger',
+                    subtitle: 'Numérisez votre carnet de vaccination international avec notre technologie IA',
+                    icon: Icons.flight_takeoff,
+                  ),
                   
-                  // Title Section
-                  _buildTitleSection(),
+                  SizedBox(height: constraints.maxHeight * 0.05),
                   
-                  const SizedBox(height: 40),
+                  // AI Info section
+                  _buildAIInfoSection(),
                   
-                  // Info Section
-                  _buildInfoSection(),
+                  SizedBox(height: constraints.maxHeight * 0.08),
                   
-                  const SizedBox(height: 40),
+                  // Action buttons
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AppButton(
+                        text: 'Scanner avec IA',
+                        icon: Icons.camera_alt,
+                        onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
+                        width: double.infinity,
+                      ),
+                      
+                      const SizedBox(height: AppSpacing.lg),
+                      
+                      AppButton(
+                        text: 'Saisie manuelle',
+                        icon: Icons.edit,
+                        style: AppButtonStyle.secondary,
+                        onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
+                        width: double.infinity,
+                      ),
+                    ],
+                  ),
                   
-                  // Action Buttons
-                  _buildActionButtons(context),
+                  SizedBox(height: constraints.maxHeight * 0.05),
                   
-                  const SizedBox(height: 40),
-                  
-                  // Features List
-                  _buildFeaturesList(),
-                  
-                  const SizedBox(height: 20),
+                  // Features section
+                  _buildFeaturesSection(),
                 ],
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildTitleSection() {
-    return Column(
-      children: [
-        const Text(
-          'Vous souhaitez',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF2C5F66),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const Text(
-          'voyager à l\'étranger',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2C5F66),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const Text(
-          'avec votre carnet',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF2C5F66),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const Text(
-          'numérique international',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF7DD3D8),
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInfoSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF7DD3D8).withOpacity(0.1),
-            const Color(0xFF7DD3D8).withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFF7DD3D8).withOpacity(0.3),
-          width: 1,
-        ),
+  Widget _buildAIInfoSection() {
+    return AppCard(
+      backgroundColor: AppColors.accent.withOpacity(0.05),
+      border: Border.all(
+        color: AppColors.accent.withOpacity(0.3),
+        width: 1,
       ),
       child: Column(
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF7DD3D8).withOpacity(0.2),
+                  color: AppColors.accent.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.auto_awesome,
-                  color: Color(0xFF2C5F66),
-                  size: 24,
+                  color: AppColors.accent,
+                  size: 28,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
               const Expanded(
                 child: Text(
-                  'Scan avec IA',
+                  'Scan intelligent avec IA',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C5F66),
+                    color: AppColors.primary,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          
+          const SizedBox(height: AppSpacing.md),
+          
           const Text(
-            'Notre technologie d\'intelligence artificielle analyse automatiquement votre carnet de vaccination papier.',
+            'Notre technologie d\'intelligence artificielle analyse automatiquement votre carnet de vaccination papier et extrait toutes les informations importantes en quelques secondes.',
             style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF666666),
-              height: 1.4,
+              color: AppColors.textSecondary,
+              height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'Vous pouvez également faire une saisie manuelle',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF999999),
-              fontStyle: FontStyle.italic,
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
             ),
-            textAlign: TextAlign.center,
+            decoration: BoxDecoration(
+              color: AppColors.info.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lightbulb_outline,
+                  color: AppColors.info,
+                  size: 16,
+                ),
+                SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Vous pouvez également faire une saisie manuelle',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.info,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActionButtons(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, '/camera-scan');
-            },
-            icon: const Icon(Icons.camera_alt, size: 20),
-            label: const Text(
-              'Scanner avec IA',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2C5F66),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-              elevation: 5,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, '/manual-entry');
-            },
-            icon: const Icon(Icons.edit, size: 20),
-            label: const Text(
-              'Saisie manuelle',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF2C5F66),
-              side: const BorderSide(color: Color(0xFF2C5F66), width: 2),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeaturesList() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+  Widget _buildFeaturesSection() {
+    final features = [
+      _FeatureItem(
+        icon: Icons.camera_alt,
+        title: 'Scan intelligent par IA',
+        description: 'Reconnaissance automatique des informations',
       ),
+      _FeatureItem(
+        icon: Icons.security,
+        title: 'Données sécurisées',
+        description: 'Chiffrement et protection de vos données',
+      ),
+      _FeatureItem(
+        icon: Icons.cloud_sync,
+        title: 'Synchronisation',
+        description: 'Accès depuis tous vos appareils',
+      ),
+      _FeatureItem(
+        icon: Icons.offline_pin,
+        title: 'Accès hors ligne',
+        description: 'Disponible même sans connexion',
+      ),
+    ];
+
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Fonctionnalités:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C5F66),
-            ),
+          const Row(
+            children: [
+              Icon(
+                Icons.star_outline,
+                color: AppColors.secondary,
+                size: 20,
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Fonctionnalités',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildFeatureItem(Icons.camera_alt, 'Scan intelligent par IA'),
-          _buildFeatureItem(Icons.security, 'Données sécurisées'),
-          _buildFeatureItem(Icons.cloud_sync, 'Synchronisation automatique'),
-          _buildFeatureItem(Icons.offline_pin, 'Accès hors ligne'),
+          
+          const SizedBox(height: AppSpacing.lg),
+          
+          ...features.map((feature) => _buildFeatureItem(feature)),
         ],
       ),
     );
   }
 
-  Widget _buildFeatureItem(IconData icon, String text) {
+  Widget _buildFeatureItem(_FeatureItem feature) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: const Color(0xFF7DD3D8),
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              feature.icon,
+              size: 20,
+              color: AppColors.secondary,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Color(0xFF666666),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  feature.title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  feature.description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _FeatureItem {
+  final IconData icon;
+  final String title;
+  final String description;
+
+  _FeatureItem({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
 }

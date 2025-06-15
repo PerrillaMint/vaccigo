@@ -1,3 +1,4 @@
+// android/app/build.gradle - Minimal fix for SDK warnings
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
@@ -27,7 +28,7 @@ apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     namespace "com.example.vaccigo"
-    compileSdkVersion 33
+    compileSdkVersion 34  // Updated from 33 to 34
     ndkVersion flutter.ndkVersion
 
     compileOptions {
@@ -46,7 +47,7 @@ android {
     defaultConfig {
         applicationId "com.example.vaccigo"
         minSdkVersion 21
-        targetSdkVersion 33
+        targetSdkVersion 34  // Updated from 33 to 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }

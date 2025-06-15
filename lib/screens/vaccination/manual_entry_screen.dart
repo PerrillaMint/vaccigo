@@ -1,5 +1,7 @@
-// lib/screens/vaccination/manual_entry_screen.dart - Updated
+// lib/screens/vaccination/manual_entry_screen.dart - Updated with new design
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 
 class ManualEntryScreen extends StatefulWidget {
   const ManualEntryScreen({Key? key}) : super(key: key);
@@ -43,98 +45,41 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Saisie manuelle',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(
+        title: 'Saisie manuelle',
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Scrollable content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header Section
-                      _buildHeaderSection(),
-                      
-                      const SizedBox(height: 30),
-                      
-                      // Form Fields
-                      _buildFormFields(),
-                      
-                      const SizedBox(height: 100), // Extra space for button
-                    ],
-                  ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SafePageWrapper(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Header
+                    AppPageHeader(
+                      title: 'Saisie manuelle',
+                      subtitle: 'Entrez ou modifiez les informations de vaccination',
+                      icon: Icons.edit_note,
+                    ),
+                    
+                    const SizedBox(height: AppSpacing.xl),
+                    
+                    // Form fields
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: _buildFormFields(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            
-            // Fixed bottom button
-            _buildBottomButton(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF7DD3D8).withOpacity(0.1),
-            const Color(0xFF7DD3D8).withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.edit_note,
-            size: 48,
-            color: Color(0xFF2C5F66),
           ),
-          const SizedBox(height: 16),
-          const Text(
-            'Saisie manuelle',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C5F66),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Entrez ou modifiez les informations de vaccination',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF2C5F66).withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
+          
+          // Bottom button
+          _buildBottomButton(),
         ],
       ),
     );
@@ -143,143 +88,248 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   Widget _buildFormFields() {
     return Column(
       children: [
-        _buildTextField(
+        // Vaccine name field
+        AppTextField(
           label: 'Nom du vaccin',
-          hint: 'Ex: Pfizer-BioNTech COVID-19',
+          hint: 'Ex: Pfizer-BioNTech COVID-19, Grippe...',
           controller: _vaccinController,
-          icon: Icons.vaccines,
-          required: true,
+          prefixIcon: Icons.vaccines,
+          isRequired: true,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Le nom du vaccin est requis';
+            }
+            return null;
+          },
         ),
-        const SizedBox(height: 20),
-        _buildTextField(
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        // Lot number field
+        AppTextField(
           label: 'Numéro de lot',
-          hint: 'Ex: EW0553',
+          hint: 'Ex: EW0553, FJ8529...',
           controller: _lotController,
-          icon: Icons.confirmation_number,
-          required: true,
+          prefixIcon: Icons.confirmation_number,
+          isRequired: true,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Le numéro de lot est requis';
+            }
+            return null;
+          },
         ),
-        const SizedBox(height: 20),
-        _buildTextField(
-          label: 'Date de vaccination',
-          hint: 'JJ/MM/AAAA',
-          controller: _dateController,
-          icon: Icons.calendar_today,
-          keyboardType: TextInputType.datetime,
-          required: true,
-        ),
-        const SizedBox(height: 20),
-        _buildTextField(
-          label: 'Informations supplémentaires (PS)',
-          hint: 'Ex: Dose de rappel, Première dose...',
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        // Date field
+        _buildDateField(),
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        // Additional info field
+        AppTextField(
+          label: 'Informations supplémentaires',
+          hint: 'Ex: Dose de rappel, Première dose, Pharmacien...',
           controller: _psController,
-          icon: Icons.info_outline,
+          prefixIcon: Icons.info_outline,
           maxLines: 3,
-          required: false,
+          isRequired: false,
         ),
+        
+        const SizedBox(height: AppSpacing.xl),
+        
+        // Help section
+        _buildHelpSection(),
+        
+        const SizedBox(height: AppSpacing.xxl),
       ],
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    required IconData icon,
-    int maxLines = 1,
-    TextInputType? keyboardType,
-    bool required = false,
-  }) {
+  Widget _buildDateField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(
-              icon,
+            const Icon(
+              Icons.calendar_today,
               size: 20,
-              color: const Color(0xFF2C5F66),
+              color: AppColors.primary,
             ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
+            const SizedBox(width: AppSpacing.sm),
+            const Text(
+              'Date de vaccination',
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF2C5F66),
+                color: AppColors.primary,
               ),
             ),
-            if (required)
-              const Text(
-                ' *',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+            const Text(
+              ' *',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
+            ),
           ],
         ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
+        const SizedBox(height: AppSpacing.sm),
+        TextFormField(
+          controller: _dateController,
+          readOnly: true,
+          decoration: const InputDecoration(
+            hintText: 'JJ/MM/AAAA',
+            suffixIcon: Icon(Icons.calendar_today, color: AppColors.textMuted),
           ),
-          child: TextFormField(
-            controller: controller,
-            maxLines: maxLines,
-            keyboardType: keyboardType,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF7DD3D8), width: 2),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.red, width: 2),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-            ),
-            validator: (value) {
-              if (required && (value == null || value.trim().isEmpty)) {
-                return 'Ce champ est requis';
-              }
-              return null;
-            },
-          ),
+          onTap: _selectDate,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'La date de vaccination est requise';
+            }
+            return null;
+          },
         ),
       ],
     );
   }
 
-  Widget _buildBottomButton(BuildContext context) {
+  Future<void> _selectDate() async {
+    final DateTime now = DateTime.now();
+    final DateTime firstDate = DateTime(1900);
+    final DateTime lastDate = now;
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      locale: const Locale('fr', 'FR'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: AppColors.onPrimary,
+              surface: AppColors.surface,
+              onSurface: AppColors.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final formattedDate = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+      _dateController.text = formattedDate;
+    }
+  }
+
+  Widget _buildHelpSection() {
+    return AppCard(
+      backgroundColor: AppColors.info.withOpacity(0.05),
+      border: Border.all(
+        color: AppColors.info.withOpacity(0.3),
+        width: 1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.help_outline,
+                color: AppColors.info,
+                size: 20,
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Aide à la saisie',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          _buildHelpItem(
+            'Nom du vaccin',
+            'Inscrivez le nom exact tel qu\'il apparaît sur votre carnet',
+          ),
+          _buildHelpItem(
+            'Numéro de lot',
+            'Série de chiffres et lettres unique pour chaque vaccin',
+          ),
+          _buildHelpItem(
+            'Date',
+            'Date à laquelle vous avez reçu la vaccination',
+          ),
+          _buildHelpItem(
+            'Informations supplémentaires',
+            'Dose (1ère, 2ème, rappel), nom du professionnel de santé, etc.',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHelpItem(String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              color: AppColors.info,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomButton() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -288,42 +338,38 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              // Navigate to scan preview with the manually entered data
-              Navigator.pushReplacementNamed(
-                context, 
-                '/scan-preview',
-                arguments: {
-                  'vaccine': _vaccinController.text.trim(),
-                  'lot': _lotController.text.trim(),
-                  'date': _dateController.text.trim(),
-                  'ps': _psController.text.trim(),
-                },
-              );
-            }
-          },
-          icon: const Icon(Icons.preview, size: 20),
-          label: const Text(
-            'Aperçu des informations',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+      child: Column(
+        children: [
+          AppButton(
+            text: 'Aperçu des informations',
+            icon: Icons.preview,
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                Navigator.pushReplacementNamed(
+                  context, 
+                  '/scan-preview',
+                  arguments: {
+                    'vaccine': _vaccinController.text.trim(),
+                    'lot': _lotController.text.trim(),
+                    'date': _dateController.text.trim(),
+                    'ps': _psController.text.trim(),
+                  },
+                );
+              }
+            },
+            width: double.infinity,
           ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2C5F66),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 5,
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          AppButton(
+            text: 'Scanner avec IA',
+            icon: Icons.camera_alt,
+            style: AppButtonStyle.secondary,
+            onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
+            width: double.infinity,
           ),
-        ),
+        ],
       ),
     );
   }

@@ -1,5 +1,7 @@
-// lib/screens/auth/login_screen.dart - FIXED with proper password verification
+// lib/screens/auth/login_screen.dart - Updated with new design system
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
 
@@ -37,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     
     try {
-      final users = await _databaseService.getAllUsers(); // FIXED: Use proper method name
+      final users = await _databaseService.getAllUsers();
       if (mounted) {
         setState(() {
           _users = users;
@@ -55,237 +57,140 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Connexion',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: CustomAppBar(
+        title: 'Connexion',
         actions: [
           IconButton(
-            icon: const Icon(Icons.cleaning_services, color: Color(0xFF7DD3D8)),
+            icon: const Icon(Icons.cleaning_services, color: AppColors.secondary),
             onPressed: _isLoading ? null : _showCleanupDialog,
             tooltip: 'Nettoyer les doublons',
           ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              _buildHeaderSection(),
-              const SizedBox(height: 32),
-              Expanded(
-                child: _isLoading 
-                    ? const Center(child: CircularProgressIndicator())
-                    : _users.isEmpty 
-                        ? _buildEmptyState()
-                        : _buildUsersList(),
+      body: SafePageWrapper(
+        hasScrollView: true,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
               ),
-              _buildPasswordField(),
-              _buildBottomButtons(),
-            ],
-          ),
+              child: Column(
+                children: [
+                  // Header
+                  AppPageHeader(
+                    title: 'Sélectionnez votre profil',
+                    subtitle: 'Choisissez un utilisateur et entrez votre mot de passe',
+                    icon: Icons.person,
+                  ),
+                  
+                  const SizedBox(height: AppSpacing.xl),
+                  
+                  // Content
+                  Container(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight * 0.4,
+                    ),
+                    child: _isLoading 
+                        ? const AppLoading(message: 'Chargement des utilisateurs...')
+                        : _users.isEmpty 
+                            ? _buildEmptyState()
+                            : _buildUsersList(),
+                  ),
+                  
+                  // Password field
+                  if (_selectedUser != null) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    _buildPasswordField(),
+                  ],
+                  
+                  const SizedBox(height: AppSpacing.lg),
+                  
+                  // Bottom buttons
+                  _buildBottomButtons(),
+                ],
+              ),
+            );
+          },
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF7DD3D8).withOpacity(0.1),
-            const Color(0xFF7DD3D8).withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2C5F66).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: const Icon(
-              Icons.person,
-              size: 32,
-              color: Color(0xFF2C5F66),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Sélectionnez votre profil',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C5F66),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Choisissez un utilisateur et entrez votre mot de passe',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF2C5F66).withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.person_add,
-            size: 64,
-            color: Color(0xFF7DD3D8),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Aucun utilisateur trouvé',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C5F66),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Créez votre premier profil utilisateur',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF666666),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pushNamed(context, '/user-creation');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Créer un utilisateur'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2C5F66),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
+    return EmptyState(
+      title: 'Aucun utilisateur trouvé',
+      message: 'Créez votre premier profil utilisateur pour commencer',
+      icon: Icons.person_add,
+      action: AppButton(
+        text: 'Créer un utilisateur',
+        icon: Icons.add,
+        onPressed: () => Navigator.pushNamed(context, '/user-creation'),
       ),
     );
   }
 
   Widget _buildUsersList() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                const Text(
-                  'Utilisateurs existants',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C5F66),
-                  ),
+          Row(
+            children: [
+              const Text(
+                'Utilisateurs existants',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
                 ),
-                const Spacer(),
-                Text(
-                  '${_users.length} utilisateur(s)',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: const Color(0xFF2C5F66).withOpacity(0.6),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              StatusBadge(
+                text: '${_users.length} utilisateur(s)',
+                type: StatusType.info,
+              ),
+            ],
           ),
-          Expanded(
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          // Users list
+          Container(
+            constraints: const BoxConstraints(maxHeight: 300),
             child: ListView.separated(
-              padding: const EdgeInsets.only(bottom: 20),
+              shrinkWrap: true,
               itemCount: _users.length,
-              separatorBuilder: (context, index) => Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
+              separatorBuilder: (context, index) => Divider(
+                color: AppColors.primary.withOpacity(0.1),
                 height: 1,
-                color: Colors.grey[200],
               ),
               itemBuilder: (context, index) {
                 final user = _users[index];
                 final isSelected = _selectedUser == user;
                 
                 return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md, 
+                    vertical: AppSpacing.sm
+                  ),
                   leading: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: isSelected 
-                          ? const Color(0xFF7DD3D8).withOpacity(0.2)
-                          : const Color(0xFF7DD3D8).withOpacity(0.1),
+                          ? AppColors.secondary.withOpacity(0.2)
+                          : AppColors.secondary.withOpacity(0.1),
                       shape: BoxShape.circle,
                       border: isSelected 
-                          ? Border.all(color: const Color(0xFF7DD3D8), width: 2)
+                          ? Border.all(color: AppColors.secondary, width: 2)
                           : null,
                     ),
                     child: Icon(
                       Icons.person,
                       color: isSelected 
-                          ? const Color(0xFF2C5F66)
-                          : const Color(0xFF2C5F66).withOpacity(0.7),
+                          ? AppColors.primary
+                          : AppColors.primary.withOpacity(0.7),
                       size: 20,
                     ),
                   ),
@@ -295,8 +200,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 16,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                       color: isSelected 
-                          ? const Color(0xFF2C5F66)
-                          : const Color(0xFF2C5F66).withOpacity(0.8),
+                          ? AppColors.primary
+                          : AppColors.primary.withOpacity(0.8),
                     ),
                   ),
                   subtitle: Text(
@@ -304,14 +209,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       color: isSelected 
-                          ? const Color(0xFF7DD3D8)
-                          : Colors.grey[600],
+                          ? AppColors.secondary
+                          : AppColors.textSecondary,
                     ),
                   ),
                   trailing: isSelected 
                       ? const Icon(
                           Icons.check_circle,
-                          color: Color(0xFF4CAF50),
+                          color: AppColors.success,
                         )
                       : null,
                   onTap: _isLoggingIn ? null : () {
@@ -331,77 +236,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildPasswordField() {
-    return Column(
-      children: [
-        if (_selectedUser != null) ...[
-          const SizedBox(height: 20),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: TextField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              enabled: !_isLoggingIn,
-              decoration: InputDecoration(
-                labelText: 'Mot de passe',
-                hintText: 'Entrez votre mot de passe',
-                prefixIcon: const Icon(Icons.lock),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                  onPressed: _isLoggingIn ? null : () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
-                errorText: _isPasswordWrong ? 'Mot de passe incorrect' : null,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF7DD3D8), width: 2),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.red, width: 2),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              ),
-              onChanged: (value) {
-                if (_isPasswordWrong) {
-                  setState(() => _isPasswordWrong = false);
-                }
-              },
-              onSubmitted: _isLoggingIn ? null : (value) => _loginWithSelectedUser(),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/forgot-password'),
-              child: const Text(
-                'Mot de passe oublié?',
-                style: TextStyle(
-                  color: Color(0xFF7DD3D8),
-                  fontSize: 14,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ],
+    return AppTextField(
+      label: 'Mot de passe',
+      hint: 'Entrez votre mot de passe',
+      controller: _passwordController,
+      prefixIcon: Icons.lock,
+      isPassword: true,
+      isRequired: true,
+      enabled: !_isLoggingIn,
+      validator: (value) {
+        if (_isPasswordWrong) return 'Mot de passe incorrect';
+        return null;
+      },
+      onChanged: (value) {
+        if (_isPasswordWrong) {
+          setState(() => _isPasswordWrong = false);
+        }
+      },
     );
   }
 
@@ -409,56 +260,30 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       children: [
         if (_selectedUser != null) ...[
-          SizedBox(
+          AppButton(
+            text: _isLoggingIn 
+                ? 'Connexion...'
+                : 'Se connecter avec ${_selectedUser!.name}',
+            icon: _isLoggingIn ? null : Icons.login,
+            isLoading: _isLoggingIn,
+            onPressed: _loginWithSelectedUser,
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isLoggingIn ? null : _loginWithSelectedUser,
-              icon: _isLoggingIn 
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Icon(Icons.login),
-              label: Text(
-                _isLoggingIn 
-                    ? 'Connexion...'
-                    : 'Se connecter avec ${_selectedUser!.name}',
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2C5F66),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 4,
-              ),
-            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
+          AppButton(
+            text: 'Mot de passe oublié?',
+            style: AppButtonStyle.text,
+            onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/forgot-password'),
+          ),
+          const SizedBox(height: AppSpacing.md),
         ],
         
-        SizedBox(
+        AppButton(
+          text: 'Créer un nouvel utilisateur',
+          icon: Icons.person_add,
+          style: AppButtonStyle.secondary,
+          onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/user-creation'),
           width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _isLoggingIn ? null : () {
-              Navigator.pushNamed(context, '/user-creation');
-            },
-            icon: const Icon(Icons.person_add),
-            label: const Text('Créer un nouvel utilisateur'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF7DD3D8),
-              side: const BorderSide(color: Color(0xFF7DD3D8)),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
         ),
       ],
     );
@@ -475,13 +300,11 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoggingIn = true);
 
     try {
-      // FIXED: Use proper password verification instead of direct comparison
       if (!_selectedUser!.verifyPassword(_passwordController.text)) {
         setState(() => _isPasswordWrong = true);
         return;
       }
 
-      // Set as current user and navigate
       await _databaseService.setCurrentUser(_selectedUser!);
       
       if (mounted) {
@@ -496,15 +319,11 @@ class _LoginScreenState extends State<LoginScreen> {
             content: Row(
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Text('Connecté en tant que ${_selectedUser!.name}'),
               ],
             ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            backgroundColor: AppColors.success,
           ),
         );
         
@@ -532,7 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
           title: const Text(
             'Nettoyer la base de données',
             style: TextStyle(
-              color: Color(0xFF2C5F66),
+              color: AppColors.primary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -550,8 +369,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 _performCleanup();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF7DD3D8),
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.secondary,
               ),
               child: const Text('Nettoyer'),
             ),
@@ -576,12 +394,11 @@ class _LoginScreenState extends State<LoginScreen> {
             content: Row(
               children: [
                 const Icon(Icons.cleaning_services, color: Colors.white),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
               ],
             ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -600,12 +417,11 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Row(
             children: [
               const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(child: Text(message)),
             ],
           ),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.error,
         ),
       );
     }

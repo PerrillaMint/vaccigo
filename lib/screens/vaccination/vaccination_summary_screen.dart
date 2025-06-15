@@ -1,5 +1,7 @@
-// lib/screens/vaccination/vaccination_summary_screen.dart
+// lib/screens/vaccination/vaccination_summary_screen.dart - Updated with new design
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 import '../../services/database_service.dart';
 import '../../models/user.dart';
 
@@ -13,6 +15,7 @@ class VaccinationSummaryScreen extends StatefulWidget {
 class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
   final DatabaseService _databaseService = DatabaseService();
   User? _currentUser;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -25,249 +28,142 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
       final user = await _databaseService.getCurrentUser();
       setState(() {
         _currentUser = user;
+        _isLoading = false;
       });
     } catch (e) {
       print('Error loading user: $e');
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Mon Carnet',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(
+        title: 'Mon Carnet Vaccigo',
+        showBackButton: false,
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 40),
-                
-                // 2 MAIN BUTTONS ONLY
-                Column(
-                  children: [
-                    _buildMainButton(
-                      'Mon carnet',
-                      Icons.book,
-                      () {
-                        Navigator.pushNamed(context, '/vaccination-info');
-                      },
-                    ),
-                    const SizedBox(height: 20),
-                    _buildMainButton(
-                      'Gestion des vaccinations',
-                      Icons.settings,
-                      () {
-                        Navigator.pushNamed(context, '/vaccination-management');
-                      },
-                    ),
-                  ],
-                ),
-                
-                const SizedBox(height: 60),
-                
-                // User Profile Section (Clickable)
-                _buildUserProfileSection(),
-                
-                const SizedBox(height: 40),
-                
-                // Success Message
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: const Color(0xFF4CAF50).withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.check_circle,
-                        color: Color(0xFF4CAF50),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Informations sauvegardées',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFF4CAF50),
-                            fontWeight: FontWeight.w600,
-                          ),
+      body: _isLoading 
+          ? const AppLoading(message: 'Chargement de votre profil...')
+          : SafePageWrapper(
+              child: Column(
+                children: [
+                  // Welcome header
+                  _buildWelcomeHeader(),
+                  
+                  const SizedBox(height: AppSpacing.xl),
+                  
+                  // Main action buttons
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildMainActionCard(
+                          title: 'Mon carnet',
+                          subtitle: 'Consulter mes vaccinations',
+                          icon: Icons.book,
+                          color: AppColors.primary,
+                          onTap: () => Navigator.pushNamed(context, '/vaccination-info'),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 40),
-                
-                // Home Button (goes to vaccination info)
-                Center(
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7DD3D8),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF7DD3D8).withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
+                        
+                        const SizedBox(height: AppSpacing.lg),
+                        
+                        _buildMainActionCard(
+                          title: 'Gestion des vaccinations',
+                          subtitle: 'Recommandations et informations',
+                          icon: Icons.settings,
+                          color: AppColors.secondary,
+                          onTap: () => Navigator.pushNamed(context, '/vaccination-management'),
                         ),
                       ],
                     ),
-                    child: IconButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/vaccination-info');
-                      },
-                      icon: const Icon(
-                        Icons.home,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
                   ),
-                ),
-                
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMainButton(String text, IconData icon, VoidCallback onPressed) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2C5F66),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 3,
-          shadowColor: const Color(0xFF2C5F66).withOpacity(0.3),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 24),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                  
+                  // User profile section
+                  _buildUserProfileSection(),
+                  
+                  const SizedBox(height: AppSpacing.lg),
+                  
+                  // Success message
+                  _buildSuccessMessage(),
+                  
+                  const SizedBox(height: AppSpacing.xl),
+                  
+                  // Quick access button
+                  _buildQuickAccessButton(),
+                  
+                  const SizedBox(height: AppSpacing.lg),
+                ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 18),
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildUserProfileSection() {
+  Widget _buildWelcomeHeader() {
+    return AppPageHeader(
+      title: 'Bienvenue dans votre carnet',
+      subtitle: _currentUser != null 
+          ? 'Bonjour ${_currentUser!.name.split(' ').first}! Votre carnet de vaccination est prêt.'
+          : 'Votre carnet de vaccination numérique est maintenant actif',
+      icon: Icons.verified_user,
+    );
+  }
+
+  Widget _buildMainActionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () {
-        _showUserProfileDialog();
-      },
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
-          ],
-          border: Border.all(
-            color: const Color(0xFF7DD3D8).withOpacity(0.3),
-            width: 1,
-          ),
-        ),
+      onTap: onTap,
+      child: AppCard(
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: const Color(0xFF7DD3D8).withOpacity(0.2),
-                shape: BoxShape.circle,
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
-                Icons.person,
-                color: Color(0xFF2C5F66),
-                size: 32,
+              child: Icon(
+                icon,
+                size: 28,
+                color: color,
               ),
             ),
-            const SizedBox(width: 16),
+            
+            const SizedBox(width: AppSpacing.lg),
+            
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _currentUser?.name ?? 'Utilisateur créé',
-                    style: const TextStyle(
+                    title,
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C5F66),
+                      color: color,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Toutes les informations ont été sauvegardées',
-                    style: TextStyle(
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
                       fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Appuyez pour modifier',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF7DD3D8),
-                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.edit,
-              color: Color(0xFF7DD3D8),
+            
+            Icon(
+              Icons.arrow_forward_ios,
+              color: color,
               size: 20,
             ),
           ],
@@ -276,7 +172,120 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
     );
   }
 
+  Widget _buildUserProfileSection() {
+    if (_currentUser == null) {
+      return const SizedBox.shrink();
+    }
+
+    return GestureDetector(
+      onTap: _showUserProfileDialog,
+      child: AppCard(
+        backgroundColor: AppColors.secondary.withOpacity(0.05),
+        border: Border.all(
+          color: AppColors.secondary.withOpacity(0.3),
+          width: 1,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.secondary.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.person,
+                color: AppColors.primary,
+                size: 24,
+              ),
+            ),
+            
+            const SizedBox(width: AppSpacing.md),
+            
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _currentUser!.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    _currentUser!.email,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  const Text(
+                    'Appuyez pour modifier le profil',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.secondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const Icon(
+              Icons.edit,
+              color: AppColors.secondary,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuccessMessage() {
+    return StatusBadge(
+      text: 'Informations sauvegardées avec succès',
+      type: StatusType.success,
+      icon: Icons.check_circle,
+    );
+  }
+
+  Widget _buildQuickAccessButton() {
+    return Center(
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.secondary.withOpacity(0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: IconButton(
+          onPressed: () => Navigator.pushNamed(context, '/vaccination-info'),
+          icon: const Icon(
+            Icons.home,
+            color: AppColors.primary,
+            size: 28,
+          ),
+          tooltip: 'Accès rapide au carnet',
+        ),
+      ),
+    );
+  }
+
   void _showUserProfileDialog() {
+    if (_currentUser == null) return;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -287,27 +296,27 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
           title: const Text(
             'Profil utilisateur',
             style: TextStyle(
-              color: Color(0xFF2C5F66),
+              color: AppColors.primary,
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_currentUser != null) ...[
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 _buildUserInfo('Nom', _currentUser!.name),
                 _buildUserInfo('Email', _currentUser!.email),
                 _buildUserInfo('Date de naissance', _currentUser!.dateOfBirth),
+                _buildUserInfo('Âge', '${_currentUser!.age} ans'),
                 if (_currentUser!.diseases != null)
                   _buildUserInfo('Maladies', _currentUser!.diseases!),
                 if (_currentUser!.treatments != null)
                   _buildUserInfo('Traitements', _currentUser!.treatments!),
                 if (_currentUser!.allergies != null)
                   _buildUserInfo('Allergies', _currentUser!.allergies!),
-              ] else
-                const Text('Aucun utilisateur trouvé'),
-            ],
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -317,11 +326,14 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.pushNamed(context, '/additional-info', arguments: _currentUser);
+                Navigator.pushNamed(
+                  context, 
+                  '/additional-info', 
+                  arguments: _currentUser,
+                );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2C5F66),
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.primary,
               ),
               child: const Text('Modifier'),
             ),
@@ -333,7 +345,7 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
 
   Widget _buildUserInfo(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -342,17 +354,18 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: Color(0xFF7DD3D8),
+              color: AppColors.secondary,
             ),
           ),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             value,
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF2C5F66),
+              color: AppColors.primary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
         ],
       ),
     );

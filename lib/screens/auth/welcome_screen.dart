@@ -1,5 +1,7 @@
-// lib/screens/auth/welcome_screen.dart
+// lib/screens/auth/welcome_screen.dart - Updated with new design system
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
@@ -7,32 +9,129 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
+      backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 60.0),
-          child: Column(
-            children: [
-              // Spacer to push content to center
-              const Spacer(flex: 2),
-              
-              // Main Title Section
-              _buildTitleSection(),
-              
-              const Spacer(flex: 3),
-              
-              // Simple Feature List
-              _buildFeatureList(),
-              
-              const Spacer(flex: 4),
-              
-              // Action Buttons
-              _buildActionButtons(context),
-              
-              const Spacer(flex: 1),
-            ],
-          ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Top spacer
+                      SizedBox(height: constraints.maxHeight * 0.1),
+                      
+                      // Logo section
+                      _buildLogoSection(),
+                      
+                      SizedBox(height: constraints.maxHeight * 0.05),
+                      
+                      // Title section
+                      _buildTitleSection(),
+                      
+                      SizedBox(height: constraints.maxHeight * 0.08),
+                      
+                      // Features list
+                      _buildFeaturesList(),
+                      
+                      SizedBox(height: constraints.maxHeight * 0.08),
+                      
+                      // Action buttons
+                      _buildActionButtons(context),
+                      
+                      // Bottom spacer
+                      SizedBox(height: constraints.maxHeight * 0.1),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _buildLogoSection() {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.secondary.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Protective hands
+          Positioned(
+            top: 20,
+            child: Icon(
+              Icons.pan_tool,
+              size: 24,
+              color: AppColors.primary,
+            ),
+          ),
+          Positioned(
+            bottom: 20,
+            child: Transform.rotate(
+              angle: 3.14159,
+              child: Icon(
+                Icons.pan_tool,
+                size: 24,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          // Central certificate
+          Container(
+            width: 40,
+            height: 35,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.primary, width: 2),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.verified_user,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  width: 20,
+                  height: 2,
+                  color: AppColors.primary,
+                ),
+              ],
+            ),
+          ),
+          // Syringe
+          Positioned(
+            left: 15,
+            child: Icon(
+              Icons.medication,
+              size: 20,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -40,137 +139,98 @@ class WelcomeScreen extends StatelessWidget {
   Widget _buildTitleSection() {
     return Column(
       children: [
-        const Text(
-          'Mon carnet de',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF2C5F66), // Navy blue from app theme
-            height: 1.2,
-          ),
+        RichText(
           textAlign: TextAlign.center,
+          text: const TextSpan(
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w300,
+              height: 1.2,
+            ),
+            children: [
+              TextSpan(
+                text: 'Mon carnet de\nvaccination\n',
+                style: TextStyle(color: AppColors.primary),
+              ),
+              TextSpan(
+                text: 'numérique',
+                style: TextStyle(
+                  color: AppColors.secondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
-        const Text(
-          'vaccination',
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Vaccigo',
           style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF2C5F66),
-            height: 1.2,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+            letterSpacing: 1.2,
           ),
-          textAlign: TextAlign.center,
-        ),
-        const Text(
-          'numérique',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w300,
-            color: Color(0xFF7DD3D8), // Light blue accent for emphasis
-            height: 1.2,
-          ),
-          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  Widget _buildFeatureList() {
+  Widget _buildFeaturesList() {
+    final features = [
+      'VIVRE',
+      'PROTÉGER',
+      'VOYAGER',
+      'EN TOUTE SÉRÉNITÉ',
+    ];
+
     return Column(
-      children: [
-        _buildFeatureItem('VIVRE'),
-        const SizedBox(height: 32),
-        _buildFeatureItem('PROTÉGER'),
-        const SizedBox(height: 32),
-        _buildFeatureItem('VOYAGER'),
-        const SizedBox(height: 32),
-        _buildFeatureItem('EN TOUTE SÉRÉNITÉ'),
-      ],
-    );
-  }
-
-  Widget _buildFeatureItem(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w400,
-        color: const Color(0xFF2C5F66).withOpacity(0.7), // Navy blue with opacity for subtle look
-        letterSpacing: 1.2,
-      ),
-      textAlign: TextAlign.center,
+      children: features.map((feature) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Text(
+          feature,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary.withOpacity(0.8),
+            letterSpacing: 1.2,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      )).toList(),
     );
   }
 
   Widget _buildActionButtons(BuildContext context) {
     return Column(
       children: [
-        // Main "Démarrer" button - using app's navy blue theme
-        SizedBox(
+        // Main action button
+        AppButton(
+          text: 'Démarrer',
+          icon: Icons.arrow_forward,
+          onPressed: () => Navigator.pushNamed(context, '/card-selection'),
           width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/card-selection');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2C5F66), // Navy blue from app theme
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              elevation: 2,
-              shadowColor: const Color(0xFF2C5F66).withOpacity(0.3),
-            ),
-            child: const Text(
-              'Démarrer',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
         ),
         
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.md),
         
-        // Secondary login button - using light blue theme
-        SizedBox(
+        // Secondary login button
+        AppButton(
+          text: 'Se connecter',
+          icon: Icons.login,
+          style: AppButtonStyle.secondary,
+          onPressed: () => Navigator.pushNamed(context, '/login'),
           width: double.infinity,
-          child: TextButton(
-            onPressed: () {
-              Navigator.pushNamed(context, '/login');
-            },
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF7DD3D8), // Light blue from app theme
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(
-                  color: const Color(0xFF7DD3D8).withOpacity(0.5),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: const Text(
-              'Se connecter',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
         ),
         
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.lg),
         
-        // Help text - using theme colors
+        // Help text
         Text(
           'Vous avez déjà un compte?',
           style: TextStyle(
             fontSize: 14,
-            color: const Color(0xFF2C5F66).withOpacity(0.6), // Navy blue with opacity
+            color: AppColors.primary.withOpacity(0.6),
             fontWeight: FontWeight.w300,
           ),
           textAlign: TextAlign.center,

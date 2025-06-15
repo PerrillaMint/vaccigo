@@ -1,5 +1,7 @@
-// lib/screens/vaccination/vaccination_management_screen.dart
+// lib/screens/vaccination/vaccination_management_screen.dart - Updated with new design
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 import '../../models/vaccine_category.dart';
 import '../../services/database_service.dart';
 
@@ -32,7 +34,10 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -41,100 +46,119 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Gestion des vaccinations',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(
+        title: 'Gestion des vaccinations',
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Database-driven vaccine categories (read-only for user)
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator())
-              else ...[
-                if (_categories.isNotEmpty) ...[
-                  const Text(
-                    'Vaccinations recommandées',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C5F66),
+      body: _isLoading
+          ? const AppLoading(message: 'Chargement des recommandations...')
+          : SafePageWrapper(
+              child: Column(
+                children: [
+                  // Header
+                  AppPageHeader(
+                    title: 'Recommandations de vaccination',
+                    subtitle: 'Consultez les vaccinations recommandées et gérez vos voyages',
+                    icon: Icons.medical_services,
+                  ),
+                  
+                  const SizedBox(height: AppSpacing.xl),
+                  
+                  // Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          // Vaccine categories
+                          if (_categories.isNotEmpty) ...[
+                            _buildCategoriesSection(),
+                            const SizedBox(height: AppSpacing.xl),
+                          ],
+                          
+                          // Travel section
+                          _buildTravelSection(),
+                          
+                          const SizedBox(height: AppSpacing.xl),
+                          
+                          // Additional resources
+                          _buildResourcesSection(),
+                          
+                          const SizedBox(height: AppSpacing.xxl),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  ..._categories.map((category) => _buildCategorySection(category)),
-                  const SizedBox(height: 32),
                 ],
-                
-                // Travel section (user can add/edit)
-                _buildTravelSection(),
-              ],
-            ],
-          ),
-        ),
-      ),
+              ),
+            ),
     );
   }
 
-  Widget _buildCategorySection(VaccineCategory category) {
+  Widget _buildCategoriesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vaccinations recommandées',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
+        ),
+        
+        const SizedBox(height: AppSpacing.md),
+        
+        const Text(
+          'Recommandations basées sur les directives officielles de santé publique',
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        ..._categories.map((category) => Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+          child: _buildCategoryCard(category),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildCategoryCard(VaccineCategory category) {
+    // Map icon types to actual icons and colors
     IconData icon;
     Color color;
 
     switch (category.iconType) {
       case 'check_circle':
-        icon = Icons.check_circle;
-        color = const Color(0xFF4CAF50);
+        icon = Icons.verified;
+        color = AppColors.success;
         break;
       case 'recommend':
         icon = Icons.recommend;
-        color = const Color(0xFFFFA726);
+        color = AppColors.warning;
         break;
       case 'flight':
         icon = Icons.flight;
-        color = const Color(0xFF2196F3);
+        color = AppColors.info;
         break;
       default:
         icon = Icons.vaccines;
-        color = const Color(0xFF2C5F66);
+        color = AppColors.primary;
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -145,171 +169,330 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                   size: 24,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: Text(
-                  category.name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C5F66),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      category.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    StatusBadge(
+                      text: '${category.vaccines.length} vaccin(s)',
+                      type: StatusType.neutral,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+          
           if (category.vaccines.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            ...category.vaccines.map((vaccine) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
+            const SizedBox(height: AppSpacing.lg),
+            
+            // Vaccines list
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: color.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.circle,
-                    size: 6,
-                    color: color,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      vaccine,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF666666),
-                      ),
+                  Text(
+                    'Vaccins dans cette catégorie:',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  ...category.vaccines.map((vaccine) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            vaccine,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
                 ],
               ),
-            )).toList(),
-          ] else
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
+            ),
+          ] else ...[
+            const SizedBox(height: AppSpacing.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.textMuted.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
               child: Text(
                 'Aucun vaccin configuré pour cette catégorie',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[500],
+                  color: AppColors.textMuted,
                   fontStyle: FontStyle.italic,
                 ),
+                textAlign: TextAlign.center,
               ),
             ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildTravelSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7DD3D8).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.flight,
-                      color: Color(0xFF7DD3D8),
-                      size: 24,
-                    ),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.flight,
+                  color: AppColors.secondary,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              const Expanded(
+                child: Text(
+                  'Préparation de voyages',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
                   ),
-                  const SizedBox(width: 16),
-                  const Text(
-                    'Mes voyages',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C5F66),
-                    ),
-                  ),
-                ],
+                ),
               ),
               IconButton(
                 onPressed: _showAddTravelDialog,
                 icon: const Icon(
                   Icons.add_circle,
-                  color: Color(0xFF7DD3D8),
+                  color: AppColors.secondary,
                   size: 28,
                 ),
+                tooltip: 'Ajouter un voyage',
               ),
             ],
           ),
-          const SizedBox(height: 16),
           
-          // Travel list placeholder
+          const SizedBox(height: AppSpacing.lg),
+          
+          // Travel content
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             decoration: BoxDecoration(
-              color: const Color(0xFF7DD3D8).withOpacity(0.05),
+              color: AppColors.secondary.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF7DD3D8).withOpacity(0.2),
+                color: AppColors.secondary.withOpacity(0.2),
                 width: 1,
               ),
             ),
             child: Column(
               children: [
-                const Icon(
+                Icon(
                   Icons.luggage,
                   size: 48,
-                  color: Color(0xFF7DD3D8),
+                  color: AppColors.secondary.withOpacity(0.7),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 const Text(
-                  'Aucun voyage planifié',
+                  'Planifiez vos voyages',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2C5F66),
+                    color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 const Text(
-                  'Ajoutez un voyage pour voir les vaccinations recommandées',
+                  'Ajoutez vos destinations pour recevoir des recommandations personnalisées de vaccination',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF666666),
+                    color: AppColors.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
+                const SizedBox(height: AppSpacing.lg),
+                AppButton(
+                  text: 'Ajouter un voyage',
+                  icon: Icons.add,
+                  style: AppButtonStyle.secondary,
                   onPressed: _showAddTravelDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Ajouter un voyage'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7DD3D8),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildResourcesSection() {
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.library_books,
+                color: AppColors.info,
+                size: 20,
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Ressources utiles',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: AppSpacing.lg),
+          
+          _buildResourceItem(
+            icon: Icons.schedule,
+            title: 'Calendrier vaccinal',
+            description: 'Consulter le calendrier officiel des vaccinations',
+            color: AppColors.info,
+          ),
+          _buildResourceItem(
+            icon: Icons.location_on,
+            title: 'Vaccinations par destination',
+            description: 'Recommandations selon votre destination de voyage',
+            color: AppColors.warning,
+          ),
+          _buildResourceItem(
+            icon: Icons.emergency,
+            title: 'Urgences médicales',
+            description: 'Contacts utiles en cas d\'urgence',
+            color: AppColors.error,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResourceItem({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: InkWell(
+        onTap: () {
+          // Future implementation for resource links
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ressource à venir dans une prochaine version'),
+              backgroundColor: AppColors.info,
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: color.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: color,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: color,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -330,7 +513,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
           title: const Text(
             'Ajouter un voyage',
             style: TextStyle(
-              color: Color(0xFF2C5F66),
+              color: AppColors.primary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -342,39 +525,59 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                   controller: destinationController,
                   decoration: const InputDecoration(
                     labelText: 'Destination',
-                    hintText: 'Ex: France, Thaïlande...',
-                    border: OutlineInputBorder(),
+                    hintText: 'Ex: France, Thaïlande, Brésil...',
                     prefixIcon: Icon(Icons.place),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: startDateController,
                   decoration: const InputDecoration(
                     labelText: 'Date de départ',
                     hintText: 'JJ/MM/AAAA',
-                    border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.calendar_today),
                   ),
+                  readOnly: true,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                    );
+                    if (date != null) {
+                      startDateController.text = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+                    }
+                  },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: endDateController,
                   decoration: const InputDecoration(
                     labelText: 'Date de retour',
                     hintText: 'JJ/MM/AAAA',
-                    border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.calendar_month),
                   ),
+                  readOnly: true,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                    );
+                    if (date != null) {
+                      endDateController.text = '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+                    }
+                  },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.md),
                 TextField(
                   controller: notesController,
                   maxLines: 3,
                   decoration: const InputDecoration(
                     labelText: 'Notes (optionnel)',
                     hintText: 'Raison du voyage, activités prévues...',
-                    border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.note),
                   ),
                 ),
@@ -391,20 +594,31 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                 if (destinationController.text.isNotEmpty &&
                     startDateController.text.isNotEmpty &&
                     endDateController.text.isNotEmpty) {
-                  // Here you would save the travel to database
-                  // For now, just show success message
                   Navigator.of(context).pop();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.white),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text('Voyage vers ${destinationController.text} planifié!'),
+                        ],
+                      ),
+                      backgroundColor: AppColors.success,
+                    ),
+                  );
+                } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Voyage ajouté avec succès!'),
-                      backgroundColor: Color(0xFF4CAF50),
+                      content: Text('Veuillez remplir tous les champs obligatoires'),
+                      backgroundColor: AppColors.warning,
                     ),
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2C5F66),
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.primary,
               ),
               child: const Text('Ajouter'),
             ),

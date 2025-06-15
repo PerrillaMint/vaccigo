@@ -1,5 +1,7 @@
-// lib/screens/profile/additional_info_screen.dart - Enhanced with Vaccination Handling
+// lib/screens/profile/additional_info_screen.dart - Updated with new design
 import 'package:flutter/material.dart';
+import '../../constants/app_colors.dart';
+import '../../widgets/common_widgets.dart';
 import '../../models/user.dart';
 import '../../models/vaccination.dart';
 import '../../services/database_service.dart';
@@ -12,6 +14,7 @@ class AdditionalInfoScreen extends StatefulWidget {
 }
 
 class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _diseasesController = TextEditingController();
   final _treatmentsController = TextEditingController();
   final _allergiesController = TextEditingController();
@@ -29,10 +32,20 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
     if (arguments is User) {
       // Legacy flow - just user
       _user = arguments;
+      _loadUserData();
     } else if (arguments is Map<String, dynamic>) {
       // New flow - user + vaccination data
       _user = arguments['user'] as User?;
       _pendingVaccinationData = arguments['vaccinationData'] as Map<String, String>?;
+      _loadUserData();
+    }
+  }
+
+  void _loadUserData() {
+    if (_user != null) {
+      _diseasesController.text = _user!.diseases ?? '';
+      _treatmentsController.text = _user!.treatments ?? '';
+      _allergiesController.text = _user!.allergies ?? '';
     }
   }
 
@@ -47,115 +60,128 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FCFD),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF2C5F66)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Informations complémentaires',
-          style: TextStyle(
-            color: Color(0xFF2C5F66),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(
+        title: 'Informations complémentaires',
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Scrollable content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
+      body: Column(
+        children: [
+          Expanded(
+            child: SafePageWrapper(
+              child: Form(
+                key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header Section
+                    // Header
                     _buildHeaderSection(),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.xl),
                     
-                    // Form Fields
-                    _buildFormFields(),
-                    
-                    const SizedBox(height: 100), // Extra space for button
+                    // Form content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: _buildFormContent(),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-            
-            // Fixed bottom button
-            _buildBottomButton(),
-          ],
-        ),
+          ),
+          
+          // Bottom button
+          _buildBottomButton(),
+        ],
       ),
     );
   }
 
   Widget _buildHeaderSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF7DD3D8).withOpacity(0.1),
-            const Color(0xFF7DD3D8).withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
+    return AppPageHeader(
+      title: 'Informations complémentaires',
+      subtitle: _pendingVaccinationData != null
+          ? 'Dernière étape avant de sauvegarder votre vaccination'
+          : 'Ajoutez des informations sur votre santé (optionnel)',
+      icon: Icons.health_and_safety,
+      trailing: _pendingVaccinationData != null 
+          ? StatusBadge(
+              text: 'Vaccination en attente',
+              type: StatusType.success,
+              icon: Icons.vaccines,
+            )
+          : null,
+    );
+  }
+
+  Widget _buildFormContent() {
+    return Column(
+      children: [
+        // Information card
+        _buildInfoCard(),
+        
+        const SizedBox(height: AppSpacing.xl),
+        
+        // Form fields
+        _buildFormFields(),
+        
+        const SizedBox(height: AppSpacing.xl),
+        
+        // Help section
+        _buildHelpSection(),
+        
+        const SizedBox(height: AppSpacing.xxl),
+      ],
+    );
+  }
+
+  Widget _buildInfoCard() {
+    return AppCard(
+      backgroundColor: AppColors.info.withOpacity(0.05),
+      border: Border.all(
+        color: AppColors.info.withOpacity(0.3),
+        width: 1,
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2C5F66).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
-            ),
-            child: const Icon(
-              Icons.health_and_safety,
-              size: 32,
-              color: Color(0xFF2C5F66),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Informations complémentaires',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF2C5F66),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _pendingVaccinationData != null
-                ? 'Dernière étape avant de sauvegarder votre vaccination'
-                : 'Ajoutez des informations sur votre santé (optionnel)',
-            style: TextStyle(
-              fontSize: 14,
-              color: const Color(0xFF2C5F66).withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
+          const Row(
+            children: [
+              Icon(
+                Icons.privacy_tip,
+                color: AppColors.info,
+                size: 20,
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Confidentialité et sécurité',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
           ),
           
-          // Show vaccination pending indicator
+          const SizedBox(height: AppSpacing.md),
+          
+          const Text(
+            'Ces informations sont entièrement optionnelles et resteront privées. Elles peuvent vous aider à mieux gérer votre santé et vos vaccinations.',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          
           if (_pendingVaccinationData != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.md),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.success.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: const Color(0xFF4CAF50).withOpacity(0.3),
+                  color: AppColors.success.withOpacity(0.3),
                   width: 1,
                 ),
               ),
@@ -163,26 +189,27 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                 children: [
                   const Icon(
                     Icons.vaccines,
-                    color: Color(0xFF4CAF50),
+                    color: AppColors.success,
                     size: 20,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Vaccination en attente',
+                          'Vaccination en attente de sauvegarde',
                           style: TextStyle(
-                            color: Color(0xFF4CAF50),
+                            color: AppColors.success,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                        const SizedBox(height: AppSpacing.xs),
                         Text(
                           '${_pendingVaccinationData!['vaccineName']} - ${_pendingVaccinationData!['date']}',
                           style: TextStyle(
-                            color: const Color(0xFF4CAF50).withOpacity(0.8),
+                            color: AppColors.success.withOpacity(0.8),
                             fontSize: 12,
                           ),
                         ),
@@ -201,115 +228,143 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
   Widget _buildFormFields() {
     return Column(
       children: [
-        _buildTextField(
-          label: 'Maladie',
-          hint: 'Maladies chroniques, etc.',
+        AppTextField(
+          label: 'Maladies chroniques',
+          hint: 'Ex: Diabète, Hypertension, Asthme...',
           controller: _diseasesController,
+          prefixIcon: Icons.local_hospital,
           maxLines: 3,
+          isRequired: false,
         ),
-        const SizedBox(height: 24),
-        _buildTextField(
-          label: 'Traitement',
-          hint: 'Traitements en cours',
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        AppTextField(
+          label: 'Traitements en cours',
+          hint: 'Ex: Insuline, Ventoline, Anticoagulants...',
           controller: _treatmentsController,
+          prefixIcon: Icons.medication,
           maxLines: 3,
+          isRequired: false,
         ),
-        const SizedBox(height: 24),
-        _buildTextField(
-          label: 'Allergie',
-          hint: 'Allergies médicamenteuses ou autres',
+        
+        const SizedBox(height: AppSpacing.lg),
+        
+        AppTextField(
+          label: 'Allergies',
+          hint: 'Ex: Pénicilline, Arachides, Latex...',
           controller: _allergiesController,
+          prefixIcon: Icons.warning,
           maxLines: 3,
+          isRequired: false,
         ),
       ],
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required String hint,
-    required TextEditingController controller,
-    int maxLines = 1,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              maxLines > 1 ? Icons.notes : Icons.info_outline,
-              size: 20,
-              color: const Color(0xFF2C5F66),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF2C5F66),
+  Widget _buildHelpSection() {
+    return AppCard(
+      backgroundColor: AppColors.secondary.withOpacity(0.05),
+      border: Border.all(
+        color: AppColors.secondary.withOpacity(0.3),
+        width: 1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.help_outline,
+                color: AppColors.secondary,
+                size: 20,
               ),
-            ),
-            const Text(
-              ' (optionnel)',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Pourquoi ces informations?',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
               ),
             ],
           ),
-          child: TextFormField(
-            controller: controller,
-            maxLines: maxLines,
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[400],
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: Colors.grey[300]!),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF7DD3D8), width: 2),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          _buildHelpItem(
+            Icons.vaccines,
+            'Contre-indications',
+            'Identifier les vaccins incompatibles avec vos conditions médicales',
+          ),
+          _buildHelpItem(
+            Icons.schedule,
+            'Rappels personnalisés',
+            'Recevoir des recommandations adaptées à votre profil',
+          ),
+          _buildHelpItem(
+            Icons.local_pharmacy,
+            'Interactions',
+            'Détecter les possibles interactions avec vos traitements',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHelpItem(IconData icon, String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.xs),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: AppColors.secondary,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildBottomButton() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -318,38 +373,26 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
           ),
         ],
       ),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: _isLoading ? null : _saveAdditionalInfo,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2C5F66),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 5,
+      child: Column(
+        children: [
+          AppButton(
+            text: _pendingVaccinationData != null 
+                ? 'Finaliser et sauvegarder'
+                : 'Sauvegarder les informations',
+            icon: _pendingVaccinationData != null ? Icons.done_all : Icons.save,
+            isLoading: _isLoading,
+            onPressed: _saveAdditionalInfo,
+            width: double.infinity,
           ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : Text(
-                  _pendingVaccinationData != null 
-                      ? 'Finaliser et sauvegarder'
-                      : 'Valider',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-        ),
+          
+          const SizedBox(height: AppSpacing.sm),
+          
+          AppButton(
+            text: 'Ignorer cette étape',
+            style: AppButtonStyle.text,
+            onPressed: _isLoading ? null : _skipStep,
+          ),
+        ],
       ),
     );
   }
@@ -361,9 +404,9 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
 
     try {
       // Update user with additional info
-      _user!.diseases = _diseasesController.text.isNotEmpty ? _diseasesController.text : null;
-      _user!.treatments = _treatmentsController.text.isNotEmpty ? _treatmentsController.text : null;
-      _user!.allergies = _allergiesController.text.isNotEmpty ? _allergiesController.text : null;
+      _user!.diseases = _diseasesController.text.isNotEmpty ? _diseasesController.text.trim() : null;
+      _user!.treatments = _treatmentsController.text.isNotEmpty ? _treatmentsController.text.trim() : null;
+      _user!.allergies = _allergiesController.text.isNotEmpty ? _allergiesController.text.trim() : null;
 
       await _user!.save();
 
@@ -386,21 +429,17 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
             content: Row(
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
                     _pendingVaccinationData != null
                         ? 'Compte créé et vaccination sauvegardée!'
-                        : 'Informations sauvegardées!',
+                        : 'Informations sauvegardées avec succès!',
                   ),
                 ),
               ],
             ),
-            backgroundColor: const Color(0xFF4CAF50),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            backgroundColor: AppColors.success,
           ),
         );
         
@@ -413,17 +452,48 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
             content: Row(
               children: [
                 const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(child: Text('Erreur: $e')),
               ],
             ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+            backgroundColor: AppColors.error,
           ),
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _skipStep() async {
+    if (_user == null) return;
+
+    try {
+      // If there's pending vaccination data, save it
+      if (_pendingVaccinationData != null) {
+        final vaccination = Vaccination(
+          vaccineName: _pendingVaccinationData!['vaccineName']!,
+          lot: _pendingVaccinationData!['lot']!,
+          date: _pendingVaccinationData!['date']!,
+          ps: _pendingVaccinationData!['ps'] ?? '',
+          userId: _user!.key.toString(),
+        );
+
+        await _databaseService.saveVaccination(vaccination);
+      }
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/vaccination-summary');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 }
