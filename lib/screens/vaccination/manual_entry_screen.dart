@@ -1,4 +1,4 @@
-// lib/screens/vaccination/manual_entry_screen.dart - FIXED layout constraints
+// lib/screens/vaccination/manual_entry_screen.dart - FIXED layout constraints and structure
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -50,41 +50,56 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
         title: 'Saisie manuelle',
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header - Fixed height
-            _buildHeader(),
-            
-            // Form content - Scrollable
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildFormFields(),
-                      const SizedBox(height: 24),
-                      _buildHelpSection(),
-                      const SizedBox(height: 100), // Space for bottom button
-                    ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header - Fixed size
+                        _buildHeader(),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Form fields
+                        _buildFormFields(),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Help section
+                        _buildHelpSection(),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Action buttons
+                        _buildActionButtons(),
+                        
+                        const SizedBox(height: 24),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
-      // Bottom button - Fixed position
-      bottomNavigationBar: _buildBottomButton(),
     );
   }
 
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -100,6 +115,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
@@ -366,7 +382,7 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
       },
     );
 
-    if (picked != null) {
+    if (picked != null && mounted) {
       final formattedDate = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
       _dateController.text = formattedDate;
     }
@@ -473,67 +489,53 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     );
   }
 
-  Widget _buildBottomButton() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ElevatedButton.icon(
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                Navigator.pushReplacementNamed(
-                  context, 
-                  '/scan-preview',
-                  arguments: {
-                    'vaccine': _vaccinController.text.trim(),
-                    'lot': _lotController.text.trim(),
-                    'date': _dateController.text.trim(),
-                    'ps': _psController.text.trim(),
-                  },
-                );
-              }
-            },
-            icon: const Icon(Icons.preview),
-            label: const Text('Aperçu des informations'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+  Widget _buildActionButtons() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ElevatedButton.icon(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pushReplacementNamed(
+                context, 
+                '/scan-preview',
+                arguments: {
+                  'vaccine': _vaccinController.text.trim(),
+                  'lot': _lotController.text.trim(),
+                  'date': _dateController.text.trim(),
+                  'ps': _psController.text.trim(),
+                },
+              );
+            }
+          },
+          icon: const Icon(Icons.preview),
+          label: const Text('Aperçu des informations'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-          
-          const SizedBox(height: 12),
-          
-          OutlinedButton.icon(
-            onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Scanner avec IA'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.secondary,
-              side: const BorderSide(color: AppColors.secondary),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
+          icon: const Icon(Icons.camera_alt),
+          label: const Text('Scanner avec IA'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.secondary,
+            side: const BorderSide(color: AppColors.secondary),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

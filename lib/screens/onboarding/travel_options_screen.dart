@@ -1,4 +1,4 @@
-// lib/screens/onboarding/travel_options_screen.dart - COMPLETELY REWRITTEN to eliminate layout issues
+// lib/screens/onboarding/travel_options_screen.dart - FIXED all layout constraint issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -14,33 +14,45 @@ class TravelOptionsScreen extends StatelessWidget {
         title: 'Vaccinations',
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              // Header - Fixed size
-              _buildHeader(),
-              
-              const SizedBox(height: 24),
-              
-              // Content - Scrollable
-              Expanded(
-                child: SingleChildScrollView(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildAIInfoCard(),
-                      const SizedBox(height: 32),
-                      _buildActionButtons(context),
+                      // Header - Fixed size
+                      _buildHeader(),
+                      
                       const SizedBox(height: 24),
+                      
+                      // AI Info Card
+                      _buildAIInfoCard(),
+                      
+                      const SizedBox(height: 32),
+                      
+                      // Action Buttons
+                      _buildActionButtons(context),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Features Card
                       _buildFeaturesCard(),
+                      
                       const SizedBox(height: 24),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -66,6 +78,7 @@ class TravelOptionsScreen extends StatelessWidget {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
@@ -117,6 +130,7 @@ class TravelOptionsScreen extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -244,6 +258,7 @@ class TravelOptionsScreen extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Row(
             children: [

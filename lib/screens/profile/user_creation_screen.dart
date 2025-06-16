@@ -1,4 +1,4 @@
-// lib/screens/profile/user_creation_screen.dart - Updated with new design
+// lib/screens/profile/user_creation_screen.dart - FIXED layout constraints
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -56,46 +56,111 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SafePageWrapper(
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Header
-                    AppPageHeader(
-                      title: 'Création d\'utilisateur',
-                      subtitle: _pendingVaccinationData != null 
-                          ? 'Créez votre compte pour sauvegarder votre vaccination'
-                          : 'Créez votre profil pour accéder à votre carnet',
-                      icon: Icons.person_add,
-                      trailing: _pendingVaccinationData != null 
-                          ? StatusBadge(
-                              text: 'Vaccination ${_pendingVaccinationData!['vaccineName']?.split(' ').first ?? 'données'} en attente',
-                              type: StatusType.success,
-                              icon: Icons.vaccines,
-                            )
-                          : null,
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header
+                        _buildHeader(),
+                        
+                        const SizedBox(height: AppSpacing.xl),
+                        
+                        // Form fields
+                        _buildFormFields(),
+                        
+                        const SizedBox(height: AppSpacing.xl),
+                        
+                        // Bottom button
+                        _buildBottomButton(),
+                        
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                    
-                    const SizedBox(height: AppSpacing.xl),
-                    
-                    // Form fields
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: _buildFormFields(),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.secondary.withOpacity(0.1),
+            AppColors.light.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.secondary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: const Icon(
+              Icons.person_add,
+              size: 32,
+              color: AppColors.primary,
             ),
           ),
-          
-          // Bottom button
-          _buildBottomButton(),
+          const SizedBox(height: AppSpacing.md),
+          const Text(
+            'Création d\'utilisateur',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            _pendingVaccinationData != null 
+                ? 'Créez votre compte pour sauvegarder votre vaccination'
+                : 'Créez votre profil pour accéder à votre carnet',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.primary.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (_pendingVaccinationData != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            StatusBadge(
+              text: 'Vaccination ${_pendingVaccinationData!['vaccineName']?.split(' ').first ?? 'données'} en attente',
+              type: StatusType.success,
+              icon: Icons.vaccines,
+            ),
+          ],
         ],
       ),
     );
@@ -103,6 +168,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
 
   Widget _buildFormFields() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         AppTextField(
           label: 'Nom complet',
@@ -172,8 +238,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         const SizedBox(height: AppSpacing.lg),
         
         _buildDateField(),
-        
-        const SizedBox(height: AppSpacing.xxl),
       ],
     );
   }
@@ -182,15 +246,15 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        const Row(
           children: [
-            const Icon(
+            Icon(
               Icons.cake,
               size: 20,
               color: AppColors.primary,
             ),
-            const SizedBox(width: AppSpacing.sm),
-            const Text(
+            SizedBox(width: AppSpacing.sm),
+            Text(
               'Date de naissance',
               style: TextStyle(
                 fontSize: 16,
@@ -198,7 +262,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
                 color: AppColors.primary,
               ),
             ),
-            const Text(
+            Text(
               ' *',
               style: TextStyle(
                 color: AppColors.error,
@@ -254,32 +318,19 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       },
     );
 
-    if (picked != null) {
+    if (picked != null && mounted) {
       final formattedDate = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
       _dateOfBirthController.text = formattedDate;
     }
   }
 
   Widget _buildBottomButton() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: AppButton(
-        text: 'Créer mon compte',
-        icon: Icons.person_add,
-        isLoading: _isLoading,
-        onPressed: _createUser,
-        width: double.infinity,
-      ),
+    return AppButton(
+      text: 'Créer mon compte',
+      icon: Icons.person_add,
+      isLoading: _isLoading,
+      onPressed: _createUser,
+      width: double.infinity,
     );
   }
 

@@ -1,5 +1,6 @@
-// lib/main.dart - FIXED with proper cleanup and error handling
+// lib/main.dart - FIXED with MaterialLocalizations and improved error handling
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/user.dart';
 import 'models/vaccination.dart';
@@ -165,6 +166,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       title: 'Vaccigo - Carnet de Vaccination',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      
+      // FIXED: Add proper localization support to fix MaterialLocalizations error
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('fr', 'FR'), // French
+        Locale('en', 'US'), // English fallback
+      ],
+      locale: const Locale('fr', 'FR'),
+      
       initialRoute: '/splash',
       routes: {
         '/splash': (context) => const SplashScreen(),
@@ -193,7 +207,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
           return ErrorDisplay(error: errorDetails.toString());
         };
-        return widget ?? const SizedBox.shrink();
+        
+        // FIXED: Add proper text scaling and accessibility
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaleFactor: MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.2),
+          ),
+          child: widget ?? const SizedBox.shrink(),
+        );
       },
     );
   }
@@ -209,6 +230,15 @@ class ErrorApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Vaccigo - Erreur',
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('fr', 'FR'),
+        Locale('en', 'US'),
+      ],
       home: Scaffold(
         backgroundColor: Colors.white,
         body: ErrorDisplay(error: error),

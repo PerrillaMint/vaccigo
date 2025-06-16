@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart - FIXED layout constraints and improved design
+// lib/screens/auth/login_screen.dart - FIXED infinite height constraint issue
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -69,43 +69,51 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header - Fixed
-            _buildHeader(),
-            
-            // Content - Scrollable
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Main content
-                    if (_isLoading)
-                      _buildLoadingState()
-                    else if (_users.isEmpty)
-                      _buildEmptyState()
-                    else
-                      _buildUsersList(),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Password field
-                    if (_selectedUser != null)
-                      _buildPasswordField(),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Action buttons
-                    _buildActionButtons(),
-                    
-                    const SizedBox(height: 24),
-                  ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header section - Fixed height
+                      _buildHeader(),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Main content - Flexible height
+                      if (_isLoading)
+                        _buildLoadingState()
+                      else if (_users.isEmpty)
+                        _buildEmptyState()
+                      else
+                        _buildUsersList(),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Password field
+                      if (_selectedUser != null)
+                        _buildPasswordField(),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Action buttons
+                      _buildActionButtons(),
+                      
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -114,7 +122,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -130,6 +137,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
@@ -204,6 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             Icons.person_add,
@@ -262,6 +271,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
@@ -303,17 +313,18 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           
-          // Users list
-          Column(
-            children: List.generate(_users.length, (index) {
+          // Users list - Using ListView.builder for better performance
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: _users.length,
+            itemBuilder: (context, index) {
               final user = _users[index];
               final isSelected = _selectedUser == user;
               
               return Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
+                margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
                   color: isSelected 
                       ? AppColors.secondary.withOpacity(0.1)
@@ -381,7 +392,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                 ),
               );
-            }),
+            },
           ),
           
           const SizedBox(height: 16),
