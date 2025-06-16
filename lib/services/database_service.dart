@@ -1,4 +1,4 @@
-// lib/services/database_service.dart - FIXED authentication and user management
+// lib/services/database_service.dart - FIXED null check operator issues
 import 'package:hive/hive.dart';
 import 'dart:async';
 import 'dart:io';
@@ -78,30 +78,7 @@ class DatabaseService {
     }
   }
 
-  Future<void> _cleanupUnusedBoxes() async {
-    final now = DateTime.now();
-    final boxesToClose = <String>[];
-    
-    for (final entry in _lastAccess.entries) {
-      if (now.difference(entry.value).inMinutes > 30) {
-        boxesToClose.add(entry.key);
-      }
-    }
-    
-    for (final boxName in boxesToClose) {
-      try {
-        if (Hive.isBoxOpen(boxName)) {
-          await Hive.box(boxName).close();
-        }
-        _boxCache.remove(boxName);
-        _lastAccess.remove(boxName);
-      } catch (e) {
-        print('Failed to close box $boxName: $e');
-      }
-    }
-  }
-
-  // ==== USER OPERATIONS ====
+  // ==== FIXED USER OPERATIONS ====
   
   Future<void> saveUser(User user) async {
     if (!_checkRateLimit('saveUser')) {
@@ -116,11 +93,15 @@ class DatabaseService {
         throw DatabaseException('Un compte existe déjà avec cette adresse email');
       }
       
-      // FIXED: Save user to box and ensure it has a key
+      // FIXED: Ensure user is properly saved with a key
       final key = await box.add(user);
+      print('User saved with key: $key'); // Debug log
       
-      // FIXED: Ensure the user object is properly attached to the box
-      await user.save(); // This ensures the user is fully persisted
+      // FIXED: Verify user was saved correctly
+      final savedUser = box.get(key);
+      if (savedUser == null) {
+        throw DatabaseException('Erreur lors de la sauvegarde de l\'utilisateur');
+      }
       
       await _logAuditEvent(
         action: 'CREATE',
@@ -129,6 +110,7 @@ class DatabaseService {
         metadata: {'email': user.email, 'name': user.name},
       );
     } catch (e) {
+      print('Error saving user: $e');
       if (e is DatabaseException) rethrow;
       throw DatabaseException('Erreur lors de la création de l\'utilisateur: $e');
     }
@@ -155,33 +137,16 @@ class DatabaseService {
     }
   }
 
-  Future<List<User>> getUniqueUsers() async {
-    try {
-      final allUsers = await getAllUsers();
-      final uniqueUsers = <String, User>{};
-      
-      // Keep only one user per email (most recent)
-      for (final user in allUsers) {
-        final email = user.email.toLowerCase();
-        if (!uniqueUsers.containsKey(email) || 
-            user.createdAt.isAfter(uniqueUsers[email]!.createdAt)) {
-          uniqueUsers[email] = user;
-        }
-      }
-      
-      return uniqueUsers.values.toList();
-    } catch (e) {
-      throw DatabaseException('Erreur lors de la récupération des utilisateurs uniques: $e');
-    }
-  }
-
   Future<User?> getUserById(String userId) async {
     try {
       final box = await _getBox<User>(_userBoxName);
       
       // FIXED: Parse userId safely
       final key = int.tryParse(userId);
-      if (key == null) return null;
+      if (key == null) {
+        print('Invalid user ID format: $userId');
+        return null;
+      }
       
       final user = box.get(key);
       
@@ -228,7 +193,7 @@ class DatabaseService {
       await _logAuditEvent(
         action: 'READ',
         entity: 'User',
-        entityId: user.key?.toString(),
+        entityId: user.key?.toString() ?? 'unknown',
         metadata: {'searchEmail': email},
       );
     }
@@ -250,7 +215,7 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Completely rewritten authentication method to handle null cases properly
+  // FIXED: Completely rewritten authentication method
   Future<User?> authenticateUser(String email, String password) async {
     if (!_checkRateLimit('authenticateUser')) {
       throw DatabaseException('Trop de tentatives de connexion. Réessayez plus tard.');
@@ -266,6 +231,7 @@ class DatabaseService {
       final user = await _getUserByEmailInternal(email);
       if (user == null) {
         await Future.delayed(const Duration(milliseconds: 500));
+        print('User not found for email: $email');
         return null;
       }
 
@@ -273,21 +239,24 @@ class DatabaseService {
         await _logAuditEvent(
           action: 'FAILED_LOGIN',
           entity: 'User',
-          entityId: user.key?.toString(),
+          entityId: user.key?.toString() ?? 'unknown',
           metadata: {'email': email, 'reason': 'invalid_password'},
         );
         await Future.delayed(const Duration(milliseconds: 500));
+        print('Invalid password for user: $email');
         return null;
       }
 
-      // FIXED: Safe update of last login without calling save() if user isn't properly persisted
+      // FIXED: Safer update of last login time
       try {
-        if (user.key != null) {
+        if (user.isInBox && user.key != null) {
           // User is properly saved in Hive, safe to update
           user.lastLogin = DateTime.now();
           await user.save();
+          print('Updated last login for user: ${user.email}');
         } else {
-          // User exists but might not be properly saved, just update in memory
+          // User exists but might not be properly saved
+          print('Warning: User not properly persisted in box');
           user.lastLogin = DateTime.now();
         }
       } catch (saveError) {
@@ -298,7 +267,7 @@ class DatabaseService {
       await _logAuditEvent(
         action: 'LOGIN',
         entity: 'User',
-        entityId: user.key?.toString(),
+        entityId: user.key?.toString() ?? 'unknown',
         metadata: {'email': email},
       );
 
@@ -309,7 +278,7 @@ class DatabaseService {
     }
   }
 
-  // ==== SESSION MANAGEMENT ====
+  // ==== FIXED SESSION MANAGEMENT ====
   
   Future<User?> getCurrentUser() async {
     try {
@@ -317,10 +286,17 @@ class DatabaseService {
       final currentUserKey = sessionBox.get('currentUserKey');
       
       if (currentUserKey != null) {
-        final user = await getUserById(currentUserKey);
+        print('Getting current user with key: $currentUserKey');
+        final user = await getUserById(currentUserKey.toString());
+        if (user != null) {
+          print('Found current user: ${user.email}');
+        } else {
+          print('No user found for key: $currentUserKey');
+        }
         return user;
       }
       
+      print('No current user session found');
       return null;
     } catch (e) {
       print('Error getting current user: $e');
@@ -328,27 +304,43 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Safer session management
+  // FIXED: Much safer session management
   Future<void> setCurrentUser(User user) async {
     try {
       final sessionBox = await _getBox(_sessionBoxName);
       
-      // FIXED: Ensure user has a key before setting session
-      String userKey;
-      if (user.key != null) {
+      // FIXED: Ensure user has a valid key
+      String? userKey;
+      
+      if (user.isInBox && user.key != null) {
+        // User is properly saved in Hive
         userKey = user.key.toString();
+        print('Using existing user key: $userKey');
       } else {
-        // If user doesn't have a key, try to find it by email
+        // Try to find user by email and get proper key
+        print('User not in box, searching by email: ${user.email}');
         final foundUser = await _getUserByEmailInternal(user.email);
-        if (foundUser?.key != null) {
-          userKey = foundUser!.key.toString();
+        if (foundUser != null && foundUser.isInBox && foundUser.key != null) {
+          userKey = foundUser.key.toString();
+          print('Found user with key: $userKey');
         } else {
-          throw DatabaseException('Utilisateur non sauvegardé dans la base de données');
+          // Last resort: try to save the user first
+          print('Attempting to save user first...');
+          final box = await _getBox<User>(_userBoxName);
+          final newKey = await box.add(user);
+          userKey = newKey.toString();
+          print('Saved user with new key: $userKey');
         }
+      }
+      
+      if (userKey == null) {
+        throw DatabaseException('Impossible de créer une session: utilisateur invalide');
       }
       
       await sessionBox.put('currentUserKey', userKey);
       await sessionBox.put('sessionStart', DateTime.now().toIso8601String());
+      
+      print('Session created for user key: $userKey');
       
       await _logAuditEvent(
         action: 'SESSION_START',
@@ -374,10 +366,12 @@ class DatabaseService {
         await _logAuditEvent(
           action: 'SESSION_END',
           entity: 'User',
-          entityId: currentUserKey,
-          userId: currentUserKey,
+          entityId: currentUserKey.toString(),
+          userId: currentUserKey.toString(),
         );
       }
+      
+      print('Session cleared');
     } catch (e) {
       print('Session cleanup error: $e');
       // Don't throw here, just log
@@ -533,22 +527,6 @@ class DatabaseService {
     }
   }
 
-  Future<void> deleteVaccinationByIndex(int index) async {
-    try {
-      final box = await _getBox<Vaccination>(_vaccinationBoxName);
-      final keys = box.keys.toList();
-      
-      if (index >= 0 && index < keys.length) {
-        await deleteVaccination(keys[index].toString());
-      } else {
-        throw DatabaseException('Index de vaccination invalide');
-      }
-    } catch (e) {
-      if (e is DatabaseException) rethrow;
-      throw DatabaseException('Erreur lors de la suppression par index: $e');
-    }
-  }
-
   // ==== VACCINE CATEGORY OPERATIONS ====
   
   Future<List<VaccineCategory>> getAllVaccineCategories() async {
@@ -619,8 +597,10 @@ class DatabaseService {
           
           for (int i = 1; i < users.length; i++) {
             try {
-              await users[i].delete();
-              duplicatesRemoved++;
+              if (users[i].isInBox) {
+                await users[i].delete();
+                duplicatesRemoved++;
+              }
             } catch (e) {
               print('Error deleting duplicate user: $e');
             }
@@ -630,10 +610,8 @@ class DatabaseService {
       
       final vaccinationBox = await _getBox<Vaccination>(_vaccinationBoxName);
       final activeUserIds = userBox.values
-          .where((user) => user.isActive)
-          .map((user) => user.key?.toString())
-          .where((id) => id != null)
-          .cast<String>()
+          .where((user) => user.isActive && user.key != null)
+          .map((user) => user.key!.toString())
           .toSet();
       
       final orphanedVaccinations = <dynamic>[];
@@ -757,7 +735,17 @@ class DatabaseService {
 
   Future<void> dispose() async {
     try {
-      await _cleanupUnusedBoxes();
+      // Close all boxes properly
+      for (final boxName in _boxCache.keys) {
+        try {
+          if (Hive.isBoxOpen(boxName)) {
+            await Hive.box(boxName).close();
+          }
+        } catch (e) {
+          print('Error closing box $boxName: $e');
+        }
+      }
+      
       _boxCache.clear();
       _lastAccess.clear();
       _operationTimestamps.clear();
