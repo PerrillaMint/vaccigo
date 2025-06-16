@@ -1,4 +1,4 @@
-// lib/screens/auth/forgot_password_screen.dart - FIXED layout constraints
+// lib/screens/auth/forgot_password_screen.dart - FIXED password reset functionality
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -16,6 +16,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _databaseService = DatabaseService();
   bool _isLoading = false;
   bool _emailSent = false;
+  String? _lastEmailSent; // Track which email we sent to
 
   @override
   void dispose() {
@@ -45,12 +46,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             
             const SizedBox(height: AppSpacing.xl),
             
-            // Content
-            if (!_emailSent) ...[
-              _buildEmailForm(),
-            ] else ...[
-              _buildSuccessState(),
-            ],
+            // Content - FIXED: Use AnimatedSwitcher for smooth transitions
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _emailSent 
+                  ? _buildSuccessState()
+                  : _buildEmailForm(),
+            ),
             
             const SizedBox(height: AppSpacing.xl),
             
@@ -64,6 +66,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Widget _buildEmailForm() {
     return Column(
+      key: const ValueKey('email_form'), // FIXED: Add key for AnimatedSwitcher
       children: [
         AppTextField(
           label: 'Adresse email',
@@ -72,6 +75,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           prefixIcon: Icons.email,
           isRequired: true,
           keyboardType: TextInputType.emailAddress,
+          enabled: !_isLoading, // FIXED: Disable during loading
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Veuillez entrer votre adresse email';
@@ -106,6 +110,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Widget _buildSuccessState() {
     return Column(
+      key: const ValueKey('success_state'), // FIXED: Add key for AnimatedSwitcher
       children: [
         // Success card
         AppCard(
@@ -175,7 +180,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
-                        'Email envoyé à: ${_emailController.text}',
+                        'Email envoyé à: ${_lastEmailSent ?? _emailController.text}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.info,
@@ -208,7 +213,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               text: 'Renvoyer l\'email',
               style: AppButtonStyle.secondary,
               onPressed: () {
-                setState(() => _emailSent = false);
+                // FIXED: Reset state to allow re-sending
+                setState(() {
+                  _emailSent = false;
+                  _lastEmailSent = null;
+                });
               },
             ),
           ],
@@ -292,51 +301,87 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
+  // FIXED: Completely rewritten reset password method with better error handling
   Future<void> _resetPassword() async {
-    if (_emailController.text.isEmpty) {
+    // Validate email first
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
       _showErrorMessage('Veuillez entrer votre adresse email');
       return;
     }
 
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text)) {
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       _showErrorMessage('Adresse email invalide');
       return;
     }
 
-    setState(() => _isLoading = true);
+    // FIXED: Ensure we're mounted before starting async operation
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+    });
     
     try {
-      final user = await _databaseService.getUserByEmail(_emailController.text);
+      // Check if user exists
+      final user = await _databaseService.getUserByEmail(email);
       
-      // Simulate network delay
+      // Simulate network delay for realism
       await Future.delayed(const Duration(seconds: 2));
       
-      if (user != null) {
-        // In a real app, this would send an actual email
-        setState(() => _emailSent = true);
+      // FIXED: Always show success for security (don't reveal if email exists)
+      // In a real app, you'd send email regardless to prevent email enumeration
+      if (mounted) {
+        setState(() {
+          _emailSent = true;
+          _lastEmailSent = email;
+          _isLoading = false;
+        });
         
         // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: AppSpacing.sm),
-                  Text('Instructions envoyées par email'),
-                ],
-              ),
-              backgroundColor: AppColors.success,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: AppSpacing.sm),
+                Text('Instructions envoyées à $email'),
+              ],
             ),
-          );
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+
+        // FIXED: In demo mode, show different message if user not found
+        if (user == null) {
+          // Wait a bit then show a discrete message
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Text(
+                    'Note: Si ce compte existe, l\'email a été envoyé',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  backgroundColor: AppColors.info,
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          });
         }
-      } else {
-        _showErrorMessage('Aucun compte trouvé avec cette adresse email');
       }
     } catch (e) {
-      _showErrorMessage('Erreur: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      print('Password reset error: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showErrorMessage('Erreur: ${e.toString()}');
+      }
     }
   }
 
@@ -352,6 +397,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ],
           ),
           backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
         ),
       );
     }

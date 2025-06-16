@@ -1,4 +1,4 @@
-// lib/screens/onboarding/scan_preview_screen.dart - FIXED layout issues and state management
+// lib/screens/onboarding/scan_preview_screen.dart - FIXED layout overflow issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -123,30 +123,51 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       appBar: const CustomAppBar(
         title: 'Vérification',
       ),
-      body: Column(
-        children: [
-          // Header
-          _buildHeader(),
-          
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildVaccinationPreviewCard(),
-                  const SizedBox(height: 24),
-                  _buildDataCompletenessCard(),
-                  const SizedBox(height: 24),
-                ],
+      // FIXED: Use LayoutBuilder with ConstrainedBox to prevent overflow
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: constraints.maxHeight,
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    // Header - Fixed size content
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _buildHeader(),
+                    ),
+                    
+                    // Main content - Flexible space
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildVaccinationPreviewCard(),
+                            const SizedBox(height: 16),
+                            _buildDataCompletenessCard(),
+                            
+                            // FIXED: Action buttons moved inside scrollable area
+                            const SizedBox(height: 24),
+                            _buildActionButtons(),
+                            
+                            // Bottom padding for better UX
+                            const SizedBox(height: 24),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          
-          // Action buttons
-          _buildActionButtons(),
-        ],
+          );
+        },
       ),
     );
   }
@@ -155,7 +176,6 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -170,17 +190,18 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min, // FIXED: Ensure header doesn't expand unnecessarily
         children: [
           const Icon(
             Icons.preview,
-            size: 32,
+            size: 28, // FIXED: Reduced icon size to save space
             color: AppColors.primary,
           ),
           const SizedBox(height: 8),
           const Text(
             'Informations détectées',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16, // FIXED: Reduced font size
               fontWeight: FontWeight.bold,
               color: AppColors.primary,
             ),
@@ -192,100 +213,67 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 ? 'Vérifiez les informations avant d\'ajouter à votre carnet'
                 : 'Vérifiez et créez votre compte pour sauvegarder',
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 12, // FIXED: Reduced font size
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2, // FIXED: Limit text lines
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          const SizedBox(height: 8), // FIXED: Reduced spacing
+          
+          // Status indicators - Made more compact
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
             children: [
               // Confidence indicator
               if (_scannedData != null && _scannedData!.confidence > 0.0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8, 
-                    vertical: 4
-                  ),
-                  decoration: BoxDecoration(
-                    color: _scannedData!.confidence > 0.8 
-                        ? AppColors.success.withOpacity(0.1)
-                        : AppColors.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _scannedData!.confidence > 0.8 
-                          ? AppColors.success
-                          : AppColors.warning,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _scannedData!.confidence > 0.8 
-                            ? Icons.check_circle 
-                            : Icons.warning,
-                        size: 12,
-                        color: _scannedData!.confidence > 0.8 
-                            ? AppColors.success 
-                            : AppColors.warning,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Confiance: ${(_scannedData!.confidence * 100).toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: _scannedData!.confidence > 0.8 
-                              ? AppColors.success 
-                              : AppColors.warning,
-                        ),
-                      ),
-                    ],
-                  ),
+                _buildCompactStatusBadge(
+                  text: 'Confiance: ${(_scannedData!.confidence * 100).toStringAsFixed(0)}%',
+                  color: _scannedData!.confidence > 0.8 ? AppColors.success : AppColors.warning,
+                  icon: _scannedData!.confidence > 0.8 ? Icons.check_circle : Icons.warning,
                 ),
-              
-              const SizedBox(width: 8),
               
               // User status indicator
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8, 
-                  vertical: 4
-                ),
-                decoration: BoxDecoration(
-                  color: _userExists 
-                      ? AppColors.success.withOpacity(0.1)
-                      : AppColors.info.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _userExists ? AppColors.success : AppColors.info,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _userExists ? Icons.person : Icons.person_add,
-                      size: 12,
-                      color: _userExists ? AppColors.success : AppColors.info,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _userExists ? 'Utilisateur connecté' : 'Compte requis',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: _userExists ? AppColors.success : AppColors.info,
-                      ),
-                    ),
-                  ],
-                ),
+              _buildCompactStatusBadge(
+                text: _userExists ? 'Connecté' : 'Compte requis',
+                color: _userExists ? AppColors.success : AppColors.info,
+                icon: _userExists ? Icons.person : Icons.person_add,
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // FIXED: More compact status badge to save space
+  Widget _buildCompactStatusBadge({
+    required String text,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 10, color: color),
+          const SizedBox(width: 2),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -308,11 +296,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // FIXED: Prevent unnecessary expansion
         children: [
           // Header
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12), // FIXED: Reduced padding
             decoration: BoxDecoration(
               color: AppColors.accent.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
@@ -321,17 +310,18 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               ),
             ),
             child: const Row(
+              mainAxisSize: MainAxisSize.min, // FIXED: Minimize row size
               children: [
                 Icon(
                   Icons.medical_information,
                   color: AppColors.accent,
-                  size: 20,
+                  size: 16, // FIXED: Smaller icon
                 ),
-                SizedBox(width: 8),
+                SizedBox(width: 6),
                 Text(
                   'Aperçu de votre vaccination',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14, // FIXED: Smaller font
                     fontWeight: FontWeight.w600,
                     color: AppColors.accent,
                   ),
@@ -342,8 +332,9 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           
           // Content
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(12), // FIXED: Reduced padding
             child: Column(
+              mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
               children: [
                 _buildVaccinationDetail(
                   icon: Icons.vaccines,
@@ -394,8 +385,8 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     bool isOptional = false,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 8), // FIXED: Reduced margin
+      padding: const EdgeInsets.all(8), // FIXED: Reduced padding
       decoration: BoxDecoration(
         color: isEmpty && !isOptional 
             ? AppColors.warning.withOpacity(0.05)
@@ -409,61 +400,69 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start, // FIXED: Align to start
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(4), // FIXED: Reduced padding
             decoration: BoxDecoration(
               color: isEmpty && !isOptional 
                   ? AppColors.warning.withOpacity(0.1)
                   : AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(
               icon,
-              size: 16,
+              size: 14, // FIXED: Smaller icon
               color: isEmpty && !isOptional 
                   ? AppColors.warning
                   : AppColors.primary,
             ),
           ),
           
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
               children: [
                 Row(
                   children: [
-                    Text(
-                      label,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                    Expanded( // FIXED: Prevent text overflow
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontSize: 11, // FIXED: Smaller font
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (!isOptional && isEmpty) ...[
                       const SizedBox(width: 4),
                       const Icon(
                         Icons.warning,
-                        size: 12,
+                        size: 10, // FIXED: Smaller warning icon
                         color: AppColors.warning,
                       ),
                     ],
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   value,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12, // FIXED: Smaller font
                     fontWeight: FontWeight.w500,
                     color: isEmpty 
                         ? AppColors.textMuted
                         : AppColors.primary,
                     fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal,
                   ),
+                  maxLines: 2, // FIXED: Limit lines to prevent overflow
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -502,7 +501,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12), // FIXED: Reduced padding
       decoration: BoxDecoration(
         color: indicatorColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
@@ -512,32 +511,38 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         ),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min, // FIXED: Minimize row size
         children: [
           Icon(
             indicatorIcon,
             color: indicatorColor,
-            size: 20,
+            size: 16, // FIXED: Smaller icon
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
               children: [
                 Text(
                   indicatorText,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12, // FIXED: Smaller font
                     fontWeight: FontWeight.w600,
                     color: indicatorColor,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   '$completedFields sur ${requiredFields.length} champs requis complétés',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 10, // FIXED: Smaller font
                     color: indicatorColor.withOpacity(0.8),
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -547,76 +552,73 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     );
   }
 
+  // FIXED: Compact action buttons that don't cause overflow
   Widget _buildActionButtons() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Main validation button
-          ElevatedButton.icon(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
+      children: [
+        // Main validation button - Made more compact
+        SizedBox(
+          height: 48, // FIXED: Fixed height to prevent expansion
+          child: ElevatedButton.icon(
             onPressed: _isSaving ? null : _saveVaccination,
             icon: _isSaving 
                 ? const SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 14,
+                    height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : Icon(_userExists ? Icons.add : Icons.person_add),
+                : Icon(_userExists ? Icons.add : Icons.person_add, size: 18),
             label: Text(
               _isSaving 
                   ? 'Sauvegarde...'
                   : _userExists 
                       ? 'Ajouter à mon carnet'
-                      : 'Créer un compte et sauvegarder'
+                      : 'Créer un compte',
+              style: const TextStyle(fontSize: 14), // FIXED: Smaller font
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),
-          
-          const SizedBox(height: 12),
-          
-          // Secondary action buttons
-          Row(
-            children: [
-              Expanded(
+        ),
+        
+        const SizedBox(height: 8), // FIXED: Reduced spacing
+        
+        // Secondary action buttons - Made more compact
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 40, // FIXED: Fixed height
                 child: OutlinedButton.icon(
                   onPressed: _isSaving ? null : () {
                     Navigator.pushReplacementNamed(context, '/camera-scan');
                   },
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text('Rescanner'),
+                  icon: const Icon(Icons.camera_alt, size: 16),
+                  label: const Text('Rescanner', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: AppColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SizedBox(
+                height: 40, // FIXED: Fixed height
                 child: OutlinedButton.icon(
                   onPressed: _isSaving ? null : () {
                     Navigator.pushReplacementNamed(
@@ -630,22 +632,21 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                       },
                     );
                   },
-                  icon: const Icon(Icons.edit),
-                  label: const Text('Corriger'),
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('Corriger', style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.secondary,
                     side: const BorderSide(color: AppColors.secondary),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
