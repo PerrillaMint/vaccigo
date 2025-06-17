@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart - FIXED all overflow issues
+// lib/screens/auth/login_screen.dart - COMPLETE FILE with emergency bypass tools
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -169,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIXED: Prevent text overflow
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -239,7 +239,7 @@ class _LoginScreenState extends State<LoginScreen> {
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIXED: Prevent overflow
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
@@ -261,7 +261,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // FIXED: Completely rewritten users list with proper overflow handling
   Widget _buildUsersList() {
     return Container(
       decoration: BoxDecoration(
@@ -284,7 +283,7 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                const Expanded( // FIXED: Use Expanded to prevent overflow
+                const Expanded(
                   child: Text(
                     'Utilisateurs existants',
                     style: TextStyle(
@@ -296,7 +295,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8), // FIXED: Add spacing
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -323,7 +322,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           
-          // Users list - FIXED: Better layout with proper constraints
+          // Users list
           ...List.generate(_users.length, (index) {
             final user = _users[index];
             final isSelected = _selectedUser == user;
@@ -360,7 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Row(
                       children: [
-                        // Avatar - Fixed size
+                        // Avatar
                         Container(
                           width: 40,
                           height: 40,
@@ -382,7 +381,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         
                         const SizedBox(width: 12),
                         
-                        // User info - FIXED: Use Expanded to prevent overflow
+                        // User info
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,26 +396,49 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ? AppColors.primary
                                       : AppColors.primary.withOpacity(0.8),
                                 ),
-                                maxLines: 1, // FIXED: Prevent overflow
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                user.email,
-                                style: TextStyle(
-                                  fontSize: 13, // FIXED: Smaller font for email
-                                  color: isSelected 
-                                      ? AppColors.secondary
-                                      : AppColors.textSecondary,
-                                ),
-                                maxLines: 1, // FIXED: Prevent overflow
-                                overflow: TextOverflow.ellipsis,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      user.email,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isSelected 
+                                            ? AppColors.secondary
+                                            : AppColors.textSecondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  // Data validity indicator
+                                  if (!user.isDataValid)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'CORRUPT',
+                                        style: TextStyle(
+                                          fontSize: 8,
+                                          color: AppColors.error,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
                         ),
                         
-                        // Selection indicator - Fixed size
+                        // Selection indicator
                         if (isSelected)
                           const SizedBox(
                             width: 24,
@@ -428,7 +450,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           )
                         else
-                          const SizedBox(width: 24), // Maintain spacing
+                          const SizedBox(width: 24),
                       ],
                     ),
                   ),
@@ -525,6 +547,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Original login buttons
         if (_selectedUser != null) ...[
           ElevatedButton.icon(
             onPressed: _isLoggingIn ? null : _loginWithSelectedUser,
@@ -542,7 +565,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _isLoggingIn 
                   ? 'Connexion...'
                   : 'Se connecter avec ${_selectedUser!.name}',
-              maxLines: 1, // FIXED: Prevent text overflow
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             style: ElevatedButton.styleFrom(
@@ -567,7 +590,7 @@ class _LoginScreenState extends State<LoginScreen> {
           icon: const Icon(Icons.person_add),
           label: const Text(
             'Créer un nouvel utilisateur',
-            maxLines: 1, // FIXED: Prevent overflow
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           style: OutlinedButton.styleFrom(
@@ -579,8 +602,382 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+        
+        // DEBUG SECTION - REMOVE IN PRODUCTION
+        const SizedBox(height: 20),
+        const Divider(),
+        const Text(
+          'Debug Tools (Development Only)',
+          style: TextStyle(
+            fontWeight: FontWeight.bold, 
+            color: Colors.orange,
+            fontSize: 12,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        
+        // Emergency bypass button
+        ElevatedButton.icon(
+          onPressed: (_isLoading || _isLoggingIn) ? null : _emergencyBypass,
+          icon: const Icon(Icons.emergency),
+          label: const Text('Emergency Bypass'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 8),
+        
+        // Debug buttons row
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: (_isLoading || _isLoggingIn) ? null : _debugUserData,
+                child: const Text(
+                  'Debug Users',
+                  style: TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.blue,
+                  side: const BorderSide(color: Colors.blue),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: (_isLoading || _isLoggingIn) ? null : _cleanCorruptedUsers,
+                child: const Text(
+                  'Clean Data',
+                  style: TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+          ],
+        ),
       ],
     );
+  }
+
+  // EMERGENCY BYPASS METHOD
+  Future<void> _emergencyBypass() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      print('=== EMERGENCY BYPASS ACTIVATED ===');
+      
+      // First, try to get valid users
+      final users = await _databaseService.getAllUsers();
+      print('Total users found: ${users.length}');
+      
+      // Check each user for validity
+      User? validUser;
+      for (final user in users) {
+        print('Checking user: ${user.email}');
+        print('  IsValid: ${user.isDataValid}');
+        print('  HasSalt: ${user.salt != null && (user.salt?.isNotEmpty ?? false)}');
+        print('  HasHash: ${user.passwordHash.isNotEmpty}');
+        
+        if (user.isDataValid) {
+          validUser = user;
+          print('  ^^ FOUND VALID USER ^^');
+          break;
+        } else {
+          print('  ^^ INVALID USER DATA ^^');
+        }
+      }
+      
+      if (validUser != null) {
+        // Found a valid user, set as current
+        await _databaseService.setCurrentUser(validUser);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('Emergency login with user: ${validUser.email}')),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          
+          Navigator.pushReplacementNamed(context, '/vaccination-summary');
+        }
+        return;
+      }
+      
+      // No valid users found, create emergency user
+      print('No valid users found, creating emergency user...');
+      
+      try {
+        final emergencyUser = User.createSecure(
+          name: 'Emergency User',
+          email: 'emergency@vaccigo.app',
+          password: 'Emergency123!',
+          dateOfBirth: '01/01/1990',
+        );
+        
+        await _databaseService.saveUser(emergencyUser);
+        await _databaseService.setCurrentUser(emergencyUser);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Emergency user created successfully!'),
+                  Text('Email: emergency@vaccigo.app'),
+                  Text('Password: Emergency123!'),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 8),
+            ),
+          );
+          
+          Navigator.pushReplacementNamed(context, '/vaccination-summary');
+        }
+        return;
+        
+      } catch (userCreationError) {
+        print('Failed to create emergency user: $userCreationError');
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('All user data is corrupted!'),
+                  const Text('Please:'),
+                  const Text('1. Close the app completely'),
+                  const Text('2. Clear app data/cache'),
+                  const Text('3. Restart the app'),
+                  Text('Error: $userCreationError'),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 10),
+            ),
+          );
+        }
+      }
+      
+      print('=================================');
+      
+    } catch (e) {
+      print('Emergency bypass error: $e');
+      print('Stack trace: ${StackTrace.current}');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Emergency bypass failed!'),
+                Text('Error: $e'),
+                const Text('Try restarting the app or clearing app data'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // DEBUG USER DATA METHOD
+  Future<void> _debugUserData() async {
+    try {
+      final users = await _databaseService.getAllUsers();
+      
+      print('=== USER DATA DEBUG ===');
+      print('Total users: ${users.length}');
+      
+      for (int i = 0; i < users.length; i++) {
+        final user = users[i];
+        print('User $i:');
+        print('  Email: ${user.email}');
+        print('  Name: ${user.name}');
+        print('  Key: ${user.key}');
+        print('  IsInBox: ${user.isInBox}');
+        print('  IsActive: ${user.isActive}');
+        print('  Salt: ${user.salt}');
+        print('  PasswordHash length: ${user.passwordHash.length}');
+        print('  IsDataValid: ${user.isDataValid}');
+        print('  DateOfBirth: ${user.dateOfBirth}');
+        print('  ---');
+      }
+      print('======================');
+      
+      // Show result in UI
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('User Data Debug'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Total users: ${users.length}'),
+                  const SizedBox(height: 16),
+                  ...users.map((user) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Email: ${user.email}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Valid: ${user.isDataValid ? "✅" : "❌"}'),
+                        Text('Salt: ${user.salt != null && user.salt!.isNotEmpty ? "✅" : "❌"}'),
+                        Text('Hash: ${user.passwordHash.isNotEmpty ? "✅" : "❌"}'),
+                        const Divider(),
+                      ],
+                    ),
+                  )),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('Debug error: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Debug failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // CLEAN CORRUPTED USERS METHOD
+  Future<void> _cleanCorruptedUsers() async {
+    try {
+      setState(() => _isLoading = true);
+      
+      // Get all users and check validity
+      final users = await _databaseService.getAllUsers();
+      final corruptedUsers = users.where((user) => !user.isDataValid).toList();
+      
+      if (corruptedUsers.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No corrupted users found!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        return;
+      }
+      
+      // Ask for confirmation
+      if (mounted) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Clean Corrupted Users'),
+            content: Text('Found ${corruptedUsers.length} corrupted users. Delete them?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('Delete'),
+              ),
+            ],
+          ),
+        );
+        
+        if (confirm != true) return;
+      }
+      
+      // Delete corrupted users
+      int deletedCount = 0;
+      for (final user in corruptedUsers) {
+        try {
+          if (user.isInBox && user.key != null) {
+            await user.delete();
+            deletedCount++;
+            print('Deleted corrupted user: ${user.email}');
+          }
+        } catch (e) {
+          print('Failed to delete user ${user.email}: $e');
+        }
+      }
+      
+      // Reload users list
+      await _loadUsers();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Deleted $deletedCount corrupted users'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+    } catch (e) {
+      print('Clean corrupted users error: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Clean failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _loginWithSelectedUser() async {
@@ -594,12 +991,31 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoggingIn = true);
 
     try {
-      if (!_selectedUser!.verifyPassword(_passwordController.text)) {
+      // Check if user data is valid before attempting authentication
+      if (!_selectedUser!.isDataValid) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('User data is corrupted. Use Emergency Bypass or Clean Data.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      final user = await _databaseService.authenticateUser(
+        _selectedUser!.email, 
+        _passwordController.text
+      );
+
+      if (user == null) {
         setState(() => _isPasswordWrong = true);
         return;
       }
 
-      await _databaseService.setCurrentUser(_selectedUser!);
+      await _databaseService.setCurrentUser(user);
       
       if (mounted) {
         setState(() {
@@ -614,9 +1030,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded( // FIXED: Prevent overflow in SnackBar
-                  child: Text('Connecté en tant que ${_selectedUser!.name}'),
-                ),
+                Expanded(child: Text('Connecté en tant que ${user.name}')),
               ],
             ),
             backgroundColor: AppColors.success,
@@ -653,7 +1067,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           content: const Text(
             'Cette action va supprimer tous les comptes en double (même email). Seul le premier compte sera conservé pour chaque adresse email.',
-            maxLines: 4, // FIXED: Limit lines in dialog
+            maxLines: 4,
             overflow: TextOverflow.ellipsis,
           ),
           actions: [
@@ -693,9 +1107,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.cleaning_services, color: Colors.white),
                 const SizedBox(width: 8),
-                Expanded( // FIXED: Prevent overflow
-                  child: Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
-                ),
+                Expanded(child: Text('$duplicatesRemoved compte(s) en double supprimé(s)')),
               ],
             ),
             backgroundColor: AppColors.success,
@@ -718,9 +1130,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded( // FIXED: Prevent overflow in error messages
-                child: Text(message),
-              ),
+              Expanded(child: Text(message)),
             ],
           ),
           backgroundColor: AppColors.error,
