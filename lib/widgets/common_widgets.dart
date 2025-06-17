@@ -1,4 +1,4 @@
-// lib/widgets/common_widgets.dart - FIXED LinearGradient issue
+// lib/widgets/common_widgets.dart - FIXED all overflow and layout issues
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
@@ -12,7 +12,7 @@ class AppSpacing {
   static const double xxl = 48.0;
 }
 
-// Consistent Page Header
+// FIXED: Consistent Page Header with proper overflow handling
 class AppPageHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -34,9 +34,9 @@ class AppPageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        // FIXED: Use proper gradient with opacity instead of .scale()
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -52,6 +52,7 @@ class AppPageHeader extends StatelessWidget {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
             Container(
@@ -68,6 +69,7 @@ class AppPageHeader extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
+          // FIXED: Add proper text overflow handling
           Text(
             title,
             style: const TextStyle(
@@ -76,6 +78,8 @@ class AppPageHeader extends StatelessWidget {
               color: AppColors.primary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           if (subtitle != null) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -86,6 +90,8 @@ class AppPageHeader extends StatelessWidget {
                 color: AppColors.primary.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
+              maxLines: 3, // FIXED: Allow multiple lines for subtitles
+              overflow: TextOverflow.ellipsis,
             ),
           ],
           if (trailing != null) ...[
@@ -98,7 +104,7 @@ class AppPageHeader extends StatelessWidget {
   }
 }
 
-// Consistent Card Container
+// FIXED: Consistent Card Container with better responsive design
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
@@ -107,6 +113,7 @@ class AppCard extends StatelessWidget {
   final double? elevation;
   final BorderRadius? borderRadius;
   final Border? border;
+  final double? maxWidth;
 
   const AppCard({
     Key? key,
@@ -117,11 +124,14 @@ class AppCard extends StatelessWidget {
     this.elevation,
     this.borderRadius,
     this.border,
+    this.maxWidth,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    Widget cardContent = Container(
+      width: double.infinity,
+      constraints: maxWidth != null ? BoxConstraints(maxWidth: maxWidth!) : null,
       margin: margin,
       padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -138,10 +148,17 @@ class AppCard extends StatelessWidget {
       ),
       child: child,
     );
+
+    // FIXED: Center the card if maxWidth is specified
+    if (maxWidth != null) {
+      return Center(child: cardContent);
+    }
+    
+    return cardContent;
   }
 }
 
-// Consistent Button
+// FIXED: Consistent Button with better responsive design
 class AppButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
@@ -151,6 +168,7 @@ class AppButton extends StatelessWidget {
   final AppButtonStyle style;
   final EdgeInsets? padding;
   final double? width;
+  final double? height;
 
   const AppButton({
     Key? key,
@@ -162,6 +180,7 @@ class AppButton extends StatelessWidget {
     this.style = AppButtonStyle.primary,
     this.padding,
     this.width,
+    this.height,
   }) : super(key: key);
 
   @override
@@ -183,7 +202,15 @@ class AppButton extends StatelessWidget {
                 Icon(icon, size: 20),
                 const SizedBox(width: AppSpacing.sm),
               ],
-              Text(text),
+              // FIXED: Add proper text overflow handling for buttons
+              Flexible(
+                child: Text(
+                  text,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
           );
 
@@ -209,8 +236,12 @@ class AppButton extends StatelessWidget {
         break;
     }
 
-    return SizedBox(
+    return Container(
       width: width,
+      height: height,
+      constraints: const BoxConstraints(
+        minHeight: 48, // FIXED: Ensure minimum touch target size
+      ),
       child: button,
     );
   }
@@ -218,7 +249,7 @@ class AppButton extends StatelessWidget {
 
 enum AppButtonStyle { primary, secondary, text }
 
-// Consistent Input Field
+// FIXED: Consistent Input Field with comprehensive overflow handling
 class AppTextField extends StatefulWidget {
   final String label;
   final String? hint;
@@ -231,6 +262,7 @@ class AppTextField extends StatefulWidget {
   final String? Function(String?)? validator;
   final void Function(String)? onChanged;
   final bool enabled;
+  final int? maxLength;
 
   const AppTextField({
     Key? key,
@@ -245,6 +277,7 @@ class AppTextField extends StatefulWidget {
     this.validator,
     this.onChanged,
     this.enabled = true,
+    this.maxLength,
   }) : super(key: key);
 
   @override
@@ -259,6 +292,7 @@ class _AppTextFieldState extends State<AppTextField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // FIXED: Better label layout with overflow protection
         Row(
           children: [
             if (widget.prefixIcon != null) ...[
@@ -269,12 +303,16 @@ class _AppTextFieldState extends State<AppTextField> {
               ),
               const SizedBox(width: AppSpacing.sm),
             ],
-            Text(
-              widget.label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+            Expanded( // FIXED: Prevent label overflow
+              child: Text(
+                widget.label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (widget.isRequired)
@@ -289,14 +327,18 @@ class _AppTextFieldState extends State<AppTextField> {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
+        
+        // FIXED: Better text field with responsive design
         TextFormField(
           controller: widget.controller,
           obscureText: widget.isPassword && _obscurePassword,
           maxLines: widget.maxLines,
+          maxLength: widget.maxLength,
           keyboardType: widget.keyboardType,
           enabled: widget.enabled,
           decoration: InputDecoration(
             hintText: widget.hint,
+            counterText: '', // FIXED: Hide character counter to save space
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(
@@ -308,27 +350,40 @@ class _AppTextFieldState extends State<AppTextField> {
                         : null,
                   )
                 : null,
+            // FIXED: Ensure content padding doesn't cause overflow
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: widget.maxLines > 1 ? 16 : 12,
+            ),
           ),
           validator: widget.validator,
           onChanged: widget.onChanged,
           autovalidateMode: AutovalidateMode.onUserInteraction,
+          // FIXED: Add text direction and overflow handling
+          textAlignVertical: widget.maxLines > 1 ? TextAlignVertical.top : TextAlignVertical.center,
+          style: const TextStyle(
+            fontSize: 16,
+            height: 1.4,
+          ),
         ),
       ],
     );
   }
 }
 
-// Status Badge
+// FIXED: Status Badge with responsive design
 class StatusBadge extends StatelessWidget {
   final String text;
   final StatusType type;
   final IconData? icon;
+  final bool isCompact;
 
   const StatusBadge({
     Key? key,
     required this.text,
     required this.type,
     this.icon,
+    this.isCompact = false,
   }) : super(key: key);
 
   @override
@@ -352,11 +407,22 @@ class StatusBadge extends StatelessWidget {
         break;
     }
 
+    // FIXED: Responsive badge sizing
+    final padding = isCompact 
+        ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+        : const EdgeInsets.symmetric(horizontal: 12, vertical: 6);
+    
+    final fontSize = isCompact ? 10.0 : 12.0;
+    final iconSize = isCompact ? 12.0 : 16.0;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      constraints: const BoxConstraints(
+        maxWidth: 200, // FIXED: Prevent badge from becoming too wide
+      ),
+      padding: padding,
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(isCompact ? 16 : 20),
         border: Border.all(
           color: color.withOpacity(0.3),
           width: 1,
@@ -369,16 +435,20 @@ class StatusBadge extends StatelessWidget {
             Icon(
               icon,
               color: color,
-              size: 16,
+              size: iconSize,
             ),
-            const SizedBox(width: AppSpacing.xs),
+            SizedBox(width: isCompact ? AppSpacing.xs : AppSpacing.xs),
           ],
-          Text(
-            text,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Flexible( // FIXED: Allow text to shrink if needed
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -389,12 +459,13 @@ class StatusBadge extends StatelessWidget {
 
 enum StatusType { success, warning, error, info, neutral }
 
-// Empty State Widget
+// FIXED: Empty State Widget with responsive design
 class EmptyState extends StatelessWidget {
   final String title;
   final String message;
   final IconData icon;
   final Widget? action;
+  final bool isCompact;
 
   const EmptyState({
     Key? key,
@@ -402,40 +473,47 @@ class EmptyState extends StatelessWidget {
     required this.message,
     required this.icon,
     this.action,
+    this.isCompact = false,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             icon,
-            size: 64,
+            size: isCompact ? 48 : 64,
             color: AppColors.textMuted,
           ),
-          const SizedBox(height: AppSpacing.md),
+          SizedBox(height: isCompact ? AppSpacing.sm : AppSpacing.md),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 18,
+            style: TextStyle(
+              fontSize: isCompact ? 16 : 18,
               fontWeight: FontWeight.bold,
               color: AppColors.primary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2, // FIXED: Prevent title overflow
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: AppSpacing.sm),
+          SizedBox(height: isCompact ? AppSpacing.xs : AppSpacing.sm),
           Text(
             message,
-            style: const TextStyle(
-              fontSize: 14,
+            style: TextStyle(
+              fontSize: isCompact ? 12 : 14,
               color: AppColors.textSecondary,
+              height: 1.4,
             ),
             textAlign: TextAlign.center,
+            maxLines: 3, // FIXED: Prevent message overflow
+            overflow: TextOverflow.ellipsis,
           ),
           if (action != null) ...[
-            const SizedBox(height: AppSpacing.lg),
+            SizedBox(height: isCompact ? AppSpacing.md : AppSpacing.lg),
             action!,
           ],
         ],
@@ -444,28 +522,45 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-// Loading Widget
+// FIXED: Loading Widget with better centering
 class AppLoading extends StatelessWidget {
   final String? message;
+  final bool isCompact;
 
-  const AppLoading({Key? key, this.message}) : super(key: key);
+  const AppLoading({
+    Key? key, 
+    this.message,
+    this.isCompact = false,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+          SizedBox(
+            width: isCompact ? 24 : 32,
+            height: isCompact ? 24 : 32,
+            child: const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              strokeWidth: 3,
+            ),
           ),
           if (message != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message!,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textSecondary,
+            SizedBox(height: isCompact ? AppSpacing.sm : AppSpacing.md),
+            Container(
+              constraints: const BoxConstraints(maxWidth: 200), // FIXED: Prevent message overflow
+              child: Text(
+                message!,
+                style: TextStyle(
+                  fontSize: isCompact ? 14 : 16,
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -475,27 +570,59 @@ class AppLoading extends StatelessWidget {
   }
 }
 
-// Safe Page Wrapper to prevent overflow
+// FIXED: Safe Page Wrapper with better overflow prevention
 class SafePageWrapper extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
   final bool hasScrollView;
+  final bool useConstraints;
 
   const SafePageWrapper({
     Key? key,
     required this.child,
     this.padding,
     this.hasScrollView = true,
+    this.useConstraints = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    Widget content = Padding(
-      padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
-      child: child,
-    );
+    Widget content = child;
 
-    if (hasScrollView) {
+    // FIXED: Add padding safely
+    if (padding != null) {
+      content = Padding(
+        padding: padding!,
+        child: content,
+      );
+    }
+
+    // FIXED: Add constraints to prevent overflow
+    if (useConstraints) {
+      content = LayoutBuilder(
+        builder: (context, constraints) {
+          if (hasScrollView) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: IntrinsicHeight(child: content),
+              ),
+            );
+          } else {
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight,
+                maxWidth: constraints.maxWidth,
+              ),
+              child: content,
+            );
+          }
+        },
+      );
+    } else if (hasScrollView) {
       content = SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: content,
@@ -506,12 +633,13 @@ class SafePageWrapper extends StatelessWidget {
   }
 }
 
-// App Bar with consistent styling
+// FIXED: App Bar with consistent styling and overflow handling
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? actions;
   final bool showBackButton;
   final VoidCallback? onBackPressed;
+  final double? elevation;
 
   const CustomAppBar({
     Key? key,
@@ -519,12 +647,23 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.showBackButton = true,
     this.onBackPressed,
+    this.elevation,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: Text(title),
+      // FIXED: Constrain title to prevent overflow
+      title: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.6,
+        ),
+        child: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
       leading: showBackButton
           ? IconButton(
               icon: const Icon(Icons.arrow_back_ios),
@@ -532,9 +671,223 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             )
           : null,
       actions: actions,
+      elevation: elevation,
     );
   }
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+// FIXED: Responsive Grid Widget
+class ResponsiveGrid extends StatelessWidget {
+  final List<Widget> children;
+  final double spacing;
+  final double runSpacing;
+  final int? maxColumns;
+  final double? maxItemWidth;
+
+  const ResponsiveGrid({
+    Key? key,
+    required this.children,
+    this.spacing = 16,
+    this.runSpacing = 16,
+    this.maxColumns,
+    this.maxItemWidth,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        int columns = 2;
+        
+        if (maxItemWidth != null) {
+          columns = (constraints.maxWidth / (maxItemWidth! + spacing)).floor();
+        } else if (maxColumns != null) {
+          columns = maxColumns!;
+        }
+        
+        columns = columns.clamp(1, children.length);
+        
+        return Wrap(
+          spacing: spacing,
+          runSpacing: runSpacing,
+          children: children.map((child) {
+            final itemWidth = (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+            return SizedBox(
+              width: itemWidth,
+              child: child,
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+}
+
+// FIXED: Dismissible Card for lists
+class DismissibleCard extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onDismissed;
+  final String dismissKey;
+  final Color? dismissColor;
+  final IconData? dismissIcon;
+
+  const DismissibleCard({
+    Key? key,
+    required this.child,
+    required this.dismissKey,
+    this.onDismissed,
+    this.dismissColor,
+    this.dismissIcon,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    if (onDismissed == null) {
+      return child;
+    }
+
+    return Dismissible(
+      key: Key(dismissKey),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: dismissColor ?? AppColors.error,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(
+          dismissIcon ?? Icons.delete,
+          color: Colors.white,
+          size: 24,
+        ),
+      ),
+      onDismissed: (_) => onDismissed!(),
+      child: child,
+    );
+  }
+}
+
+// FIXED: Expandable Section Widget
+class ExpandableSection extends StatefulWidget {
+  final String title;
+  final Widget child;
+  final bool isExpanded;
+  final IconData? icon;
+  final ValueChanged<bool>? onExpansionChanged;
+
+  const ExpandableSection({
+    Key? key,
+    required this.title,
+    required this.child,
+    this.isExpanded = false,
+    this.icon,
+    this.onExpansionChanged,
+  }) : super(key: key);
+
+  @override
+  State<ExpandableSection> createState() => _ExpandableSectionState();
+}
+
+class _ExpandableSectionState extends State<ExpandableSection>
+    with SingleTickerProviderStateMixin {
+  late bool _isExpanded;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.isExpanded;
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    );
+    
+    if (_isExpanded) {
+      _animationController.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleExpansion() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+      widget.onExpansionChanged?.call(_isExpanded);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Column(
+        children: [
+          InkWell(
+            onTap: _toggleExpansion,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  if (widget.icon != null) ...[
+                    Icon(
+                      widget.icon,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                  ],
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizeTransition(
+            sizeFactor: _animation,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: widget.child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

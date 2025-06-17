@@ -1,4 +1,4 @@
-// lib/screens/onboarding/travel_options_screen.dart - FIXED all layout constraint issues
+// lib/screens/onboarding/travel_options_screen.dart - FIXED all layout and overflow issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -93,6 +93,7 @@ class TravelOptionsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
+          // FIXED: Add text overflow constraints
           const Text(
             'Vous souhaitez voyager à l\'étranger',
             style: TextStyle(
@@ -101,6 +102,8 @@ class TravelOptionsScreen extends StatelessWidget {
               color: AppColors.primary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
           const Text(
@@ -110,6 +113,8 @@ class TravelOptionsScreen extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -147,7 +152,7 @@ class TravelOptionsScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              const Expanded( // FIXED: Prevent title overflow
                 child: Text(
                   'Scan intelligent avec IA',
                   style: TextStyle(
@@ -155,6 +160,8 @@ class TravelOptionsScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -167,6 +174,8 @@ class TravelOptionsScreen extends StatelessWidget {
               color: AppColors.textSecondary,
               height: 1.4,
             ),
+            maxLines: 4, // FIXED: Limit lines to prevent overflow
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
           Container(
@@ -180,15 +189,15 @@ class TravelOptionsScreen extends StatelessWidget {
                 width: 1,
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.lightbulb_outline,
                   color: AppColors.info,
                   size: 16,
                 ),
-                SizedBox(width: 8),
-                Expanded(
+                const SizedBox(width: 8),
+                const Expanded( // FIXED: Prevent text overflow
                   child: Text(
                     'Vous pouvez également faire une saisie manuelle',
                     style: TextStyle(
@@ -196,6 +205,8 @@ class TravelOptionsScreen extends StatelessWidget {
                       color: AppColors.info,
                       fontWeight: FontWeight.w500,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -206,38 +217,103 @@ class TravelOptionsScreen extends StatelessWidget {
     );
   }
 
+  // FIXED: Responsive action buttons with proper constraints
   Widget _buildActionButtons(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton.icon(
-          onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
-          icon: const Icon(Icons.camera_alt),
-          label: const Text('Scanner avec IA'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
-          icon: const Icon(Icons.edit),
-          label: const Text('Saisie manuelle'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: const BorderSide(color: AppColors.primary, width: 1.5),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // FIXED: Stack buttons vertically on very small screens
+        if (constraints.maxWidth < 320) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text(
+                    'Scanner avec IA',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
+                  icon: const Icon(Icons.edit),
+                  label: const Text(
+                    'Saisie manuelle',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        } else {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text(
+                    'Scanner avec IA',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 56,
+                child: OutlinedButton.icon(
+                  onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
+                  icon: const Icon(Icons.edit),
+                  label: const Text(
+                    'Saisie manuelle',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary, width: 1.5),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+      },
     );
   }
 
@@ -268,12 +344,16 @@ class TravelOptionsScreen extends StatelessWidget {
                 size: 20,
               ),
               SizedBox(width: 8),
-              Text(
-                'Fonctionnalités',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+              Expanded( // FIXED: Prevent title overflow
+                child: Text(
+                  'Fonctionnalités',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -304,6 +384,7 @@ class TravelOptionsScreen extends StatelessWidget {
     );
   }
 
+  // FIXED: Feature item with better text constraints
   Widget _buildFeatureItem(IconData icon, String title, String description) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -323,7 +404,7 @@ class TravelOptionsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Expanded(
+          Expanded( // FIXED: Prevent text overflow
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -334,6 +415,8 @@ class TravelOptionsScreen extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     color: AppColors.primary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -341,7 +424,10 @@ class TravelOptionsScreen extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
+                    height: 1.3,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

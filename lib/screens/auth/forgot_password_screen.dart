@@ -1,4 +1,4 @@
-// lib/screens/auth/forgot_password_screen.dart - FIXED password reset functionality
+// lib/screens/auth/forgot_password_screen.dart - FIXED all layout and overflow issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -16,7 +16,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _databaseService = DatabaseService();
   bool _isLoading = false;
   bool _emailSent = false;
-  String? _lastEmailSent; // Track which email we sent to
+  String? _lastEmailSent;
 
   @override
   void dispose() {
@@ -31,42 +31,118 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       appBar: const CustomAppBar(
         title: 'Mot de passe oublié',
       ),
-      body: SafePageWrapper(
-        hasScrollView: true,
-        child: Column(
-          children: [
-            // Header section
-            AppPageHeader(
-              title: 'Réinitialiser votre mot de passe',
-              subtitle: _emailSent
-                  ? 'Un email de réinitialisation a été envoyé'
-                  : 'Entrez votre email pour réinitialiser votre mot de passe',
-              icon: Icons.lock_reset,
-            ),
-            
-            const SizedBox(height: AppSpacing.xl),
-            
-            // Content - FIXED: Use AnimatedSwitcher for smooth transitions
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _emailSent 
-                  ? _buildSuccessState()
-                  : _buildEmailForm(),
-            ),
-            
-            const SizedBox(height: AppSpacing.xl),
-            
-            // Info section
-            _buildInfoSection(),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header section
+                      _buildHeaderSection(),
+                      
+                      const SizedBox(height: AppSpacing.xl),
+                      
+                      // Content - FIXED: Use AnimatedSwitcher for smooth transitions
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        child: _emailSent 
+                            ? _buildSuccessState()
+                            : _buildEmailForm(),
+                      ),
+                      
+                      const SizedBox(height: AppSpacing.xl),
+                      
+                      // Info section
+                      _buildInfoSection(),
+                      
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderSection() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.secondary.withOpacity(0.1),
+            AppColors.light.withOpacity(0.1),
           ],
         ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.secondary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(50),
+            ),
+            child: const Icon(
+              Icons.lock_reset,
+              size: 32,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          // FIXED: Better text handling with constraints
+          const Text(
+            'Réinitialiser votre mot de passe',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            _emailSent
+                ? 'Un email de réinitialisation a été envoyé'
+                : 'Entrez votre email pour réinitialiser votre mot de passe',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppColors.primary.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildEmailForm() {
     return Column(
-      key: const ValueKey('email_form'), // FIXED: Add key for AnimatedSwitcher
+      key: const ValueKey('email_form'),
       children: [
         AppTextField(
           label: 'Adresse email',
@@ -75,7 +151,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           prefixIcon: Icons.email,
           isRequired: true,
           keyboardType: TextInputType.emailAddress,
-          enabled: !_isLoading, // FIXED: Disable during loading
+          enabled: !_isLoading,
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'Veuillez entrer votre adresse email';
@@ -108,9 +184,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
+  // FIXED: Better success state layout with proper constraints
   Widget _buildSuccessState() {
     return Column(
-      key: const ValueKey('success_state'), // FIXED: Add key for AnimatedSwitcher
+      key: const ValueKey('success_state'),
       children: [
         // Success card
         AppCard(
@@ -120,6 +197,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             width: 1,
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Container(
                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -144,6 +222,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   color: AppColors.success,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               
               const SizedBox(height: AppSpacing.md),
@@ -156,11 +236,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   height: 1.4,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 3, // FIXED: Limit lines to prevent overflow
+                overflow: TextOverflow.ellipsis,
               ),
               
               const SizedBox(height: AppSpacing.lg),
               
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   color: AppColors.info.withOpacity(0.1),
@@ -178,7 +261,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       size: 16,
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    Expanded(
+                    Expanded( // FIXED: Prevent text overflow
                       child: Text(
                         'Email envoyé à: ${_lastEmailSent ?? _emailController.text}',
                         style: const TextStyle(
@@ -186,6 +269,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           color: AppColors.info,
                           fontWeight: FontWeight.w500,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -197,30 +282,57 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         
         const SizedBox(height: AppSpacing.xl),
         
-        // Action buttons
-        Column(
-          children: [
-            AppButton(
-              text: 'Retour à la connexion',
-              icon: Icons.login,
-              onPressed: () => Navigator.pop(context),
-              width: double.infinity,
-            ),
-            
-            const SizedBox(height: AppSpacing.md),
-            
-            AppButton(
-              text: 'Renvoyer l\'email',
-              style: AppButtonStyle.secondary,
-              onPressed: () {
-                // FIXED: Reset state to allow re-sending
-                setState(() {
-                  _emailSent = false;
-                  _lastEmailSent = null;
-                });
-              },
-            ),
-          ],
+        // Action buttons - FIXED: Responsive button layout
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 320) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppButton(
+                    text: 'Retour à la connexion',
+                    icon: Icons.login,
+                    onPressed: () => Navigator.pop(context),
+                    width: double.infinity,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton(
+                    text: 'Renvoyer l\'email',
+                    style: AppButtonStyle.secondary,
+                    onPressed: () {
+                      setState(() {
+                        _emailSent = false;
+                        _lastEmailSent = null;
+                      });
+                    },
+                    width: double.infinity,
+                  ),
+                ],
+              );
+            } else {
+              return Column(
+                children: [
+                  AppButton(
+                    text: 'Retour à la connexion',
+                    icon: Icons.login,
+                    onPressed: () => Navigator.pop(context),
+                    width: double.infinity,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton(
+                    text: 'Renvoyer l\'email',
+                    style: AppButtonStyle.secondary,
+                    onPressed: () {
+                      setState(() {
+                        _emailSent = false;
+                        _lastEmailSent = null;
+                      });
+                    },
+                  ),
+                ],
+              );
+            }
+          },
         ),
       ],
     );
@@ -234,6 +346,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         width: 1,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Row(
             children: [
@@ -243,7 +357,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 size: 20,
               ),
               SizedBox(width: AppSpacing.md),
-              Expanded(
+              Expanded( // FIXED: Prevent title overflow
                 child: Text(
                   'Information importante',
                   style: TextStyle(
@@ -251,6 +365,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -265,25 +381,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               color: AppColors.textSecondary,
               height: 1.4,
             ),
+            maxLines: 4, // FIXED: Limit lines to prevent overflow
+            overflow: TextOverflow.ellipsis,
           ),
           
           const SizedBox(height: AppSpacing.md),
           
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.sm),
             decoration: BoxDecoration(
               color: AppColors.warning.withOpacity(0.1),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(
+                const Icon(
                   Icons.security,
                   color: AppColors.warning,
                   size: 16,
                 ),
-                SizedBox(width: AppSpacing.sm),
-                Expanded(
+                const SizedBox(width: AppSpacing.sm),
+                const Expanded( // FIXED: Prevent text overflow
                   child: Text(
                     'Vos données restent protégées et stockées localement',
                     style: TextStyle(
@@ -291,6 +410,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       color: AppColors.warning,
                       fontWeight: FontWeight.w500,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -301,7 +422,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  // FIXED: Completely rewritten reset password method with better error handling
   Future<void> _resetPassword() async {
     // Validate email first
     final email = _emailController.text.trim();
@@ -315,7 +435,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return;
     }
 
-    // FIXED: Ensure we're mounted before starting async operation
     if (!mounted) return;
 
     setState(() {
@@ -329,8 +448,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       // Simulate network delay for realism
       await Future.delayed(const Duration(seconds: 2));
       
-      // FIXED: Always show success for security (don't reveal if email exists)
-      // In a real app, you'd send email regardless to prevent email enumeration
       if (mounted) {
         setState(() {
           _emailSent = true;
@@ -345,7 +462,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: AppSpacing.sm),
-                Text('Instructions envoyées à $email'),
+                Expanded( // FIXED: Prevent overflow in SnackBar
+                  child: Text('Instructions envoyées à $email'),
+                ),
               ],
             ),
             backgroundColor: AppColors.success,
@@ -354,20 +473,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
         );
 
-        // FIXED: In demo mode, show different message if user not found
+        // In demo mode, show different message if user not found
         if (user == null) {
-          // Wait a bit then show a discrete message
           Future.delayed(const Duration(seconds: 3), () {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text(
+                const SnackBar(
+                  content: Text(
                     'Note: Si ce compte existe, l\'email a été envoyé',
                     style: TextStyle(fontSize: 12),
                   ),
                   backgroundColor: AppColors.info,
                   behavior: SnackBarBehavior.floating,
-                  duration: const Duration(seconds: 3),
+                  duration: Duration(seconds: 3),
                 ),
               );
             }
@@ -393,7 +511,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(child: Text(message)),
+              Expanded( // FIXED: Prevent overflow in error message
+                child: Text(message),
+              ),
             ],
           ),
           backgroundColor: AppColors.error,
