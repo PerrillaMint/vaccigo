@@ -1,4 +1,4 @@
-// lib/screens/auth/login_screen.dart - FIXED infinite height constraint issue
+// lib/screens/auth/login_screen.dart - FIXED all overflow issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -169,6 +169,8 @@ class _LoginScreenState extends State<LoginScreen> {
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2, // FIXED: Prevent text overflow
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -237,6 +239,8 @@ class _LoginScreenState extends State<LoginScreen> {
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2, // FIXED: Prevent overflow
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
@@ -257,6 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // FIXED: Completely rewritten users list with proper overflow handling
   Widget _buildUsersList() {
     return Container(
       decoration: BoxDecoration(
@@ -274,19 +279,24 @@ class _LoginScreenState extends State<LoginScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with user count
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                const Text(
-                  'Utilisateurs existants',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
+                const Expanded( // FIXED: Use Expanded to prevent overflow
+                  child: Text(
+                    'Utilisateurs existants',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8), // FIXED: Add spacing
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -301,7 +311,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   child: Text(
-                    '${_users.length} utilisateur(s)',
+                    '${_users.length}',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -313,76 +323,29 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           
-          // Users list - Using ListView.builder for better performance
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: _users.length,
-            itemBuilder: (context, index) {
-              final user = _users[index];
-              final isSelected = _selectedUser == user;
-              
-              return Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
+          // Users list - FIXED: Better layout with proper constraints
+          ...List.generate(_users.length, (index) {
+            final user = _users[index];
+            final isSelected = _selectedUser == user;
+            
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              decoration: BoxDecoration(
+                color: isSelected 
+                    ? AppColors.secondary.withOpacity(0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
                   color: isSelected 
-                      ? AppColors.secondary.withOpacity(0.1)
+                      ? AppColors.secondary
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected 
-                        ? AppColors.secondary
-                        : Colors.transparent,
-                    width: 1,
-                  ),
+                  width: 1,
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16, 
-                    vertical: 8
-                  ),
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isSelected 
-                          ? AppColors.secondary.withOpacity(0.2)
-                          : AppColors.secondary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.person,
-                      color: isSelected 
-                          ? AppColors.primary
-                          : AppColors.primary.withOpacity(0.7),
-                      size: 20,
-                    ),
-                  ),
-                  title: Text(
-                    user.name,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                      color: isSelected 
-                          ? AppColors.primary
-                          : AppColors.primary.withOpacity(0.8),
-                    ),
-                  ),
-                  subtitle: Text(
-                    user.email,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isSelected 
-                          ? AppColors.secondary
-                          : AppColors.textSecondary,
-                    ),
-                  ),
-                  trailing: isSelected 
-                      ? const Icon(
-                          Icons.check_circle,
-                          color: AppColors.success,
-                        )
-                      : null,
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
                   onTap: _isLoggingIn ? null : () {
                     setState(() {
                       _selectedUser = isSelected ? null : user;
@@ -390,10 +353,89 @@ class _LoginScreenState extends State<LoginScreen> {
                       _isPasswordWrong = false;
                     });
                   },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16, 
+                      vertical: 12
+                    ),
+                    child: Row(
+                      children: [
+                        // Avatar - Fixed size
+                        Container(
+                          width: 40,
+                          height: 40,
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isSelected 
+                                ? AppColors.secondary.withOpacity(0.2)
+                                : AppColors.secondary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: isSelected 
+                                ? AppColors.primary
+                                : AppColors.primary.withOpacity(0.7),
+                            size: 20,
+                          ),
+                        ),
+                        
+                        const SizedBox(width: 12),
+                        
+                        // User info - FIXED: Use Expanded to prevent overflow
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                user.name,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                  color: isSelected 
+                                      ? AppColors.primary
+                                      : AppColors.primary.withOpacity(0.8),
+                                ),
+                                maxLines: 1, // FIXED: Prevent overflow
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user.email,
+                                style: TextStyle(
+                                  fontSize: 13, // FIXED: Smaller font for email
+                                  color: isSelected 
+                                      ? AppColors.secondary
+                                      : AppColors.textSecondary,
+                                ),
+                                maxLines: 1, // FIXED: Prevent overflow
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        // Selection indicator - Fixed size
+                        if (isSelected)
+                          const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: Icon(
+                              Icons.check_circle,
+                              color: AppColors.success,
+                              size: 20,
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 24), // Maintain spacing
+                      ],
+                    ),
+                  ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
           
           const SizedBox(height: 16),
         ],
@@ -500,6 +542,8 @@ class _LoginScreenState extends State<LoginScreen> {
               _isLoggingIn 
                   ? 'Connexion...'
                   : 'Se connecter avec ${_selectedUser!.name}',
+              maxLines: 1, // FIXED: Prevent text overflow
+              overflow: TextOverflow.ellipsis,
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -521,7 +565,11 @@ class _LoginScreenState extends State<LoginScreen> {
         OutlinedButton.icon(
           onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/user-creation'),
           icon: const Icon(Icons.person_add),
-          label: const Text('Créer un nouvel utilisateur'),
+          label: const Text(
+            'Créer un nouvel utilisateur',
+            maxLines: 1, // FIXED: Prevent overflow
+            overflow: TextOverflow.ellipsis,
+          ),
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.secondary,
             side: const BorderSide(color: AppColors.secondary),
@@ -566,7 +614,9 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('Connecté en tant que ${_selectedUser!.name}'),
+                Expanded( // FIXED: Prevent overflow in SnackBar
+                  child: Text('Connecté en tant que ${_selectedUser!.name}'),
+                ),
               ],
             ),
             backgroundColor: AppColors.success,
@@ -603,6 +653,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           content: const Text(
             'Cette action va supprimer tous les comptes en double (même email). Seul le premier compte sera conservé pour chaque adresse email.',
+            maxLines: 4, // FIXED: Limit lines in dialog
+            overflow: TextOverflow.ellipsis,
           ),
           actions: [
             TextButton(
@@ -641,7 +693,9 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const Icon(Icons.cleaning_services, color: Colors.white),
                 const SizedBox(width: 8),
-                Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
+                Expanded( // FIXED: Prevent overflow
+                  child: Text('$duplicatesRemoved compte(s) en double supprimé(s)'),
+                ),
               ],
             ),
             backgroundColor: AppColors.success,
@@ -664,7 +718,9 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded(child: Text(message)),
+              Expanded( // FIXED: Prevent overflow in error messages
+                child: Text(message),
+              ),
             ],
           ),
           backgroundColor: AppColors.error,

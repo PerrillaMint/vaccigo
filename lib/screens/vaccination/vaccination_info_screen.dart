@@ -1,4 +1,4 @@
-// lib/screens/vaccination/vaccination_info_screen.dart - Updated with new design
+// lib/screens/vaccination/vaccination_info_screen.dart - FIXED table overflow issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -74,41 +74,50 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
       ),
       body: _isLoading 
           ? const AppLoading(message: 'Chargement de vos vaccinations...')
-          : SafePageWrapper(
-              child: Column(
-                children: [
-                  // Header section
-                  _buildHeaderSection(),
-                  
-                  const SizedBox(height: AppSpacing.xl),
-                  
-                  // Main content
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          // Vaccinations table
-                          _buildVaccinationsSection(),
-                          
-                          const SizedBox(height: AppSpacing.xl),
-                          
-                          // Quick add section
-                          _buildQuickAddSection(),
-                          
-                          const SizedBox(height: AppSpacing.xl),
-                          
-                          // Additional sections
-                          _buildAdditionalSections(),
-                          
-                          const SizedBox(height: AppSpacing.xxl),
-                        ],
+          : SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Header section
+                            _buildHeaderSection(),
+                            
+                            const SizedBox(height: AppSpacing.xl),
+                            
+                            // Main content
+                            _buildVaccinationsSection(),
+                            
+                            const SizedBox(height: AppSpacing.xl),
+                            
+                            // Quick add section
+                            _buildQuickAddSection(),
+                            
+                            const SizedBox(height: AppSpacing.xl),
+                            
+                            // Additional sections
+                            _buildAdditionalSections(),
+                            
+                            const SizedBox(height: AppSpacing.xxl),
+                            
+                            // Bottom button
+                            _buildBottomButton(),
+                            
+                            const SizedBox(height: AppSpacing.lg),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  
-                  // Bottom action button
-                  _buildBottomButton(),
-                ],
+                  );
+                },
               ),
             ),
     );
@@ -138,6 +147,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
           
           const SizedBox(width: AppSpacing.md),
           
+          // FIXED: Use Expanded to prevent overflow
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,6 +159,8 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 StatusBadge(
@@ -195,12 +207,16 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                   size: 20,
                 ),
                 SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Information sur vos vaccinations',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.accent,
+                Expanded( // FIXED: Prevent header text overflow
+                  child: Text(
+                    'Information sur vos vaccinations',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accent,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -246,6 +262,8 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
+            maxLines: 2, // FIXED: Prevent overflow
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
@@ -258,10 +276,11 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
     );
   }
 
+  // FIXED: Completely rewritten table with proper responsive design
   Widget _buildVaccinationsTable() {
     return Column(
       children: [
-        // Table headers (responsive)
+        // Mobile-friendly table headers
         Container(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, 
@@ -269,15 +288,17 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
           ),
           child: Row(
             children: [
-              _buildTableHeader('Vaccin', flex: 3),
+              _buildTableHeader('Vaccin', flex: 4),
               _buildTableHeader('Lot', flex: 2),
               _buildTableHeader('Date', flex: 2),
-              _buildTableHeader('Actions', flex: 1),
+              _buildTableHeader('', flex: 1), // Actions column
             ],
           ),
         ),
         
-        // Vaccination rows
+        const Divider(height: 1),
+        
+        // Vaccination rows - FIXED: Better mobile layout
         ...List.generate(_vaccinations.length, (index) {
           final vaccination = _vaccinations[index];
           return _buildVaccinationRow(vaccination, index);
@@ -287,26 +308,35 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
   }
 
   Widget _buildTableHeader(String title, {int flex = 1}) {
+    if (title.isEmpty) {
+      return Expanded(
+        flex: flex,
+        child: const SizedBox(),
+      );
+    }
+    
     return Expanded(
       flex: flex,
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 14,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppColors.textSecondary,
         ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
+  // FIXED: Responsive vaccination row with proper overflow handling
   Widget _buildVaccinationRow(Vaccination vaccination, int index) {
     return Container(
       margin: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md, 
+        horizontal: AppSpacing.sm, 
         vertical: AppSpacing.xs
       ),
-      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: index.isEven ? AppColors.surfaceVariant : AppColors.surface,
         borderRadius: BorderRadius.circular(8),
@@ -315,11 +345,204 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
           width: 1,
         ),
       ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Switch to mobile layout on smaller screens
+          if (constraints.maxWidth < 600) {
+            return _buildMobileVaccinationRow(vaccination);
+          } else {
+            return _buildDesktopVaccinationRow(vaccination);
+          }
+        },
+      ),
+    );
+  }
+
+  // FIXED: Mobile-first vaccination card layout
+  Widget _buildMobileVaccinationRow(Vaccination vaccination) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Vaccine name with icon
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.shield,
+                  size: 16,
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  vaccination.vaccineName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // Actions menu
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _confirmDeleteVaccination(vaccination);
+                  } else if (value == 'edit') {
+                    _editVaccination(vaccination);
+                  }
+                },
+                itemBuilder: (BuildContext context) => [
+                  const PopupMenuItem<String>(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 16, color: AppColors.secondary),
+                        SizedBox(width: AppSpacing.sm),
+                        Text('Modifier'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, size: 16, color: AppColors.error),
+                        SizedBox(width: AppSpacing.sm),
+                        Text('Supprimer'),
+                      ],
+                    ),
+                  ),
+                ],
+                child: const Icon(
+                  Icons.more_vert,
+                  color: AppColors.textSecondary,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: AppSpacing.sm),
+          
+          // Details row
+          Row(
+            children: [
+              // Lot number
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Lot',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      vaccination.lot,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                        fontFamily: 'monospace',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: AppSpacing.md),
+              
+              // Date
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Date',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      vaccination.date,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          // Additional info if present
+          if (vaccination.ps.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.info.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 12,
+                    color: AppColors.info,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      vaccination.ps,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.info,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Desktop/tablet layout
+  Widget _buildDesktopVaccinationRow(Vaccination vaccination) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Row(
         children: [
           // Vaccine name (with icon)
           Expanded(
-            flex: 3,
+            flex: 4,
             child: Row(
               children: [
                 Container(
@@ -354,7 +577,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                         Text(
                           vaccination.ps,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: AppColors.textMuted,
                           ),
                           maxLines: 1,
@@ -465,6 +688,8 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
+                  maxLines: 1, // FIXED: Prevent overflow
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -472,26 +697,52 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
           
           const SizedBox(height: AppSpacing.md),
           
-          Row(
-            children: [
-              Expanded(
-                child: AppButton(
-                  text: 'Scanner avec IA',
-                  icon: Icons.camera_alt,
-                  style: AppButtonStyle.secondary,
-                  onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: AppButton(
-                  text: 'Saisie manuelle',
-                  icon: Icons.edit,
-                  style: AppButtonStyle.secondary,
-                  onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
-                ),
-              ),
-            ],
+          // FIXED: Stack buttons vertically on small screens
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 400) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppButton(
+                      text: 'Scanner avec IA',
+                      icon: Icons.camera_alt,
+                      style: AppButtonStyle.secondary,
+                      onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    AppButton(
+                      text: 'Saisie manuelle',
+                      icon: Icons.edit,
+                      style: AppButtonStyle.secondary,
+                      onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
+                    ),
+                  ],
+                );
+              } else {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        text: 'Scanner avec IA',
+                        icon: Icons.camera_alt,
+                        style: AppButtonStyle.secondary,
+                        onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: AppButton(
+                        text: 'Saisie manuelle',
+                        icon: Icons.edit,
+                        style: AppButtonStyle.secondary,
+                        onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
+                      ),
+                    ),
+                  ],
+                );
+              }
+            },
           ),
         ],
       ),
@@ -514,12 +765,16 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                     size: 20,
                   ),
                   SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Rappels à venir',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                  Expanded( // FIXED: Prevent title overflow
+                    child: Text(
+                      'Rappels à venir',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -542,6 +797,8 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                     fontSize: 14,
                     color: AppColors.warning,
                   ),
+                  maxLines: 2, // FIXED: Prevent overflow
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -563,12 +820,16 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                     size: 20,
                   ),
                   SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Mes voyages',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
+                  Expanded( // FIXED: Prevent title overflow
+                    child: Text(
+                      'Mes voyages',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -598,15 +859,11 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
   }
 
   Widget _buildBottomButton() {
-    return Container(
+    return AppButton(
+      text: 'Information / Gestion',
+      icon: Icons.settings,
+      onPressed: () => Navigator.pushNamed(context, '/vaccination-management'),
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: AppButton(
-        text: 'Information / Gestion',
-        icon: Icons.settings,
-        onPressed: () => Navigator.pushNamed(context, '/vaccination-management'),
-        width: double.infinity,
-      ),
     );
   }
 
@@ -638,6 +895,8 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                   fontWeight: FontWeight.bold,
                   color: AppColors.primary,
                 ),
+                maxLines: 1, // FIXED: Prevent overflow in modal
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: AppSpacing.xl),
               
@@ -709,7 +968,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
               ),
             ),
             const SizedBox(width: AppSpacing.md),
-            Expanded(
+            Expanded( // FIXED: Prevent text overflow in bottom sheet
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -720,6 +979,8 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                       fontWeight: FontWeight.bold,
                       color: color,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
@@ -728,6 +989,8 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                       fontSize: 14,
                       color: AppColors.textSecondary,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -774,7 +1037,11 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Vaccin: ${vaccination.vaccineName}'),
+                    Text(
+                      'Vaccin: ${vaccination.vaccineName}',
+                      maxLines: 2, // FIXED: Prevent overflow in dialog
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     Text('Lot: ${vaccination.lot}'),
                     Text('Date: ${vaccination.date}'),
                   ],
@@ -820,7 +1087,9 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
               children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: AppSpacing.sm),
-                Text('Vaccination supprimée avec succès'),
+                Expanded( // FIXED: Prevent overflow in success message
+                  child: Text('Vaccination supprimée avec succès'),
+                ),
               ],
             ),
             backgroundColor: AppColors.success,
@@ -835,7 +1104,9 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: AppSpacing.sm),
-                Expanded(child: Text('Erreur lors de la suppression: $e')),
+                Expanded( // FIXED: Prevent overflow in error message
+                  child: Text('Erreur lors de la suppression: $e'),
+                ),
               ],
             ),
             backgroundColor: AppColors.error,

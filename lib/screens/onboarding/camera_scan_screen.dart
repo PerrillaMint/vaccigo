@@ -1,4 +1,4 @@
-// lib/screens/onboarding/camera_scan_screen.dart - FIXED memory management and error handling
+// lib/screens/onboarding/camera_scan_screen.dart - FIXED overlay and control overflow issues
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../services/google_vision_service.dart';
@@ -24,7 +24,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   bool _isDisposed = false;
   bool _isMounted = true;
 
-  // FIXED: AutomaticKeepAliveClientMixin to prevent unnecessary rebuilds
   @override
   bool get wantKeepAlive => true;
 
@@ -33,7 +32,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _isMounted = true;
-    // FIXED: Add delay to ensure widget is fully mounted
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_isMounted) {
         _initializeCamera();
@@ -46,7 +44,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     _isMounted = false;
     _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
-    // FIXED: Ensure proper cleanup order
     _disposeCamera();
     super.dispose();
   }
@@ -55,7 +52,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
-    // FIXED: More robust lifecycle management
     if (_isDisposed || !_isMounted) return;
     
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
@@ -64,7 +60,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     switch (state) {
       case AppLifecycleState.inactive:
-        // FIXED: Don't dispose on inactive, just pause
         _pauseCamera();
         break;
       case AppLifecycleState.paused:
@@ -84,7 +79,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  // FIXED: Separate pause/resume methods for better control
   Future<void> _pauseCamera() async {
     if (_cameraController?.value.isInitialized == true && !_isProcessing) {
       try {
@@ -101,7 +95,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         await _cameraController!.resumePreview();
       } catch (e) {
         debugPrint('Error resuming camera: $e');
-        // Try reinitializing if resume fails
         _initializeCamera();
       }
     }
@@ -110,7 +103,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Future<void> _initializeCamera() async {
     if (_isDisposed || !_isMounted) return;
     
-    // FIXED: Prevent multiple initialization attempts
     if (_isInitialized || _isProcessing) return;
     
     setState(() {
@@ -119,7 +111,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     });
 
     try {
-      // Check permissions first
       final hasPermissions = await CameraService.hasPermissions();
       if (!hasPermissions) {
         final permissionsGranted = await CameraService.requestPermissions();
@@ -133,7 +124,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         }
       }
 
-      // Check if cameras are available
       if (!CameraService.isAvailable) {
         if (_isMounted && !_isDisposed) {
           setState(() {
@@ -143,18 +133,14 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         return;
       }
 
-      // FIXED: Dispose existing controller properly before creating new one
       if (_cameraController != null) {
         await _disposeCamera();
-        // Small delay to ensure cleanup is complete
         await Future.delayed(const Duration(milliseconds: 100));
       }
 
-      // Get camera controller
       _cameraController = await CameraService.getCameraController();
       
       if (_cameraController != null && _isMounted && !_isDisposed) {
-        // FIXED: Add listener for camera errors
         _cameraController!.addListener(_onCameraError);
         
         setState(() {
@@ -173,7 +159,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  // FIXED: Camera error listener
   void _onCameraError() {
     if (_cameraController != null && _cameraController!.value.hasError) {
       debugPrint('Camera error: ${_cameraController!.value.errorDescription}');
@@ -189,7 +174,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Future<void> _disposeCamera() async {
     if (_cameraController != null) {
       try {
-        // FIXED: Remove listener before disposing
         _cameraController!.removeListener(_onCameraError);
         
         if (_cameraController!.value.isInitialized) {
@@ -210,7 +194,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context); // FIXED: Required for AutomaticKeepAliveClientMixin
+    super.build(context);
     
     if (_error != null) {
       return _buildErrorView();
@@ -222,30 +206,32 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: WillPopScope( // FIXED: Handle back button properly
+      body: WillPopScope(
         onWillPop: () async {
           if (_isProcessing) {
-            return false; // Prevent back during processing
+            return false;
           }
           return true;
         },
-        child: Stack(
-          children: [
-            // Camera preview
-            _buildCameraPreview(),
-            
-            // Processing overlay
-            if (_isProcessing) _buildProcessingOverlay(),
-            
-            // Scanning frame
-            if (!_isProcessing) _buildScanningFrame(),
-            
-            // Control buttons
-            if (!_isProcessing) _buildControlButtons(),
-            
-            // Back button
-            _buildBackButton(),
-          ],
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // Camera preview
+              _buildCameraPreview(),
+              
+              // Processing overlay
+              if (_isProcessing) _buildProcessingOverlay(),
+              
+              // Scanning frame
+              if (!_isProcessing) _buildScanningFrame(),
+              
+              // Control buttons
+              if (!_isProcessing) _buildControlButtons(),
+              
+              // Back button
+              _buildBackButton(),
+            ],
+          ),
         ),
       ),
     );
@@ -279,36 +265,80 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _error ?? 'Une erreur inconnue s\'est produite',
-                  style: const TextStyle(fontSize: 16),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 12),
+                // FIXED: Add constraints to prevent overflow
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 300),
+                  child: Text(
+                    _error ?? 'Une erreur inconnue s\'est produite',
+                    style: const TextStyle(fontSize: 16),
+                    textAlign: TextAlign.center,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Retour'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: _initializeCamera,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Réessayer'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ],
+                // FIXED: Stack buttons vertically on small screens
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    if (constraints.maxWidth < 300) {
+                      return Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.arrow_back),
+                              label: const Text('Retour'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _initializeCamera,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Réessayer'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    } else {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.arrow_back),
+                            label: const Text('Retour'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: _initializeCamera,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Réessayer'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                  },
                 ),
               ],
             ),
@@ -349,7 +379,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       );
     }
 
-    // FIXED: Better aspect ratio handling to prevent distortion
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
@@ -398,6 +427,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
+              textAlign: TextAlign.center,
             ),
             SizedBox(height: 8),
             Text(
@@ -406,6 +436,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                 color: Colors.white70,
                 fontSize: 14,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -413,67 +444,115 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
   }
 
+  // FIXED: Responsive scanning frame with better text handling
   Widget _buildScanningFrame() {
-    return SafeArea(
-      child: Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.width * 1.2,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.white, width: 2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.center_focus_strong,
-                color: Colors.white,
-                size: 48,
-              ),
-              SizedBox(height: 16),
-              Text(
-                "Positionnez votre carnet\ndans le cadre",
-                textAlign: TextAlign.center,
-                style: TextStyle(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = constraints.maxWidth;
+        final frameWidth = screenWidth * 0.8;
+        final frameHeight = frameWidth * 1.2;
+        
+        return Center(
+          child: Container(
+            width: frameWidth,
+            height: frameHeight,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.center_focus_strong,
                   color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  shadows: [
-                    Shadow(
-                      blurRadius: 10.0,
-                      color: Colors.black,
-                      offset: Offset(2.0, 2.0),
-                    ),
-                  ],
+                  size: 48,
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                // FIXED: Add container with constraints to prevent text overflow
+                Container(
+                  constraints: BoxConstraints(
+                    maxWidth: frameWidth - 32, // Account for padding
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: const Text(
+                    "Positionnez votre carnet\ndans le cadre",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 10.0,
+                          color: Colors.black,
+                          offset: Offset(2.0, 2.0),
+                        ),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
+  // FIXED: Responsive control buttons with proper positioning
   Widget _buildControlButtons() {
     return Positioned(
       left: 0,
       right: 0,
-      bottom: 60, // FIXED: Account for safe area
+      bottom: 0,
       child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildControlButton(
-              icon: _flashOn ? Icons.flash_on : Icons.flash_off,
-              onPressed: _toggleFlash,
-            ),
-            _buildCaptureButton(),
-            _buildControlButton(
-              icon: Icons.photo_library,
-              onPressed: _selectFromGallery,
-            ),
-          ],
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // FIXED: Adjust layout based on screen width
+              if (constraints.maxWidth < 400) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _buildControlButton(
+                          icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+                          onPressed: _toggleFlash,
+                        ),
+                        _buildControlButton(
+                          icon: Icons.photo_library,
+                          onPressed: _selectFromGallery,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildCaptureButton(),
+                  ],
+                );
+              } else {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildControlButton(
+                      icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+                      onPressed: _toggleFlash,
+                    ),
+                    _buildCaptureButton(),
+                    _buildControlButton(
+                      icon: Icons.photo_library,
+                      onPressed: _selectFromGallery,
+                    ),
+                  ],
+                );
+              }
+            },
+          ),
         ),
       ),
     );
@@ -530,22 +609,25 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
   Widget _buildBackButton() {
     return Positioned(
-      top: MediaQuery.of(context).padding.top + 10,
-      left: 20,
+      top: 0,
+      left: 0,
       child: SafeArea(
-        child: GestureDetector(
-          onTap: _isProcessing ? null : () => Navigator.pop(context),
-          child: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.6),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
-            ),
-            child: Icon(
-              Icons.close,
-              color: _isProcessing ? Colors.grey : Colors.white,
-              size: 24,
+        child: Container(
+          margin: const EdgeInsets.all(20),
+          child: GestureDetector(
+            onTap: _isProcessing ? null : () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.6),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+              ),
+              child: Icon(
+                Icons.close,
+                color: _isProcessing ? Colors.grey : Colors.white,
+                size: 24,
+              ),
             ),
           ),
         ),
@@ -582,7 +664,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Future<void> _captureAndProcess() async {
     if (_isDisposed || _isProcessing || !_isMounted) return;
     
-    // FIXED: Additional safety checks
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       _showErrorDialog('Caméra non initialisée');
       return;
@@ -591,7 +672,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     setState(() => _isProcessing = true);
     
     try {
-      // FIXED: Add timeout to capture operation
       final imagePath = await Future.any([
         CameraService.captureImage(),
         Future.delayed(const Duration(seconds: 10), () => throw TimeoutException('Capture timeout')),
@@ -601,7 +681,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         throw Exception('Échec de la capture d\'image');
       }
       
-      // Check if it's a valid vaccination card
       bool isValid = await _visionService.isValidVaccinationCard(imagePath);
       
       if (!isValid) {
@@ -609,10 +688,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         return;
       }
       
-      // Process with AI
       ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
       
-      // Navigate to preview with extracted data
       if (_isMounted && !_isDisposed) {
         Navigator.pushReplacementNamed(
           context, 
@@ -636,7 +713,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     setState(() => _isProcessing = true);
     
     try {
-      // FIXED: Add timeout to gallery selection
       final imagePath = await Future.any([
         CameraService.pickImageFromGallery(),
         Future.delayed(const Duration(seconds: 30), () => throw TimeoutException('Gallery timeout')),
@@ -687,10 +763,23 @@ class _CameraScanScreenState extends State<CameraScanScreen>
           children: [
             Icon(Icons.error_outline, color: AppColors.error),
             SizedBox(width: 8),
-            Text('Erreur'),
+            Expanded( // FIXED: Prevent title overflow
+              child: Text(
+                'Erreur',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
-        content: Text(message),
+        content: Container(
+          constraints: const BoxConstraints(maxWidth: 300), // FIXED: Limit dialog width
+          child: Text(
+            message,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -702,7 +791,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   }
 }
 
-// FIXED: Custom exception for timeouts
 class TimeoutException implements Exception {
   final String message;
   TimeoutException(this.message);
