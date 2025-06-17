@@ -1,4 +1,4 @@
-// lib/services/database_service.dart - COMPLETE REWRITE with all fixes
+// lib/services/database_service.dart - COMPLETE REWRITE with all null safety fixes
 import 'package:hive/hive.dart';
 import 'dart:async';
 import 'dart:io';
@@ -266,14 +266,14 @@ class DatabaseService {
     }
   }
 
-  // FIXED: Completely rewritten authentication method
+  // FIXED: Completely rewritten authentication method with null safety
   Future<User?> authenticateUser(String email, String password) async {
     if (!_checkRateLimit('authenticateUser')) {
       throw DatabaseException('Trop de tentatives de connexion. Réessayez plus tard.');
     }
 
     try {
-      // Input validation
+      // FIXED: Input validation with null safety
       if (email.trim().isEmpty || password.isEmpty) {
         await Future.delayed(const Duration(milliseconds: 500)); // Prevent timing attacks
         print('Authentication failed: Empty email or password');
@@ -296,47 +296,45 @@ class DatabaseService {
       print('User salt: ${user.salt}');
       print('User passwordHash length: ${user.passwordHash.length}');
 
-      // Check if user data is valid
+      // FIXED: Check if user data is valid BEFORE attempting verification
       if (!user.isDataValid) {
-        print('User data is invalid, attempting to repair...');
-        
-        // Try to repair user data with the provided password
-        if (user.repairUserData(password)) {
-          print('User data repaired successfully');
-          
-          // Save the repaired user
-          try {
-            if (user.isInBox) {
-              await user.save();
-            }
-          } catch (e) {
-            print('Warning: Could not save repaired user: $e');
-          }
-          
-          // Now verify with the repaired data
-          if (user.verifyPassword(password)) {
-            print('Authentication successful after repair');
-            user.updateLastLogin();
-            
-            await _logAuditEvent(
-              action: 'LOGIN_AFTER_REPAIR',
-              entity: 'User',
-              entityId: user.key?.toString() ?? 'unknown',
-              metadata: {'email': email},
-            );
-            
-            print('============================');
-            return user;
-          }
-        }
-        
-        print('User data repair failed');
+        print('User data is invalid - cannot authenticate');
+        print('  Missing salt: ${user.salt == null || (user.salt != null && user.salt!.isEmpty)}');
+        print('  Missing hash: ${user.passwordHash.isEmpty}');
+        print('  Missing name: ${user.name.isEmpty}');
+        print('  Missing email: ${user.email.isEmpty}');
         print('============================');
+        
+        await _logAuditEvent(
+          action: 'FAILED_LOGIN',
+          entity: 'User',
+          entityId: user.key?.toString() ?? 'unknown',
+          metadata: {'email': email, 'reason': 'invalid_user_data'},
+        );
+        
         return null;
       }
 
-      // Standard password verification
-      if (!user.verifyPassword(password)) {
+      // FIXED: Safe password verification with comprehensive error handling
+      bool passwordValid = false;
+      try {
+        passwordValid = user.verifyPassword(password);
+      } catch (e) {
+        print('Password verification threw error: $e');
+        print('Stack trace: ${StackTrace.current}');
+        print('============================');
+        
+        await _logAuditEvent(
+          action: 'FAILED_LOGIN',
+          entity: 'User',
+          entityId: user.key?.toString() ?? 'unknown',
+          metadata: {'email': email, 'reason': 'verification_error', 'error': e.toString()},
+        );
+        
+        return null;
+      }
+
+      if (!passwordValid) {
         await _logAuditEvent(
           action: 'FAILED_LOGIN',
           entity: 'User',
@@ -351,7 +349,7 @@ class DatabaseService {
 
       print('Authentication successful for user: $email');
 
-      // Update last login time safely
+      // FIXED: Update last login time safely with null safety
       try {
         if (user.isInBox && user.key != null) {
           user.lastLogin = DateTime.now();
@@ -363,6 +361,7 @@ class DatabaseService {
         }
       } catch (saveError) {
         print('Warning: Could not save last login time: $saveError');
+        // Don't fail authentication just because we couldn't save the login time
       }
       
       await _logAuditEvent(
@@ -377,7 +376,80 @@ class DatabaseService {
       
     } catch (e) {
       print('Authentication error: $e');
-      throw DatabaseException('Erreur d\'authentification: $e');
+      print('Stack trace: ${StackTrace.current}');
+      
+      // Log the error but don't expose internal details to the user
+      await _logAuditEvent(
+        action: 'LOGIN_ERROR',
+        entity: 'System',
+        metadata: {'email': email, 'error': e.toString()},
+      );
+      
+      throw DatabaseException('Erreur d\'authentification: Une erreur interne s\'est produite');
+    }
+  }
+
+  // ADDED: Method to check user data validity
+  Future<List<User>> getValidUsers() async {
+    try {
+      final box = await _getBox<User>(_userBoxName);
+      final validUsers = <User>[];
+      
+      print('=== CHECKING USER VALIDITY ===');
+      for (final user in box.values) {
+        if (user.isActive) {
+          print('User: ${user.email}');
+          print('  IsValid: ${user.isDataValid}');
+          print('  HasSalt: ${user.salt != null && user.salt!.isNotEmpty}');
+          print('  HasHash: ${user.passwordHash.isNotEmpty}');
+          
+          if (user.isDataValid) {
+            validUsers.add(user);
+          } else {
+            print('  ^^ INVALID USER DATA ^^');
+          }
+        }
+      }
+      print('Valid users found: ${validUsers.length}');
+      print('==============================');
+      
+      return validUsers;
+    } catch (e) {
+      print('Error getting valid users: $e');
+      return [];
+    }
+  }
+
+  // ADDED: Method to safely delete corrupted users
+  Future<int> deleteCorruptedUsers() async {
+    try {
+      final box = await _getBox<User>(_userBoxName);
+      final corruptedKeys = <dynamic>[];
+      
+      print('=== DELETING CORRUPTED USERS ===');
+      for (final user in box.values) {
+        if (!user.isDataValid && user.key != null) {
+          print('Found corrupted user: ${user.email} (key: ${user.key})');
+          corruptedKeys.add(user.key);
+        }
+      }
+      
+      for (final key in corruptedKeys) {
+        try {
+          await box.delete(key);
+          print('Deleted corrupted user with key: $key');
+        } catch (e) {
+          print('Failed to delete user with key $key: $e');
+        }
+      }
+      
+      print('Deleted ${corruptedKeys.length} corrupted users');
+      print('================================');
+      
+      return corruptedKeys.length;
+    } catch (e) {
+      print('Error deleting corrupted users: $e');
+      return 0;
     }
   }
 
