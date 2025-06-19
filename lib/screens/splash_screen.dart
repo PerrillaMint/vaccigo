@@ -1,7 +1,6 @@
-// lib/screens/splash_screen.dart - Updated with new design system
+// lib/screens/splash_screen.dart - Logo import removed
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import '../widgets/vaccigo_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -186,14 +185,14 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ],
           ),
-          child: _buildVaccigoLogo(),
+          child: _buildSimpleLogo(),
         ),
       ),
     );
   }
 
-  Widget _buildVaccigoLogo() {
-    // Enhanced logo with animations
+  Widget _buildSimpleLogo() {
+    // Simple icon-based logo replacement
     return Container(
       width: 150,
       height: 150,
@@ -211,42 +210,7 @@ class _SplashScreenState extends State<SplashScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Animated protective hands
-          AnimatedBuilder(
-            animation: _logoController,
-            builder: (context, child) {
-              return Positioned(
-                top: 25 + (5 * _logoScaleAnimation.value),
-                child: Transform.rotate(
-                  angle: 0.2 * _logoScaleAnimation.value,
-                  child: const Icon(
-                    Icons.pan_tool,
-                    size: 28,
-                    color: AppColors.primary,
-                  ),
-                ),
-              );
-            },
-          ),
-          
-          AnimatedBuilder(
-            animation: _logoController,
-            builder: (context, child) {
-              return Positioned(
-                bottom: 25 + (5 * _logoScaleAnimation.value),
-                child: Transform.rotate(
-                  angle: 3.14159 - (0.2 * _logoScaleAnimation.value),
-                  child: const Icon(
-                    Icons.pan_tool,
-                    size: 28,
-                    color: AppColors.primary,
-                  ),
-                ),
-              );
-            },
-          ),
-          
-          // Central certificate with pulse animation
+          // Central vaccine icon with pulse animation
           AnimatedBuilder(
             animation: _logoController,
             builder: (context, child) {
@@ -254,11 +218,11 @@ class _SplashScreenState extends State<SplashScreen>
               return Transform.scale(
                 scale: pulseScale,
                 child: Container(
-                  width: 50,
-                  height: 40,
+                  width: 80,
+                  height: 80,
                   decoration: BoxDecoration(
                     color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.primary, width: 2),
                     boxShadow: [
                       BoxShadow(
@@ -268,40 +232,9 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ],
                   ),
-                  child: const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.verified_user,
-                        size: 18,
-                        color: AppColors.primary,
-                      ),
-                      SizedBox(height: 2),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.remove, size: 8, color: AppColors.primary),
-                          Icon(Icons.remove, size: 8, color: AppColors.primary),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          
-          // Animated syringe
-          AnimatedBuilder(
-            animation: _logoController,
-            builder: (context, child) {
-              return Positioned(
-                left: 20 - (3 * _logoScaleAnimation.value),
-                child: Transform.rotate(
-                  angle: -0.3 * _logoScaleAnimation.value,
                   child: const Icon(
-                    Icons.medication,
-                    size: 24,
+                    Icons.vaccines,
+                    size: 40,
                     color: AppColors.primary,
                   ),
                 ),
