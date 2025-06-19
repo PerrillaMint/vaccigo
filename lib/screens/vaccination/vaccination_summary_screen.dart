@@ -1,4 +1,4 @@
-// lib/screens/vaccination/vaccination_summary_screen.dart - Updated with new design
+// lib/screens/vaccination/vaccination_summary_screen.dart - Layout issue fixed
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -46,55 +46,55 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
       ),
       body: _isLoading 
           ? const AppLoading(message: 'Chargement de votre profil...')
-          : SafePageWrapper(
-              child: Column(
-                children: [
-                  // Welcome header
-                  _buildWelcomeHeader(),
-                  
-                  const SizedBox(height: AppSpacing.xl),
-                  
-                  // Main action buttons
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildMainActionCard(
-                          title: 'Mon carnet',
-                          subtitle: 'Consulter mes vaccinations',
-                          icon: Icons.book,
-                          color: AppColors.primary,
-                          onTap: () => Navigator.pushNamed(context, '/vaccination-info'),
-                        ),
-                        
-                        const SizedBox(height: AppSpacing.lg),
-                        
-                        _buildMainActionCard(
-                          title: 'Gestion des vaccinations',
-                          subtitle: 'Recommandations et informations',
-                          icon: Icons.settings,
-                          color: AppColors.secondary,
-                          onTap: () => Navigator.pushNamed(context, '/vaccination-management'),
-                        ),
-                      ],
+          : SafeArea(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Welcome header
+                    _buildWelcomeHeader(),
+                    
+                    const SizedBox(height: AppSpacing.xl),
+                    
+                    // Main action buttons
+                    _buildMainActionCard(
+                      title: 'Mon carnet',
+                      subtitle: 'Consulter mes vaccinations',
+                      icon: Icons.book,
+                      color: AppColors.primary,
+                      onTap: () => Navigator.pushNamed(context, '/vaccination-info'),
                     ),
-                  ),
-                  
-                  // User profile section
-                  _buildUserProfileSection(),
-                  
-                  const SizedBox(height: AppSpacing.lg),
-                  
-                  // Success message
-                  _buildSuccessMessage(),
-                  
-                  const SizedBox(height: AppSpacing.xl),
-                  
-                  // Quick access button
-                  _buildQuickAccessButton(),
-                  
-                  const SizedBox(height: AppSpacing.lg),
-                ],
+                    
+                    const SizedBox(height: AppSpacing.lg),
+                    
+                    _buildMainActionCard(
+                      title: 'Gestion des vaccinations',
+                      subtitle: 'Recommandations et informations',
+                      icon: Icons.settings,
+                      color: AppColors.secondary,
+                      onTap: () => Navigator.pushNamed(context, '/vaccination-management'),
+                    ),
+                    
+                    const SizedBox(height: AppSpacing.xl),
+                    
+                    // User profile section
+                    _buildUserProfileSection(),
+                    
+                    const SizedBox(height: AppSpacing.lg),
+                    
+                    // Success message
+                    _buildSuccessMessage(),
+                    
+                    const SizedBox(height: AppSpacing.xl),
+                    
+                    // Quick access button
+                    _buildQuickAccessButton(),
+                    
+                    const SizedBox(height: AppSpacing.lg),
+                  ],
+                ),
               ),
             ),
     );
