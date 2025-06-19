@@ -1,4 +1,4 @@
-// lib/widgets/common_widgets.dart - FIXED all overflow and layout issues
+// lib/widgets/common_widgets.dart - COMPLETELY FIXED all overflow and layout issues
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
@@ -69,7 +69,6 @@ class AppPageHeader extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
-          // FIXED: Add proper text overflow handling
           Text(
             title,
             style: const TextStyle(
@@ -90,7 +89,7 @@ class AppPageHeader extends StatelessWidget {
                 color: AppColors.primary.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
-              maxLines: 3, // FIXED: Allow multiple lines for subtitles
+              maxLines: 3,
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -149,7 +148,6 @@ class AppCard extends StatelessWidget {
       child: child,
     );
 
-    // FIXED: Center the card if maxWidth is specified
     if (maxWidth != null) {
       return Center(child: cardContent);
     }
@@ -202,7 +200,6 @@ class AppButton extends StatelessWidget {
                 Icon(icon, size: 20),
                 const SizedBox(width: AppSpacing.sm),
               ],
-              // FIXED: Add proper text overflow handling for buttons
               Flexible(
                 child: Text(
                   text,
@@ -240,7 +237,7 @@ class AppButton extends StatelessWidget {
       width: width,
       height: height,
       constraints: const BoxConstraints(
-        minHeight: 48, // FIXED: Ensure minimum touch target size
+        minHeight: 48,
       ),
       child: button,
     );
@@ -292,7 +289,6 @@ class _AppTextFieldState extends State<AppTextField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // FIXED: Better label layout with overflow protection
         Row(
           children: [
             if (widget.prefixIcon != null) ...[
@@ -303,7 +299,7 @@ class _AppTextFieldState extends State<AppTextField> {
               ),
               const SizedBox(width: AppSpacing.sm),
             ],
-            Expanded( // FIXED: Prevent label overflow
+            Expanded(
               child: Text(
                 widget.label,
                 style: const TextStyle(
@@ -328,7 +324,6 @@ class _AppTextFieldState extends State<AppTextField> {
         ),
         const SizedBox(height: AppSpacing.sm),
         
-        // FIXED: Better text field with responsive design
         TextFormField(
           controller: widget.controller,
           obscureText: widget.isPassword && _obscurePassword,
@@ -338,7 +333,7 @@ class _AppTextFieldState extends State<AppTextField> {
           enabled: widget.enabled,
           decoration: InputDecoration(
             hintText: widget.hint,
-            counterText: '', // FIXED: Hide character counter to save space
+            counterText: '',
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(
@@ -350,7 +345,6 @@ class _AppTextFieldState extends State<AppTextField> {
                         : null,
                   )
                 : null,
-            // FIXED: Ensure content padding doesn't cause overflow
             contentPadding: EdgeInsets.symmetric(
               horizontal: 16,
               vertical: widget.maxLines > 1 ? 16 : 12,
@@ -359,7 +353,6 @@ class _AppTextFieldState extends State<AppTextField> {
           validator: widget.validator,
           onChanged: widget.onChanged,
           autovalidateMode: AutovalidateMode.onUserInteraction,
-          // FIXED: Add text direction and overflow handling
           textAlignVertical: widget.maxLines > 1 ? TextAlignVertical.top : TextAlignVertical.center,
           style: const TextStyle(
             fontSize: 16,
@@ -407,7 +400,6 @@ class StatusBadge extends StatelessWidget {
         break;
     }
 
-    // FIXED: Responsive badge sizing
     final padding = isCompact 
         ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
         : const EdgeInsets.symmetric(horizontal: 12, vertical: 6);
@@ -417,7 +409,7 @@ class StatusBadge extends StatelessWidget {
 
     return Container(
       constraints: const BoxConstraints(
-        maxWidth: 200, // FIXED: Prevent badge from becoming too wide
+        maxWidth: 200,
       ),
       padding: padding,
       decoration: BoxDecoration(
@@ -439,7 +431,7 @@ class StatusBadge extends StatelessWidget {
             ),
             SizedBox(width: isCompact ? AppSpacing.xs : AppSpacing.xs),
           ],
-          Flexible( // FIXED: Allow text to shrink if needed
+          Flexible(
             child: Text(
               text,
               style: TextStyle(
@@ -497,7 +489,7 @@ class EmptyState extends StatelessWidget {
               color: AppColors.primary,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIXED: Prevent title overflow
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           SizedBox(height: isCompact ? AppSpacing.xs : AppSpacing.sm),
@@ -509,7 +501,7 @@ class EmptyState extends StatelessWidget {
               height: 1.4,
             ),
             textAlign: TextAlign.center,
-            maxLines: 3, // FIXED: Prevent message overflow
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
           if (action != null) ...[
@@ -551,7 +543,7 @@ class AppLoading extends StatelessWidget {
           if (message != null) ...[
             SizedBox(height: isCompact ? AppSpacing.sm : AppSpacing.md),
             Container(
-              constraints: const BoxConstraints(maxWidth: 200), // FIXED: Prevent message overflow
+              constraints: const BoxConstraints(maxWidth: 200),
               child: Text(
                 message!,
                 style: TextStyle(
@@ -570,26 +562,23 @@ class AppLoading extends StatelessWidget {
   }
 }
 
-// FIXED: Safe Page Wrapper with better overflow prevention
+// COMPLETELY FIXED: Safe Page Wrapper that avoids IntrinsicHeight+LayoutBuilder issues
 class SafePageWrapper extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
   final bool hasScrollView;
-  final bool useConstraints;
 
   const SafePageWrapper({
     Key? key,
     required this.child,
     this.padding,
     this.hasScrollView = true,
-    this.useConstraints = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     Widget content = child;
 
-    // FIXED: Add padding safely
     if (padding != null) {
       content = Padding(
         padding: padding!,
@@ -597,32 +586,7 @@ class SafePageWrapper extends StatelessWidget {
       );
     }
 
-    // FIXED: Add constraints to prevent overflow
-    if (useConstraints) {
-      content = LayoutBuilder(
-        builder: (context, constraints) {
-          if (hasScrollView) {
-            return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-                child: IntrinsicHeight(child: content),
-              ),
-            );
-          } else {
-            return ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: constraints.maxHeight,
-                maxWidth: constraints.maxWidth,
-              ),
-              child: content,
-            );
-          }
-        },
-      );
-    } else if (hasScrollView) {
+    if (hasScrollView) {
       content = SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: content,
@@ -630,6 +594,40 @@ class SafePageWrapper extends StatelessWidget {
     }
 
     return SafeArea(child: content);
+  }
+}
+
+// FIXED: Simple Column Wrapper for common layout patterns
+class ColumnScrollWrapper extends StatelessWidget {
+  final List<Widget> children;
+  final EdgeInsets? padding;
+  final CrossAxisAlignment crossAxisAlignment;
+  final MainAxisAlignment mainAxisAlignment;
+  final MainAxisSize mainAxisSize;
+
+  const ColumnScrollWrapper({
+    Key? key,
+    required this.children,
+    this.padding,
+    this.crossAxisAlignment = CrossAxisAlignment.stretch,
+    this.mainAxisAlignment = MainAxisAlignment.start,
+    this.mainAxisSize = MainAxisSize.min,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: padding ?? const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: crossAxisAlignment,
+          mainAxisAlignment: mainAxisAlignment,
+          mainAxisSize: mainAxisSize,
+          children: children,
+        ),
+      ),
+    );
   }
 }
 
@@ -653,7 +651,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      // FIXED: Constrain title to prevent overflow
       title: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.6,

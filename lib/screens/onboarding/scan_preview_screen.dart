@@ -1,4 +1,4 @@
-// lib/screens/onboarding/scan_preview_screen.dart - FIXED layout overflow issues
+// lib/screens/onboarding/scan_preview_screen.dart - COMPLETELY FIXED layout issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -123,51 +123,28 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       appBar: const CustomAppBar(
         title: 'Vérification',
       ),
-      // FIXED: Use LayoutBuilder with ConstrainedBox to prevent overflow
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight,
-              ),
-              child: IntrinsicHeight(
-                child: Column(
-                  children: [
-                    // Header - Fixed size content
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: _buildHeader(),
-                    ),
-                    
-                    // Main content - Flexible space
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildVaccinationPreviewCard(),
-                            const SizedBox(height: 16),
-                            _buildDataCompletenessCard(),
-                            
-                            // FIXED: Action buttons moved inside scrollable area
-                            const SizedBox(height: 24),
-                            _buildActionButtons(),
-                            
-                            // Bottom padding for better UX
-                            const SizedBox(height: 24),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+      // COMPLETELY FIXED: Using ColumnScrollWrapper to avoid layout issues
+      body: ColumnScrollWrapper(
+        children: [
+          // Header
+          _buildHeader(),
+          
+          const SizedBox(height: 16),
+          
+          // Main content
+          _buildVaccinationPreviewCard(),
+          
+          const SizedBox(height: 16),
+          
+          _buildDataCompletenessCard(),
+          
+          // Action buttons
+          const SizedBox(height: 24),
+          _buildActionButtons(),
+          
+          // Bottom padding for better UX
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
@@ -190,18 +167,18 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // FIXED: Ensure header doesn't expand unnecessarily
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
             Icons.preview,
-            size: 28, // FIXED: Reduced icon size to save space
+            size: 28,
             color: AppColors.primary,
           ),
           const SizedBox(height: 8),
           const Text(
             'Informations détectées',
             style: TextStyle(
-              fontSize: 16, // FIXED: Reduced font size
+              fontSize: 16,
               fontWeight: FontWeight.bold,
               color: AppColors.primary,
             ),
@@ -213,14 +190,14 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 ? 'Vérifiez les informations avant d\'ajouter à votre carnet'
                 : 'Vérifiez et créez votre compte pour sauvegarder',
             style: const TextStyle(
-              fontSize: 12, // FIXED: Reduced font size
+              fontSize: 12,
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIXED: Limit text lines
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8), // FIXED: Reduced spacing
+          const SizedBox(height: 8),
           
           // Status indicators - Made more compact
           Wrap(
@@ -249,7 +226,6 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     );
   }
 
-  // FIXED: More compact status badge to save space
   Widget _buildCompactStatusBadge({
     required String text,
     required Color color,
@@ -281,27 +257,15 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   }
 
   Widget _buildVaccinationPreviewCard() {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min, // FIXED: Prevent unnecessary expansion
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Header
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12), // FIXED: Reduced padding
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.accent.withOpacity(0.1),
               borderRadius: const BorderRadius.only(
@@ -310,18 +274,18 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               ),
             ),
             child: const Row(
-              mainAxisSize: MainAxisSize.min, // FIXED: Minimize row size
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.medical_information,
                   color: AppColors.accent,
-                  size: 16, // FIXED: Smaller icon
+                  size: 16,
                 ),
                 SizedBox(width: 6),
                 Text(
                   'Aperçu de votre vaccination',
                   style: TextStyle(
-                    fontSize: 14, // FIXED: Smaller font
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.accent,
                   ),
@@ -332,9 +296,9 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           
           // Content
           Padding(
-            padding: const EdgeInsets.all(12), // FIXED: Reduced padding
+            padding: const EdgeInsets.all(12),
             child: Column(
-              mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _buildVaccinationDetail(
                   icon: Icons.vaccines,
@@ -385,8 +349,8 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     bool isOptional = false,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8), // FIXED: Reduced margin
-      padding: const EdgeInsets.all(8), // FIXED: Reduced padding
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: isEmpty && !isOptional 
             ? AppColors.warning.withOpacity(0.05)
@@ -400,10 +364,10 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         ),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, // FIXED: Align to start
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(4), // FIXED: Reduced padding
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: isEmpty && !isOptional 
                   ? AppColors.warning.withOpacity(0.1)
@@ -412,7 +376,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             ),
             child: Icon(
               icon,
-              size: 14, // FIXED: Smaller icon
+              size: 14,
               color: isEmpty && !isOptional 
                   ? AppColors.warning
                   : AppColors.primary,
@@ -424,15 +388,15 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
-                    Expanded( // FIXED: Prevent text overflow
+                    Expanded(
                       child: Text(
                         label,
                         style: const TextStyle(
-                          fontSize: 11, // FIXED: Smaller font
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textSecondary,
                         ),
@@ -444,7 +408,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                       const SizedBox(width: 4),
                       const Icon(
                         Icons.warning,
-                        size: 10, // FIXED: Smaller warning icon
+                        size: 10,
                         color: AppColors.warning,
                       ),
                     ],
@@ -454,14 +418,14 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 Text(
                   value,
                   style: TextStyle(
-                    fontSize: 12, // FIXED: Smaller font
+                    fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: isEmpty 
                         ? AppColors.textMuted
                         : AppColors.primary,
                     fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal,
                   ),
-                  maxLines: 2, // FIXED: Limit lines to prevent overflow
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -501,7 +465,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12), // FIXED: Reduced padding
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: indicatorColor.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
@@ -511,23 +475,23 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min, // FIXED: Minimize row size
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             indicatorIcon,
             color: indicatorColor,
-            size: 16, // FIXED: Smaller icon
+            size: 16,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   indicatorText,
                   style: TextStyle(
-                    fontSize: 12, // FIXED: Smaller font
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: indicatorColor,
                   ),
@@ -538,7 +502,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 Text(
                   '$completedFields sur ${requiredFields.length} champs requis complétés',
                   style: TextStyle(
-                    fontSize: 10, // FIXED: Smaller font
+                    fontSize: 10,
                     color: indicatorColor.withOpacity(0.8),
                   ),
                   maxLines: 1,
@@ -552,15 +516,14 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     );
   }
 
-  // FIXED: Compact action buttons that don't cause overflow
   Widget _buildActionButtons() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min, // FIXED: Minimize column size
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Main validation button - Made more compact
+        // Main validation button
         SizedBox(
-          height: 48, // FIXED: Fixed height to prevent expansion
+          height: 48,
           child: ElevatedButton.icon(
             onPressed: _isSaving ? null : _saveVaccination,
             icon: _isSaving 
@@ -579,7 +542,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                   : _userExists 
                       ? 'Ajouter à mon carnet'
                       : 'Créer un compte',
-              style: const TextStyle(fontSize: 14), // FIXED: Smaller font
+              style: const TextStyle(fontSize: 14),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -591,14 +554,14 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           ),
         ),
         
-        const SizedBox(height: 8), // FIXED: Reduced spacing
+        const SizedBox(height: 8),
         
-        // Secondary action buttons - Made more compact
+        // Secondary action buttons
         Row(
           children: [
             Expanded(
               child: SizedBox(
-                height: 40, // FIXED: Fixed height
+                height: 40,
                 child: OutlinedButton.icon(
                   onPressed: _isSaving ? null : () {
                     Navigator.pushReplacementNamed(context, '/camera-scan');
@@ -618,7 +581,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: SizedBox(
-                height: 40, // FIXED: Fixed height
+                height: 40,
                 child: OutlinedButton.icon(
                   onPressed: _isSaving ? null : () {
                     Navigator.pushReplacementNamed(

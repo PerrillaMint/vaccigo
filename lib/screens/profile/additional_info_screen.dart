@@ -1,4 +1,4 @@
-// lib/screens/profile/additional_info_screen.dart - FIXED all layout and overflow issues
+// lib/screens/profile/additional_info_screen.dart - COMPLETELY FIXED layout issues
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -64,54 +64,36 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
       appBar: const CustomAppBar(
         title: 'Informations complémentaires',
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Header
-                        _buildHeaderSection(),
-                        
-                        const SizedBox(height: AppSpacing.xl),
-                        
-                        // Info card
-                        _buildInfoCard(),
-                        
-                        const SizedBox(height: AppSpacing.xl),
-                        
-                        // Form fields
-                        _buildFormFields(),
-                        
-                        const SizedBox(height: AppSpacing.xl),
-                        
-                        // Help section
-                        _buildHelpSection(),
-                        
-                        const SizedBox(height: AppSpacing.xl),
-                        
-                        // Bottom buttons
-                        _buildBottomButtons(),
-                        
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
+      // COMPLETELY FIXED: Using ColumnScrollWrapper to avoid layout issues
+      body: Form(
+        key: _formKey,
+        child: ColumnScrollWrapper(
+          children: [
+            // Header
+            _buildHeaderSection(),
+            
+            const SizedBox(height: AppSpacing.xl),
+            
+            // Info card
+            _buildInfoCard(),
+            
+            const SizedBox(height: AppSpacing.xl),
+            
+            // Form fields
+            _buildFormFields(),
+            
+            const SizedBox(height: AppSpacing.xl),
+            
+            // Help section
+            _buildHelpSection(),
+            
+            const SizedBox(height: AppSpacing.xl),
+            
+            // Bottom buttons
+            _buildBottomButtons(),
+            
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
@@ -159,7 +141,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
               color: AppColors.primary,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIXED: Prevent title overflow
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -172,7 +154,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
               color: AppColors.primary.withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
-            maxLines: 3, // FIXED: Prevent subtitle overflow
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
           if (_pendingVaccinationData != null) ...[
@@ -211,7 +193,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                 size: 20,
               ),
               SizedBox(width: AppSpacing.sm),
-              Expanded( // FIXED: Prevent title overflow
+              Expanded(
                 child: Text(
                   'Confidentialité et sécurité',
                   style: TextStyle(
@@ -235,7 +217,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
               color: AppColors.textSecondary,
               height: 1.4,
             ),
-            maxLines: 3, // FIXED: Limit lines to prevent overflow
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
           
@@ -259,7 +241,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                     size: 20,
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  Expanded( // FIXED: Prevent text overflow
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -306,7 +288,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
           prefixIcon: Icons.local_hospital,
           maxLines: 3,
           isRequired: false,
-          maxLength: 500, // FIXED: Add character limits
+          maxLength: 500,
         ),
         
         const SizedBox(height: AppSpacing.lg),
@@ -318,7 +300,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
           prefixIcon: Icons.medication,
           maxLines: 3,
           isRequired: false,
-          maxLength: 500, // FIXED: Add character limits
+          maxLength: 500,
         ),
         
         const SizedBox(height: AppSpacing.lg),
@@ -330,7 +312,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
           prefixIcon: Icons.warning,
           maxLines: 3,
           isRequired: false,
-          maxLength: 500, // FIXED: Add character limits
+          maxLength: 500,
         ),
       ],
     );
@@ -359,7 +341,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
                 size: 20,
               ),
               SizedBox(width: AppSpacing.sm),
-              Expanded( // FIXED: Prevent title overflow
+              Expanded(
                 child: Text(
                   'Pourquoi ces informations?',
                   style: TextStyle(
@@ -396,7 +378,6 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
     );
   }
 
-  // FIXED: Help item with better text constraints
   Widget _buildHelpItem(IconData icon, String title, String description) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -416,7 +397,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
             ),
           ),
           const SizedBox(width: AppSpacing.md),
-          Expanded( // FIXED: Prevent text overflow
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -449,58 +430,28 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
     );
   }
 
-  // FIXED: Responsive bottom buttons
   Widget _buildBottomButtons() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 320) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppButton(
-                text: _pendingVaccinationData != null 
-                    ? 'Finaliser et sauvegarder'
-                    : 'Sauvegarder les informations',
-                icon: _pendingVaccinationData != null ? Icons.done_all : Icons.save,
-                isLoading: _isLoading,
-                onPressed: _saveAdditionalInfo,
-                width: double.infinity,
-              ),
-              
-              const SizedBox(height: AppSpacing.sm),
-              
-              AppButton(
-                text: 'Ignorer cette étape',
-                style: AppButtonStyle.text,
-                onPressed: _isLoading ? null : _skipStep,
-              ),
-            ],
-          );
-        } else {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AppButton(
-                text: _pendingVaccinationData != null 
-                    ? 'Finaliser et sauvegarder'
-                    : 'Sauvegarder les informations',
-                icon: _pendingVaccinationData != null ? Icons.done_all : Icons.save,
-                isLoading: _isLoading,
-                onPressed: _saveAdditionalInfo,
-                width: double.infinity,
-              ),
-              
-              const SizedBox(height: AppSpacing.sm),
-              
-              AppButton(
-                text: 'Ignorer cette étape',
-                style: AppButtonStyle.text,
-                onPressed: _isLoading ? null : _skipStep,
-              ),
-            ],
-          );
-        }
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppButton(
+          text: _pendingVaccinationData != null 
+              ? 'Finaliser et sauvegarder'
+              : 'Sauvegarder les informations',
+          icon: _pendingVaccinationData != null ? Icons.done_all : Icons.save,
+          isLoading: _isLoading,
+          onPressed: _saveAdditionalInfo,
+          width: double.infinity,
+        ),
+        
+        const SizedBox(height: AppSpacing.sm),
+        
+        AppButton(
+          text: 'Ignorer cette étape',
+          style: AppButtonStyle.text,
+          onPressed: _isLoading ? null : _skipStep,
+        ),
+      ],
     );
   }
 
@@ -537,7 +488,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: AppSpacing.sm),
-                Expanded( // FIXED: Prevent overflow in success message
+                Expanded(
                   child: Text(
                     _pendingVaccinationData != null
                         ? 'Compte créé et vaccination sauvegardée!'
@@ -560,7 +511,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: AppSpacing.sm),
-                Expanded( // FIXED: Prevent overflow in error message
+                Expanded(
                   child: Text('Erreur: $e'),
                 ),
               ],
@@ -602,7 +553,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
               children: [
                 const Icon(Icons.error, color: Colors.white),
                 const SizedBox(width: AppSpacing.sm),
-                Expanded( // FIXED: Prevent overflow in error message
+                Expanded(
                   child: Text('Erreur: $e'),
                 ),
               ],
