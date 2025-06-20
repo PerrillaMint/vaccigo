@@ -1,4 +1,4 @@
-// lib/screens/splash_screen.dart - Logo import removed
+// lib/screens/splash_screen.dart - Only app name removed, keeping original structure
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
@@ -192,7 +192,6 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Widget _buildSimpleLogo() {
-    // Simple icon-based logo replacement
     return Container(
       width: 150,
       height: 150,
@@ -254,20 +253,7 @@ class _SplashScreenState extends State<SplashScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Main title
-            const Text(
-              'Vaccigo',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-                letterSpacing: 2.0,
-              ),
-            ),
             
-            const SizedBox(height: 12),
-            
-            // Subtitle
             const Text(
               'Carnet de Vaccination Numérique',
               style: TextStyle(

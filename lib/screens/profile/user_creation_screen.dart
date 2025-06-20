@@ -1,4 +1,4 @@
-// lib/screens/profile/user_creation_screen.dart - COMPLETE REWRITE with all fixes
+// lib/screens/profile/user_creation_screen.dart - LAYOUT FIXES for small screens
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
@@ -93,321 +93,305 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       appBar: CustomAppBar(
         title: 'Créer un compte',
         actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.secondary),
-            onPressed: _showHelpDialog,
-            tooltip: 'Aide',
-          ),
+          // FIXED: Only show help icon on larger screens
+          if (MediaQuery.of(context).size.width > 320)
+            IconButton(
+              icon: const Icon(Icons.help_outline, color: AppColors.secondary),
+              onPressed: _showHelpDialog,
+              tooltip: 'Aide',
+            ),
         ],
       ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Header
-                        _buildHeader(),
-                        
-                        const SizedBox(height: AppSpacing.xl),
-                        
-                        // Form fields
-                        _buildFormFields(),
-                        
-                        const SizedBox(height: AppSpacing.xl),
-                        
-                        // Password strength indicator
-                        if (_passwordController.text.isNotEmpty)
-                          _buildPasswordStrengthIndicator(),
-                        
-                        const SizedBox(height: AppSpacing.lg),
-                        
-                        // Create account button
-                        _buildCreateAccountButton(),
-                        
-                        const SizedBox(height: AppSpacing.lg),
-                        
-                        // Terms and privacy notice
-                        _buildTermsNotice(),
-                        
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
+      body: ColumnScrollWrapper(
+        children: [
+          // Header - FIXED: More compact on small screens
+          _buildHeader(),
+          
+          // FIXED: Adjust spacing based on screen size
+          SizedBox(height: MediaQuery.of(context).size.height > 600 ? AppSpacing.xl : AppSpacing.lg),
+          
+          // Form fields
+          _buildFormFields(),
+          
+          // FIXED: Conditional password strength indicator
+          if (_passwordController.text.isNotEmpty && MediaQuery.of(context).size.height > 600)
+            _buildPasswordStrengthIndicator(),
+          
+          SizedBox(height: MediaQuery.of(context).size.height > 600 ? AppSpacing.xl : AppSpacing.lg),
+          
+          // Create account button
+          _buildCreateAccountButton(),
+          
+          const SizedBox(height: AppSpacing.lg),
+          
+          // Terms notice - FIXED: Only show on larger screens
+          if (MediaQuery.of(context).size.height > 600)
+            _buildTermsNotice(),
+          
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.secondary.withOpacity(0.1),
-            AppColors.light.withOpacity(0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.secondary.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(50),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // FIXED: More compact header for small screens
+        final isSmallScreen = constraints.maxWidth < 400 || MediaQuery.of(context).size.height < 600;
+        
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(isSmallScreen ? AppSpacing.md : AppSpacing.lg),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                AppColors.secondary.withOpacity(0.1),
+                AppColors.light.withOpacity(0.1),
+              ],
             ),
-            child: const Icon(
-              Icons.person_add,
-              size: 32,
-              color: AppColors.primary,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.secondary.withOpacity(0.3),
+              width: 1,
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
-          const Text(
-            'Création de votre compte',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-            ),
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isSmallScreen) ...[
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                  child: const Icon(
+                    Icons.person_add,
+                    size: 28,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              Text(
+                'Création de votre compte',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 18 : 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _pendingVaccinationData != null 
+                    ? 'Créez votre compte pour sauvegarder'
+                    : 'Rejoignez l\'application',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 12 : 14,
+                  color: AppColors.primary.withOpacity(0.7),
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (_pendingVaccinationData != null && !isSmallScreen) ...[
+                const SizedBox(height: AppSpacing.md),
+                StatusBadge(
+                  text: 'Vaccination en attente',
+                  type: StatusType.success,
+                  icon: Icons.vaccines,
+                  isCompact: isSmallScreen,
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            _pendingVaccinationData != null 
-                ? 'Créez votre compte pour sauvegarder votre vaccination'
-                : 'Rejoignez Vaccigo pour gérer vos vaccinations',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.primary.withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (_pendingVaccinationData != null) ...[
-            const SizedBox(height: AppSpacing.md),
-            StatusBadge(
-              text: 'Vaccination ${_pendingVaccinationData!['vaccineName']?.split(' ').first ?? 'données'} en attente',
-              type: StatusType.success,
-              icon: Icons.vaccines,
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildFormFields() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Full name field
-        AppTextField(
-          label: 'Nom complet',
-          hint: 'Prénom et nom de famille',
-          controller: _nameController,
-          prefixIcon: Icons.person,
-          isRequired: true,
-          keyboardType: TextInputType.name,
-          enabled: !_isLoading,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Veuillez entrer votre nom complet';
-            }
-            if (value.trim().length < 2) {
-              return 'Le nom doit contenir au moins 2 caractères';
-            }
-            if (value.length > 100) {
-              return 'Le nom est trop long (max 100 caractères)';
-            }
-            if (RegExp(r'[<>"\/\\]').hasMatch(value)) {
-              return 'Le nom contient des caractères invalides';
-            }
-            return null;
-          },
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 400;
+        final spacing = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
         
-        const SizedBox(height: AppSpacing.lg),
-        
-        // Email field with availability check
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // Full name field
             AppTextField(
-              label: 'Adresse email',
-              hint: 'votre@email.com',
-              controller: _emailController,
-              prefixIcon: Icons.email,
+              label: 'Nom complet',
+              hint: 'Prénom et nom',
+              controller: _nameController,
+              prefixIcon: Icons.person,
               isRequired: true,
-              keyboardType: TextInputType.emailAddress,
+              keyboardType: TextInputType.name,
               enabled: !_isLoading,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Veuillez entrer votre adresse email';
+                  return 'Nom requis';
                 }
-                if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                  return 'Format d\'email invalide';
-                }
-                if (_emailTaken) {
-                  return 'Cette adresse email est déjà utilisée';
+                if (value.trim().length < 2) {
+                  return 'Minimum 2 caractères';
                 }
                 return null;
               },
             ),
-            if (_isCheckingEmail) ...[
-              const SizedBox(height: AppSpacing.xs),
-              const Row(
-                children: [
-                  SizedBox(
-                    width: 12,
-                    height: 12,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Vérification de la disponibilité...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (_emailTaken) ...[
-              const SizedBox(height: AppSpacing.xs),
-              const Row(
-                children: [
-                  Icon(Icons.error, size: 12, color: AppColors.error),
-                  SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'Cette adresse email est déjà utilisée',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.error,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-        
-        const SizedBox(height: AppSpacing.lg),
-        
-        // Password field
-        AppTextField(
-          label: 'Mot de passe',
-          hint: 'Minimum 8 caractères',
-          controller: _passwordController,
-          prefixIcon: Icons.lock,
-          isPassword: true,
-          isRequired: true,
-          enabled: !_isLoading,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Veuillez entrer un mot de passe';
-            }
-            if (value.length < 8) {
-              return 'Le mot de passe doit contenir au moins 8 caractères';
-            }
-            if (value.length > 128) {
-              return 'Le mot de passe est trop long (max 128 caractères)';
-            }
-            if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
-              return 'Le mot de passe doit contenir au moins une lettre';
-            }
-            if (!RegExp(r'[0-9]').hasMatch(value)) {
-              return 'Le mot de passe doit contenir au moins un chiffre';
-            }
             
-            // Check for weak passwords
-            final weakPasswords = [
-              '12345678', 'password', 'motdepasse', 'azerty123', 'qwerty123'
-            ];
-            if (weakPasswords.contains(value.toLowerCase())) {
-              return 'Ce mot de passe est trop faible';
-            }
+            SizedBox(height: spacing),
             
-            return null;
-          },
-        ),
-        
-        const SizedBox(height: AppSpacing.lg),
-        
-        // Confirm password field
-        AppTextField(
-          label: 'Confirmer le mot de passe',
-          hint: 'Retapez votre mot de passe',
-          controller: _confirmPasswordController,
-          prefixIcon: Icons.lock_outline,
-          isPassword: true,
-          isRequired: true,
-          enabled: !_isLoading,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Veuillez confirmer votre mot de passe';
-            }
-            if (value != _passwordController.text) {
-              return 'Les mots de passe ne correspondent pas';
-            }
-            return null;
-          },
-        ),
-        
-        // Password match indicator
-        if (_confirmPasswordController.text.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Icon(
-                _passwordsMatch ? Icons.check_circle : Icons.error,
-                size: 16,
-                color: _passwordsMatch ? AppColors.success : AppColors.error,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                _passwordsMatch 
-                    ? 'Les mots de passe correspondent'
-                    : 'Les mots de passe ne correspondent pas',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _passwordsMatch ? AppColors.success : AppColors.error,
+            // Email field - FIXED: Improved layout
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppTextField(
+                  label: 'Email',
+                  hint: 'votre@email.com',
+                  controller: _emailController,
+                  prefixIcon: Icons.email,
+                  isRequired: true,
+                  keyboardType: TextInputType.emailAddress,
+                  enabled: !_isLoading,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Email requis';
+                    }
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                      return 'Email invalide';
+                    }
+                    if (_emailTaken) {
+                      return 'Email déjà utilisé';
+                    }
+                    return null;
+                  },
                 ),
+                // FIXED: Compact email status indicators
+                if (_isCheckingEmail) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      const Text(
+                        'Vérification...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (_emailTaken) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  const Row(
+                    children: [
+                      Icon(Icons.error, size: 12, color: AppColors.error),
+                      SizedBox(width: AppSpacing.sm),
+                      Text(
+                        'Email déjà utilisé',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+            
+            SizedBox(height: spacing),
+            
+            // Password field
+            AppTextField(
+              label: 'Mot de passe',
+              hint: 'Min. 8 caractères',
+              controller: _passwordController,
+              prefixIcon: Icons.lock,
+              isPassword: true,
+              isRequired: true,
+              enabled: !_isLoading,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Mot de passe requis';
+                }
+                if (value.length < 8) {
+                  return 'Minimum 8 caractères';
+                }
+                return null;
+              },
+            ),
+            
+            SizedBox(height: spacing),
+            
+            // Confirm password field
+            AppTextField(
+              label: 'Confirmer',
+              hint: 'Retapez le mot de passe',
+              controller: _confirmPasswordController,
+              prefixIcon: Icons.lock_outline,
+              isPassword: true,
+              isRequired: true,
+              enabled: !_isLoading,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Confirmation requise';
+                }
+                if (value != _passwordController.text) {
+                  return 'Mots de passe différents';
+                }
+                return null;
+              },
+            ),
+            
+            // FIXED: Compact password match indicator
+            if (_confirmPasswordController.text.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
+                  Icon(
+                    _passwordsMatch ? Icons.check_circle : Icons.error,
+                    size: 16,
+                    color: _passwordsMatch ? AppColors.success : AppColors.error,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      _passwordsMatch 
+                          ? 'Mots de passe identiques'
+                          : 'Mots de passe différents',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _passwordsMatch ? AppColors.success : AppColors.error,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ],
-          ),
-        ],
-        
-        const SizedBox(height: AppSpacing.lg),
-        
-        // Date of birth field
-        _buildDateField(),
-      ],
+            
+            SizedBox(height: spacing),
+            
+            // Date of birth field
+            _buildDateField(),
+          ],
+        );
+      },
     );
   }
 
@@ -423,12 +407,16 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               color: AppColors.primary,
             ),
             SizedBox(width: AppSpacing.sm),
-            Text(
-              'Date de naissance',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+            Expanded(
+              child: Text(
+                'Date de naissance',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Text(
@@ -453,18 +441,16 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           onTap: _isLoading ? null : _selectDate,
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
-              return 'Veuillez sélectionner votre date de naissance';
+              return 'Date de naissance requise';
             }
-            
-            // Additional date validation
-            final error = User.validateDateOfBirth(value);
-            return error;
+            return null;
           },
         ),
       ],
     );
   }
 
+  // FIXED: Compact password strength indicator
   Widget _buildPasswordStrengthIndicator() {
     final password = _passwordController.text;
     final strength = _calculatePasswordStrength(password);
@@ -484,6 +470,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     }
     
     return Container(
+      margin: const EdgeInsets.only(top: AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: strengthColor.withOpacity(0.1),
@@ -502,7 +489,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               const Text(
                 'Force du mot de passe',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,
                 ),
@@ -510,7 +497,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               Text(
                 strengthText,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: strengthColor,
                 ),
@@ -523,45 +510,8 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
             backgroundColor: strengthColor.withOpacity(0.2),
             valueColor: AlwaysStoppedAnimation<Color>(strengthColor),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          _buildPasswordRequirements(password),
         ],
       ),
-    );
-  }
-
-  Widget _buildPasswordRequirements(String password) {
-    final requirements = [
-      {'text': 'Au moins 8 caractères', 'met': password.length >= 8},
-      {'text': 'Au moins une lettre', 'met': RegExp(r'[a-zA-Z]').hasMatch(password)},
-      {'text': 'Au moins un chiffre', 'met': RegExp(r'[0-9]').hasMatch(password)},
-      {'text': 'Pas un mot de passe commun', 'met': !['12345678', 'password', 'motdepasse'].contains(password.toLowerCase())},
-    ];
-    
-    return Column(
-      children: requirements.map((req) {
-        final met = req['met'] as bool;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 2),
-          child: Row(
-            children: [
-              Icon(
-                met ? Icons.check_circle : Icons.radio_button_unchecked,
-                size: 12,
-                color: met ? AppColors.success : AppColors.textMuted,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Text(
-                req['text'] as String,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: met ? AppColors.success : AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
     );
   }
 
@@ -570,35 +520,35 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     
     double score = 0.0;
     
-    // Length score
     if (password.length >= 8) score += 0.25;
     if (password.length >= 12) score += 0.15;
-    
-    // Character variety
     if (RegExp(r'[a-z]').hasMatch(password)) score += 0.15;
     if (RegExp(r'[A-Z]').hasMatch(password)) score += 0.15;
     if (RegExp(r'[0-9]').hasMatch(password)) score += 0.15;
     if (RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) score += 0.15;
     
-    // Penalty for common passwords
-    final commonPasswords = ['password', 'motdepasse', '12345678', 'azerty123'];
-    if (commonPasswords.contains(password.toLowerCase())) score -= 0.5;
-    
     return score.clamp(0.0, 1.0);
   }
 
   Widget _buildCreateAccountButton() {
-    return AppButton(
-      text: _isLoading ? 'Création en cours...' : 'Créer mon compte',
-      icon: _isLoading ? null : Icons.person_add,
-      isLoading: _isLoading,
-      onPressed: _isLoading || _emailTaken || !_passwordsMatch ? null : _createUser,
-      width: double.infinity,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: 320,
+        minHeight: 48,
+      ),
+      child: AppButton(
+        text: _isLoading ? 'Création...' : 'Créer mon compte',
+        icon: _isLoading ? null : Icons.person_add,
+        isLoading: _isLoading,
+        onPressed: _isLoading || _emailTaken || !_passwordsMatch ? null : _createUser,
+        width: double.infinity,
+      ),
     );
   }
 
   Widget _buildTermsNotice() {
     return Container(
+      constraints: const BoxConstraints(maxWidth: 320),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.info.withOpacity(0.05),
@@ -620,24 +570,28 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  'Protection de vos données',
+                  'Protection des données',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           SizedBox(height: AppSpacing.sm),
           Text(
-            'En créant un compte, vous acceptez que vos données soient stockées de manière sécurisée et utilisées uniquement pour la gestion de vos vaccinations.',
+            'Vos données sont stockées de manière sécurisée.',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary,
               height: 1.4,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -691,22 +645,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           _emailTaken = exists;
           _isCheckingEmail = false;
         });
-        
-        if (exists) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.warning, color: Colors.white),
-                  SizedBox(width: AppSpacing.sm),
-                  Text('Cette adresse email est déjà utilisée'),
-                ],
-              ),
-              backgroundColor: AppColors.warning,
-              duration: Duration(seconds: 3),
-            ),
-          );
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -718,7 +656,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   }
 
   Future<void> _createUser() async {
-    // Clear any previous timers
     _emailCheckTimer?.cancel();
     
     if (!_formKey.currentState!.validate()) {
@@ -738,13 +675,11 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Double-check email availability
       final emailExists = await _databaseService.emailExists(_emailController.text.trim());
       if (emailExists) {
         throw Exception('Cette adresse email est déjà utilisée');
       }
 
-      // Create user with secure factory method
       final user = User.createSecure(
         name: _nameController.text.trim(),
         email: _emailController.text.trim().toLowerCase(),
@@ -752,43 +687,34 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         dateOfBirth: _dateOfBirthController.text.trim(),
       );
 
-      // Save user to database
       await _databaseService.saveUser(user);
-      print('User created successfully: ${user.email}');
 
-      // Send welcome email (don't fail if email fails)
       try {
-        final emailSent = await _emailService.sendWelcomeEmail(
+        await _emailService.sendWelcomeEmail(
           user.email, 
-          user.name.split(' ').first, // First name only
+          user.name.split(' ').first,
         );
-        print('Welcome email ${emailSent ? 'sent' : 'failed'} to ${user.email}');
       } catch (emailError) {
         print('Welcome email failed: $emailError');
-        // Continue with user creation even if email fails
       }
 
       if (mounted) {
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: AppSpacing.sm),
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: AppSpacing.sm),
                 Expanded(
-                  child: Text(
-                    'Compte créé avec succès! ${_pendingVaccinationData != null ? 'Finalisation...' : 'Bienvenue!'}',
-                  ),
+                  child: Text('Compte créé avec succès!'),
                 ),
               ],
             ),
             backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 3),
+            duration: Duration(seconds: 3),
           ),
         );
         
-        // Navigate to next screen
         Navigator.pushNamed(
           context, 
           '/additional-info', 
@@ -799,15 +725,14 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         );
       }
     } catch (e) {
-      print('User creation error: $e');
       if (mounted) {
         String errorMessage;
         if (e is ValidationException) {
-          errorMessage = 'Données invalides: ${e.errors.values.first}';
+          errorMessage = 'Données invalides';
         } else if (e.toString().contains('email')) {
-          errorMessage = 'Cette adresse email est déjà utilisée';
+          errorMessage = 'Email déjà utilisé';
         } else {
-          errorMessage = 'Erreur lors de la création du compte. Veuillez réessayer.';
+          errorMessage = 'Erreur de création';
         }
         
         _showErrorMessage(errorMessage);
@@ -847,7 +772,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: const Text(
-            'Aide - Création de compte',
+            'Aide',
             style: TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.bold,
@@ -858,37 +783,17 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Conseils pour créer votre compte:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                SizedBox(height: AppSpacing.md),
-                Text('• Utilisez votre vrai nom pour faciliter l\'identification'),
-                Text('• Choisissez une adresse email que vous consultez régulièrement'),
-                Text('• Créez un mot de passe fort avec lettres et chiffres'),
-                Text('• Vérifiez votre date de naissance'),
-                SizedBox(height: AppSpacing.md),
-                Text(
-                  'Sécurité:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                SizedBox(height: AppSpacing.sm),
-                Text('• Vos données sont chiffrées et stockées localement'),
-                Text('• Votre mot de passe est haché de manière sécurisée'),
-                Text('• Aucune donnée n\'est partagée avec des tiers'),
+                Text('• Utilisez votre vrai nom'),
+                Text('• Email valide requis'),
+                Text('• Mot de passe: 8+ caractères'),
+                Text('• Données sécurisées localement'),
               ],
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Compris'),
+              child: const Text('OK'),
             ),
           ],
         );
