@@ -1,4 +1,4 @@
-// lib/widgets/common_widgets.dart - COMPLETELY FIXED all overflow and layout issues
+// lib/widgets/common_widgets.dart - FIXED back button issue
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
@@ -631,7 +631,7 @@ class ColumnScrollWrapper extends StatelessWidget {
   }
 }
 
-// FIXED: App Bar with consistent styling and overflow handling
+// FIXED: App Bar with consistent styling and overflow handling - BACK BUTTON ISSUE RESOLVED
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? actions;
@@ -667,6 +667,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               onPressed: onBackPressed ?? () => Navigator.pop(context),
             )
           : null,
+      automaticallyImplyLeading: showBackButton, // FIXED: This prevents automatic back button
       actions: actions,
       elevation: elevation,
     );
