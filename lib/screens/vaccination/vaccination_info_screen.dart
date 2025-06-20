@@ -1,4 +1,4 @@
-// lib/screens/vaccination/vaccination_info_screen.dart - FIXED table overflow issues
+// lib/screens/vaccination/vaccination_info_screen.dart - REMOVED bottom button
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -106,10 +106,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                             // Additional sections
                             _buildAdditionalSections(),
                             
-                            const SizedBox(height: AppSpacing.xxl),
-                            
-                            // Bottom button
-                            _buildBottomButton(),
+                            // REMOVED: Bottom button section completely
                             
                             const SizedBox(height: AppSpacing.lg),
                           ],
@@ -858,14 +855,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
     );
   }
 
-  Widget _buildBottomButton() {
-    return AppButton(
-      text: 'Information / Gestion',
-      icon: Icons.settings,
-      onPressed: () => Navigator.pushNamed(context, '/vaccination-management'),
-      width: double.infinity,
-    );
-  }
+  // REMOVED: _buildBottomButton() method completely
 
   void _showAddVaccinationOptions() {
     showModalBottomSheet(
