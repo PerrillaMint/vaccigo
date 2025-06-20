@@ -1,4 +1,4 @@
-// lib/screens/vaccination/vaccination_summary_screen.dart - Layout issue fixed
+// lib/screens/vaccination/vaccination_summary_screen.dart - REMOVED home button
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -42,7 +42,7 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
       backgroundColor: AppColors.background,
       appBar: const CustomAppBar(
         title: 'Mon Carnet Vaccigo',
-        showBackButton: false,
+        showBackButton: false, // FIXED: Completely remove the back arrow button
       ),
       body: _isLoading 
           ? const AppLoading(message: 'Chargement de votre profil...')
@@ -87,10 +87,7 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
                     // Success message
                     _buildSuccessMessage(),
                     
-                    const SizedBox(height: AppSpacing.xl),
-                    
-                    // Quick access button
-                    _buildQuickAccessButton(),
+                    // REMOVED: Quick access button section completely
                     
                     const SizedBox(height: AppSpacing.lg),
                   ],
@@ -254,34 +251,7 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
     );
   }
 
-  Widget _buildQuickAccessButton() {
-    return Center(
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.secondary.withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: IconButton(
-          onPressed: () => Navigator.pushNamed(context, '/vaccination-info'),
-          icon: const Icon(
-            Icons.home,
-            color: AppColors.primary,
-            size: 28,
-          ),
-          tooltip: 'Accès rapide au carnet',
-        ),
-      ),
-    );
-  }
+  // REMOVED: _buildQuickAccessButton() method completely
 
   void _showUserProfileDialog() {
     if (_currentUser == null) return;
@@ -319,6 +289,16 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
             ),
           ),
           actions: [
+            // Logout button (destructive action)
+            TextButton.icon(
+              onPressed: _showLogoutConfirmation,
+              icon: const Icon(Icons.logout, size: 16, color: AppColors.error),
+              label: const Text(
+                'Se déconnecter',
+                style: TextStyle(color: AppColors.error),
+              ),
+            ),
+            const Spacer(), // Push other buttons to the right
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Fermer'),
@@ -341,6 +321,150 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
         );
       },
     );
+  }
+
+  void _showLogoutConfirmation() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.logout, color: AppColors.error),
+              SizedBox(width: 8),
+              Text(
+                'Se déconnecter',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Êtes-vous sûr de vouloir vous déconnecter de votre compte ?',
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.info.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 16, color: AppColors.info),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Connecté en tant que: ${_currentUser!.name}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.info,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton.icon(
+              onPressed: _performLogout,
+              icon: const Icon(Icons.logout, size: 16),
+              label: const Text('Se déconnecter'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _performLogout() async {
+    try {
+      // Close any open dialogs
+      Navigator.of(context).pop(); // Close confirmation dialog
+      Navigator.of(context).pop(); // Close profile dialog
+      
+      // Clear the current user session
+      await _databaseService.clearCurrentUser();
+      
+      // Show logout success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Déconnexion réussie'),
+              ],
+            ),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        
+        // Navigate back to login screen and clear navigation stack
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+          (route) => false, // Remove all previous routes
+        );
+      }
+    } catch (e) {
+      print('Logout error: $e');
+      if (mounted) {
+        // Close dialogs if still open
+        Navigator.of(context).pop();
+        Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Erreur de déconnexion: $e'),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        
+        // Still navigate to login even if there was an error
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/login',
+          (route) => false,
+        );
+      }
+    }
   }
 
   Widget _buildUserInfo(String label, String value) {

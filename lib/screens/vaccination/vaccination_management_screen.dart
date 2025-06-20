@@ -1,4 +1,4 @@
-// lib/screens/vaccination/vaccination_management_screen.dart - Updated with new design
+// lib/screens/vaccination/vaccination_management_screen.dart - FIXED overflow issue
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -52,22 +52,85 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
       ),
       body: _isLoading
           ? const AppLoading(message: 'Chargement des recommandations...')
-          : SafePageWrapper(
+          : SafeArea(
               child: Column(
                 children: [
-                  // Header
-                  AppPageHeader(
-                    title: 'Recommandations de vaccination',
-                    subtitle: 'Consultez les vaccinations recommandées et gérez vos voyages',
-                    icon: Icons.medical_services,
+                  // Header - FIXED: Much more compact
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12), // REDUCED from 20
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppColors.secondary.withOpacity(0.1),
+                            AppColors.light.withOpacity(0.1),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12), // REDUCED from 20
+                        border: Border.all(
+                          color: AppColors.secondary.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row( // CHANGED: Use Row instead of Column to save space
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8), // REDUCED from 16
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.medical_services,
+                              size: 20, // REDUCED from 32
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text(
+                                  'Recommandations',
+                                  style: TextStyle(
+                                    fontSize: 16, // REDUCED from 20
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2), // REDUCED spacing
+                                Text(
+                                  'Vaccinations recommandées et voyages',
+                                  style: TextStyle(
+                                    fontSize: 12, // REDUCED from 14
+                                    color: AppColors.primary.withOpacity(0.7),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                   
-                  const SizedBox(height: AppSpacing.xl),
-                  
-                  // Content
+                  // Content - Use Expanded to take remaining space
                   Expanded(
                     child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      physics: const BouncingScrollPhysics(),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min, // FIXED: Use min size
                         children: [
                           // Vaccine categories
                           if (_categories.isNotEmpty) ...[
@@ -97,6 +160,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
   Widget _buildCategoriesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min, // FIXED: Use min size
       children: [
         const Text(
           'Vaccinations recommandées',
@@ -119,10 +183,18 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
         
         const SizedBox(height: AppSpacing.lg),
         
-        ..._categories.map((category) => Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-          child: _buildCategoryCard(category),
-        )),
+        // FIXED: Use ListView.builder with shrinkWrap instead of mapping
+        ListView.builder(
+          shrinkWrap: true, // FIXED: Allow list to shrink to content size
+          physics: const NeverScrollableScrollPhysics(), // FIXED: Disable scrolling since parent handles it
+          itemCount: _categories.length,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+              child: _buildCategoryCard(_categories[index]),
+            );
+          },
+        ),
       ],
     );
   }
@@ -153,6 +225,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // FIXED: Use min size
         children: [
           // Header
           Row(
@@ -173,6 +246,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       category.name,
@@ -181,6 +255,8 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                         fontWeight: FontWeight.bold,
                         color: AppColors.primary,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     StatusBadge(
@@ -198,6 +274,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
             
             // Vaccines list
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.05),
@@ -209,6 +286,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Vaccins dans cette catégorie:',
@@ -219,31 +297,39 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  ...category.vaccines.map((vaccine) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            vaccine,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textPrimary,
+                  // FIXED: Use Wrap or Column instead of mapping with Expanded
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: category.vaccines.map((vaccine) => Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 4,
+                            height: 4,
+                            margin: const EdgeInsets.only(top: 8),
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  )),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              vaccine,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textPrimary,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
+                  ),
                 ],
               ),
             ),
@@ -276,6 +362,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // FIXED: Use min size
         children: [
           // Header
           Row(
@@ -301,6 +388,8 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               IconButton(
@@ -330,6 +419,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
               ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.luggage,
@@ -353,6 +443,8 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                     color: AppColors.textSecondary,
                   ),
                   textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 AppButton(
@@ -373,6 +465,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // FIXED: Use min size
         children: [
           const Row(
             children: [
@@ -382,12 +475,16 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                 size: 20,
               ),
               SizedBox(width: AppSpacing.sm),
-              Text(
-                'Ressources utiles',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
+              Expanded(
+                child: Text(
+                  'Ressources utiles',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -395,23 +492,29 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
           
           const SizedBox(height: AppSpacing.lg),
           
-          _buildResourceItem(
-            icon: Icons.schedule,
-            title: 'Calendrier vaccinal',
-            description: 'Consulter le calendrier officiel des vaccinations',
-            color: AppColors.info,
-          ),
-          _buildResourceItem(
-            icon: Icons.location_on,
-            title: 'Vaccinations par destination',
-            description: 'Recommandations selon votre destination de voyage',
-            color: AppColors.warning,
-          ),
-          _buildResourceItem(
-            icon: Icons.emergency,
-            title: 'Urgences médicales',
-            description: 'Contacts utiles en cas d\'urgence',
-            color: AppColors.error,
+          // FIXED: Use Column instead of mapping to avoid flex issues
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildResourceItem(
+                icon: Icons.schedule,
+                title: 'Calendrier vaccinal',
+                description: 'Consulter le calendrier officiel des vaccinations',
+                color: AppColors.info,
+              ),
+              _buildResourceItem(
+                icon: Icons.location_on,
+                title: 'Vaccinations par destination',
+                description: 'Recommandations selon votre destination de voyage',
+                color: AppColors.warning,
+              ),
+              _buildResourceItem(
+                icon: Icons.emergency,
+                title: 'Urgences médicales',
+                description: 'Contacts utiles en cas d\'urgence',
+                color: AppColors.error,
+              ),
+            ],
           ),
         ],
       ),
@@ -438,6 +541,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
         },
         borderRadius: BorderRadius.circular(8),
         child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             color: color.withOpacity(0.05),
@@ -465,6 +569,7 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       title,
@@ -473,6 +578,8 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                         fontWeight: FontWeight.w600,
                         color: color,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
@@ -481,6 +588,8 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -602,7 +711,9 @@ class _VaccinationManagementScreenState extends State<VaccinationManagementScree
                         children: [
                           const Icon(Icons.check_circle, color: Colors.white),
                           const SizedBox(width: AppSpacing.sm),
-                          Text('Voyage vers ${destinationController.text} planifié!'),
+                          Expanded(
+                            child: Text('Voyage vers ${destinationController.text} planifié!'),
+                          ),
                         ],
                       ),
                       backgroundColor: AppColors.success,
