@@ -1,4 +1,4 @@
-// lib/screens/vaccination/vaccination_info_screen.dart - REMOVED bottom button
+// lib/screens/vaccination/vaccination_info_screen.dart - REMOVED plus button from app bar
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -58,19 +58,10 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: CustomAppBar(
+      // REMOVED: Plus button from app bar actions
+      appBar: const CustomAppBar(
         title: 'Mon Carnet',
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.add_circle,
-              color: AppColors.secondary,
-              size: 28,
-            ),
-            onPressed: _showAddVaccinationOptions,
-            tooltip: 'Ajouter une vaccination',
-          ),
-        ],
+        // REMOVED: actions with plus button
       ),
       body: _isLoading 
           ? const AppLoading(message: 'Chargement de vos vaccinations...')
@@ -105,8 +96,6 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
                             
                             // Additional sections
                             _buildAdditionalSections(),
-                            
-                            // REMOVED: Bottom button section completely
                             
                             const SizedBox(height: AppSpacing.lg),
                           ],
@@ -168,6 +157,7 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
             ),
           ),
           
+          // KEEP: This plus button in the header section (different from app bar)
           IconButton(
             onPressed: _showAddVaccinationOptions,
             icon: const Icon(
@@ -854,8 +844,6 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
       ],
     );
   }
-
-  // REMOVED: _buildBottomButton() method completely
 
   void _showAddVaccinationOptions() {
     showModalBottomSheet(
