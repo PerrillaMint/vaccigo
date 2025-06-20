@@ -1,4 +1,4 @@
-// lib/screens/onboarding/camera_scan_screen.dart - FIXED overlay and control overflow issues
+// lib/screens/onboarding/camera_scan_screen.dart - LAYOUT FIXES for responsive design
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../services/google_vision_service.dart';
@@ -60,8 +60,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     switch (state) {
       case AppLifecycleState.inactive:
-        _pauseCamera();
-        break;
       case AppLifecycleState.paused:
         _pauseCamera();
         break;
@@ -117,7 +115,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         if (!permissionsGranted) {
           if (_isMounted && !_isDisposed) {
             setState(() {
-              _error = 'Permissions de caméra requises pour scanner';
+              _error = 'Permissions de caméra requises';
             });
           }
           return;
@@ -127,7 +125,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       if (!CameraService.isAvailable) {
         if (_isMounted && !_isDisposed) {
           setState(() {
-            _error = 'Aucune caméra disponible sur cet appareil';
+            _error = 'Aucune caméra disponible';
           });
         }
         return;
@@ -152,7 +150,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       debugPrint('Camera initialization error: $e');
       if (_isMounted && !_isDisposed) {
         setState(() {
-          _error = 'Erreur d\'initialisation: ${e.toString()}';
+          _error = 'Erreur d\'initialisation';
           _isInitialized = false;
         });
       }
@@ -164,7 +162,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       debugPrint('Camera error: ${_cameraController!.value.errorDescription}');
       if (_isMounted && !_isDisposed) {
         setState(() {
-          _error = 'Erreur de caméra: ${_cameraController!.value.errorDescription}';
+          _error = 'Erreur de caméra';
           _isInitialized = false;
         });
       }
@@ -214,23 +212,27 @@ class _CameraScanScreenState extends State<CameraScanScreen>
           return true;
         },
         child: SafeArea(
-          child: Stack(
-            children: [
-              // Camera preview
-              _buildCameraPreview(),
-              
-              // Processing overlay
-              if (_isProcessing) _buildProcessingOverlay(),
-              
-              // Scanning frame
-              if (!_isProcessing) _buildScanningFrame(),
-              
-              // Control buttons
-              if (!_isProcessing) _buildControlButtons(),
-              
-              // Back button
-              _buildBackButton(),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  // Camera preview
+                  _buildCameraPreview(constraints),
+                  
+                  // Processing overlay
+                  if (_isProcessing) _buildProcessingOverlay(constraints),
+                  
+                  // Scanning frame
+                  if (!_isProcessing) _buildScanningFrame(constraints),
+                  
+                  // Control buttons
+                  if (!_isProcessing) _buildControlButtons(constraints),
+                  
+                  // Back button
+                  _buildBackButton(),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -241,80 +243,74 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Center(
-          child: Container(
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Colors.red,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Center(
+              child: Container(
+                margin: EdgeInsets.all(constraints.maxWidth < 400 ? 16 : 24),
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth < 400 ? constraints.maxWidth - 32 : 400,
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Erreur de caméra',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                  textAlign: TextAlign.center,
+                padding: EdgeInsets.all(constraints.maxWidth < 400 ? 16 : 32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(height: 12),
-                // FIXED: Add constraints to prevent overflow
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 300),
-                  child: Text(
-                    _error ?? 'Une erreur inconnue s\'est produite',
-                    style: const TextStyle(fontSize: 16),
-                    textAlign: TextAlign.center,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // FIXED: Stack buttons vertically on small screens
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth < 300) {
-                      return Column(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Erreur de caméra',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _error ?? 'Une erreur inconnue s\'est produite',
+                      style: const TextStyle(fontSize: 14),
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 24),
+                    // FIXED: Responsive button layout
+                    if (constraints.maxWidth < 320) ...[
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back),
-                              label: const Text('Retour'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey,
-                                foregroundColor: Colors.white,
-                              ),
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.arrow_back),
+                            label: const Text('Retour'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: _initializeCamera,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('Réessayer'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                foregroundColor: Colors.white,
-                              ),
+                          ElevatedButton.icon(
+                            onPressed: _initializeCamera,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Réessayer'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
                             ),
                           ),
                         ],
-                      );
-                    } else {
-                      return Row(
+                      ),
+                    ] else ...[
+                      Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           ElevatedButton.icon(
@@ -336,13 +332,13 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                             ),
                           ),
                         ],
-                      );
-                    }
-                  },
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -359,7 +355,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
               CircularProgressIndicator(color: Colors.white),
               SizedBox(height: 16),
               Text(
-                'Initialisation de la caméra...',
+                'Initialisation...',
                 style: TextStyle(color: Colors.white, fontSize: 16),
               ),
             ],
@@ -369,7 +365,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
   }
 
-  Widget _buildCameraPreview() {
+  Widget _buildCameraPreview(BoxConstraints constraints) {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return Container(
         color: Colors.black,
@@ -379,32 +375,28 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       );
     }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final size = constraints.biggest;
-        final aspectRatio = _cameraController!.value.aspectRatio;
-        
-        late double scale;
-        if (size.aspectRatio > aspectRatio) {
-          scale = size.height / (size.width / aspectRatio);
-        } else {
-          scale = size.width / (size.height * aspectRatio);
-        }
+    final size = constraints.biggest;
+    final aspectRatio = _cameraController!.value.aspectRatio;
+    
+    late double scale;
+    if (size.aspectRatio > aspectRatio) {
+      scale = size.height / (size.width / aspectRatio);
+    } else {
+      scale = size.width / (size.height * aspectRatio);
+    }
 
-        return Transform.scale(
-          scale: scale,
-          child: Center(
-            child: AspectRatio(
-              aspectRatio: aspectRatio,
-              child: CameraPreview(_cameraController!),
-            ),
-          ),
-        );
-      },
+    return Transform.scale(
+      scale: scale,
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: CameraPreview(_cameraController!),
+        ),
+      ),
     );
   }
 
-  Widget _buildProcessingOverlay() {
+  Widget _buildProcessingOverlay(BoxConstraints constraints) {
     return Container(
       color: Colors.black54,
       child: const Center(
@@ -444,145 +436,165 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
   }
 
-  // FIXED: Responsive scanning frame with better text handling
-  Widget _buildScanningFrame() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final screenWidth = constraints.maxWidth;
-        final frameWidth = screenWidth * 0.8;
-        final frameHeight = frameWidth * 1.2;
-        
-        return Center(
-          child: Container(
-            width: frameWidth,
-            height: frameHeight,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white, width: 2),
-              borderRadius: BorderRadius.circular(8),
+  // FIXED: Responsive scanning frame
+  Widget _buildScanningFrame(BoxConstraints constraints) {
+    final screenWidth = constraints.maxWidth;
+    final screenHeight = constraints.maxHeight;
+    
+    // FIXED: Adaptive frame size based on screen size
+    double frameWidth;
+    double frameHeight;
+    
+    if (screenWidth < 400) {
+      frameWidth = screenWidth * 0.85;
+      frameHeight = frameWidth * 1.1;
+    } else {
+      frameWidth = screenWidth * 0.8;
+      frameHeight = frameWidth * 1.2;
+    }
+    
+    // Ensure frame doesn't exceed screen bounds
+    if (frameHeight > screenHeight * 0.6) {
+      frameHeight = screenHeight * 0.6;
+      frameWidth = frameHeight / 1.2;
+    }
+    
+    return Center(
+      child: Container(
+        width: frameWidth,
+        height: frameHeight,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.center_focus_strong,
+              color: Colors.white,
+              size: 48,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.center_focus_strong,
+            const SizedBox(height: 16),
+            Container(
+              constraints: BoxConstraints(
+                maxWidth: frameWidth - 32,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                screenWidth < 400 
+                    ? "Positionnez votre\ncarnet dans le cadre"
+                    : "Positionnez votre carnet\ndans le cadre",
+                textAlign: TextAlign.center,
+                style: TextStyle(
                   color: Colors.white,
-                  size: 48,
-                ),
-                const SizedBox(height: 16),
-                // FIXED: Add container with constraints to prevent text overflow
-                Container(
-                  constraints: BoxConstraints(
-                    maxWidth: frameWidth - 32, // Account for padding
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: const Text(
-                    "Positionnez votre carnet\ndans le cadre",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 10.0,
-                          color: Colors.black,
-                          offset: Offset(2.0, 2.0),
-                        ),
-                      ],
+                  fontWeight: FontWeight.bold,
+                  fontSize: screenWidth < 400 ? 14 : 16,
+                  shadows: const [
+                    Shadow(
+                      blurRadius: 10.0,
+                      color: Colors.black,
+                      offset: Offset(2.0, 2.0),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  ],
                 ),
-              ],
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
-  // FIXED: Responsive control buttons with proper positioning
-  Widget _buildControlButtons() {
+  // FIXED: Responsive control buttons
+  Widget _buildControlButtons(BoxConstraints constraints) {
+    final isSmallScreen = constraints.maxWidth < 400;
+    
     return Positioned(
       left: 0,
       right: 0,
       bottom: 0,
       child: SafeArea(
         child: Container(
-          padding: const EdgeInsets.all(20),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              // FIXED: Adjust layout based on screen width
-              if (constraints.maxWidth < 400) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _buildControlButton(
-                          icon: _flashOn ? Icons.flash_on : Icons.flash_off,
-                          onPressed: _toggleFlash,
-                        ),
-                        _buildControlButton(
-                          icon: Icons.photo_library,
-                          onPressed: _selectFromGallery,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildCaptureButton(),
-                  ],
-                );
-              } else {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildControlButton(
-                      icon: _flashOn ? Icons.flash_on : Icons.flash_off,
-                      onPressed: _toggleFlash,
-                    ),
-                    _buildCaptureButton(),
-                    _buildControlButton(
-                      icon: Icons.photo_library,
-                      onPressed: _selectFromGallery,
-                    ),
-                  ],
-                );
-              }
-            },
-          ),
+          padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
+          child: isSmallScreen 
+              ? _buildCompactControls()
+              : _buildStandardControls(),
         ),
       ),
     );
   }
 
+  Widget _buildCompactControls() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildControlButton(
+              icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+              onPressed: _toggleFlash,
+              size: 48,
+            ),
+            _buildControlButton(
+              icon: Icons.photo_library,
+              onPressed: _selectFromGallery,
+              size: 48,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildCaptureButton(size: 64),
+      ],
+    );
+  }
+
+  Widget _buildStandardControls() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildControlButton(
+          icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+          onPressed: _toggleFlash,
+        ),
+        _buildCaptureButton(),
+        _buildControlButton(
+          icon: Icons.photo_library,
+          onPressed: _selectFromGallery,
+        ),
+      ],
+    );
+  }
+
   Widget _buildControlButton({
     required IconData icon, 
-    VoidCallback? onPressed
+    VoidCallback? onPressed,
+    double size = 56,
   }) {
     return Container(
-      width: 56,
-      height: 56,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.black.withOpacity(0.6),
         border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
       ),
       child: IconButton(
-        icon: Icon(icon, color: Colors.white, size: 24),
+        icon: Icon(icon, color: Colors.white, size: size * 0.4),
         onPressed: onPressed,
       ),
     );
   }
 
-  Widget _buildCaptureButton() {
+  Widget _buildCaptureButton({double size = 80}) {
     return GestureDetector(
       onTap: _captureAndProcess,
       child: Container(
-        width: 80,
-        height: 80,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 4),
@@ -590,16 +602,16 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         ),
         child: Center(
           child: Container(
-            width: 64,
-            height: 64,
+            width: size * 0.8,
+            height: size * 0.8,
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.camera_alt,
               color: Colors.black,
-              size: 32,
+              size: size * 0.4,
             ),
           ),
         ),
@@ -699,7 +711,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       }
     } catch (e) {
       debugPrint('Capture error: $e');
-      _showErrorDialog('Erreur lors du traitement: ${e.toString()}');
+      _showErrorDialog('Erreur lors du traitement');
     } finally {
       if (_isMounted && !_isDisposed) {
         setState(() => _isProcessing = false);
@@ -741,7 +753,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       }
     } catch (e) {
       debugPrint('Gallery selection error: $e');
-      _showErrorDialog('Erreur lors du traitement: ${e.toString()}');
+      _showErrorDialog('Erreur lors du traitement');
     } finally {
       if (_isMounted && !_isDisposed) {
         setState(() => _isProcessing = false);
@@ -763,7 +775,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
           children: [
             Icon(Icons.error_outline, color: AppColors.error),
             SizedBox(width: 8),
-            Expanded( // FIXED: Prevent title overflow
+            Expanded(
               child: Text(
                 'Erreur',
                 maxLines: 1,
@@ -772,8 +784,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
             ),
           ],
         ),
-        content: Container(
-          constraints: const BoxConstraints(maxWidth: 300), // FIXED: Limit dialog width
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 280),
           child: Text(
             message,
             maxLines: 3,

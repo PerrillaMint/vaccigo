@@ -1,4 +1,4 @@
-// lib/main.dart - FIXED with MaterialLocalizations and improved error handling
+// lib/main.dart - App title removed from MaterialApp
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -25,11 +25,9 @@ import 'screens/vaccination/vaccination_management_screen.dart';
 import 'screens/splash_screen.dart';
 
 void main() async {
-  // FIXED: Add proper error handling for main initialization
   try {
     WidgetsFlutterBinding.ensureInitialized();
     
-    // Initialize camera service with better error handling
     bool cameraInitialized = false;
     try {
       await CameraService.initialize();
@@ -37,21 +35,17 @@ void main() async {
       debugPrint('Camera service initialized successfully');
     } catch (e) {
       debugPrint('Camera initialization failed: $e');
-      // App can continue without camera functionality
     }
     
-    // Initialize Hive with error handling
     try {
       await Hive.initFlutter();
       debugPrint('Hive initialized successfully');
     } catch (e) {
       debugPrint('Hive initialization failed: $e');
-      rethrow; // This is critical, app cannot continue
+      rethrow;
     }
     
-    // Register adapters with error handling
     try {
-      // FIXED: Check if adapters are already registered
       if (!Hive.isAdapterRegistered(0)) {
         Hive.registerAdapter(UserAdapter());
       }
@@ -67,17 +61,15 @@ void main() async {
       debugPrint('Hive adapters registered successfully');
     } catch (e) {
       debugPrint('Hive adapter registration failed: $e');
-      rethrow; // This is critical, app cannot continue
+      rethrow;
     }
     
-    // Initialize default categories
     try {
       final databaseService = DatabaseService();
       await databaseService.initializeDefaultCategories();
       debugPrint('Database initialized successfully');
     } catch (e) {
       debugPrint('Database initialization failed: $e');
-      // App can continue with empty categories
     }
     
     runApp(MyApp(cameraInitialized: cameraInitialized));
@@ -85,7 +77,6 @@ void main() async {
     debugPrint('Fatal error during app initialization: $e');
     debugPrint('Stack trace: $stackTrace');
     
-    // FIXED: Show error screen instead of crashing
     runApp(ErrorApp(error: e.toString()));
   }
 }
@@ -109,7 +100,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // FIXED: Proper cleanup when app is disposed
     _cleanupResources();
     super.dispose();
   }
@@ -118,23 +108,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     
-    // FIXED: Handle app lifecycle changes properly
     switch (state) {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
         _cleanupResources();
         break;
       case AppLifecycleState.resumed:
-        // FIXED: Restart camera service if needed
         if (widget.cameraInitialized && CameraService.isDisposed) {
           _restartCameraService();
         }
         break;
       case AppLifecycleState.inactive:
-        // Do nothing for inactive state
         break;
       case AppLifecycleState.hidden:
-        // Handle hidden state (available in newer Flutter versions)
         break;
     }
   }
@@ -142,7 +128,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _cleanupResources() async {
     try {
       await CameraService.dispose();
-      // FIXED: Add database cleanup if needed
       final databaseService = DatabaseService();
       await databaseService.dispose();
       debugPrint('Resources cleaned up successfully');
@@ -163,19 +148,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Vaccigo - Carnet de Vaccination',
+      // REMOVED: App name/title removed from MaterialApp
+      title: 'Carnet de Vaccination',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       
-      // FIXED: Add proper localization support to fix MaterialLocalizations error
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('fr', 'FR'), // French
-        Locale('en', 'US'), // English fallback
+        Locale('fr', 'FR'),
+        Locale('en', 'US'),
       ],
       locale: const Locale('fr', 'FR'),
       
@@ -201,14 +186,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           builder: (context) => const SplashScreen(),
         );
       },
-      // FIXED: Add global error handler
       builder: (context, widget) {
-        // FIXED: Wrap with error boundary
         ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
           return ErrorDisplay(error: errorDetails.toString());
         };
         
-        // FIXED: Add proper text scaling and accessibility
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
             textScaleFactor: MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.2),
@@ -220,7 +202,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 }
 
-// FIXED: Error app for fatal initialization errors
 class ErrorApp extends StatelessWidget {
   final String error;
   
@@ -229,7 +210,7 @@ class ErrorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Vaccigo - Erreur',
+      title: 'Erreur',
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -247,7 +228,6 @@ class ErrorApp extends StatelessWidget {
   }
 }
 
-// FIXED: Error display widget
 class ErrorDisplay extends StatelessWidget {
   final String error;
   
@@ -255,62 +235,124 @@ class ErrorDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Une erreur s\'est produite',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF2C5F66),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth < 400 ? constraints.maxWidth - 32 : 400,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Détails de l\'erreur:\n$error',
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                // FIXED: Restart the app
-                if (context.mounted) {
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/splash',
-                    (route) => false,
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2C5F66),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Une erreur s\'est produite',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2C5F66),
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth < 400 ? constraints.maxWidth - 64 : 320,
+                      ),
+                      child: Text(
+                        'Détails de l\'erreur:\n$error',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: 200,
+                        minHeight: 48,
+                      ),
+                      child: ElevatedButton(
+                        onPressed: () {
+                          if (context.mounted) {
+                            Navigator.of(context).pushNamedAndRemoveUntil(
+                              '/splash',
+                              (route) => false,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2C5F66),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Redémarrer',
+                          style: TextStyle(color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: const Text(
-                'Redémarrer',
-                style: TextStyle(color: Colors.white),
-              ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
+  }
+}
+
+// Additional responsive layout utilities
+class ResponsiveLayoutHelper {
+  static bool isSmallScreen(BuildContext context) {
+    return MediaQuery.of(context).size.width < 400;
+  }
+  
+  static bool isShortScreen(BuildContext context) {
+    return MediaQuery.of(context).size.height < 600;
+  }
+  
+  static double getResponsiveFontSize(BuildContext context, double baseSize) {
+    if (isSmallScreen(context)) {
+      return baseSize * 0.9;
+    }
+    return baseSize;
+  }
+  
+  static EdgeInsets getResponsivePadding(BuildContext context) {
+    if (isSmallScreen(context)) {
+      return const EdgeInsets.all(12);
+    }
+    return const EdgeInsets.all(16);
+  }
+  
+  static double getResponsiveSpacing(BuildContext context, double baseSpacing) {
+    if (isSmallScreen(context) || isShortScreen(context)) {
+      return baseSpacing * 0.75;
+    }
+    return baseSpacing;
   }
 }

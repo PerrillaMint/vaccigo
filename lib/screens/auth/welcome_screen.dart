@@ -1,4 +1,4 @@
-// lib/screens/auth/welcome_screen.dart - Updated with new design system
+// lib/screens/auth/welcome_screen.dart - Only logo and app name removed, everything else unchanged
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -27,8 +27,7 @@ class WelcomeScreen extends StatelessWidget {
                       // Top spacer
                       SizedBox(height: constraints.maxHeight * 0.1),
                       
-                      // Logo section
-                      _buildLogoSection(),
+                      // Logo section removed - was here originally
                       
                       SizedBox(height: constraints.maxHeight * 0.05),
                       
@@ -54,84 +53,6 @@ class WelcomeScreen extends StatelessWidget {
             );
           },
         ),
-      ),
-    );
-  }
-
-  Widget _buildLogoSection() {
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.secondary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Protective hands
-          Positioned(
-            top: 20,
-            child: Icon(
-              Icons.pan_tool,
-              size: 24,
-              color: AppColors.primary,
-            ),
-          ),
-          Positioned(
-            bottom: 20,
-            child: Transform.rotate(
-              angle: 3.14159,
-              child: Icon(
-                Icons.pan_tool,
-                size: 24,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
-          // Central certificate
-          Container(
-            width: 40,
-            height: 35,
-            decoration: BoxDecoration(
-              color: AppColors.accent,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.primary, width: 2),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.verified_user,
-                  size: 16,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(height: 2),
-                Container(
-                  width: 20,
-                  height: 2,
-                  color: AppColors.primary,
-                ),
-              ],
-            ),
-          ),
-          // Syringe
-          Positioned(
-            left: 15,
-            child: Icon(
-              Icons.medication,
-              size: 20,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -162,16 +83,8 @@ class WelcomeScreen extends StatelessWidget {
             ],
           ),
         ),
+        // Vaccigo text removed - was here originally
         const SizedBox(height: AppSpacing.md),
-        Text(
-          'Vaccigo',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
-            letterSpacing: 1.2,
-          ),
-        ),
       ],
     );
   }
