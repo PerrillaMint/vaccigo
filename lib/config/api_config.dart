@@ -1,7 +1,7 @@
 // lib/config/api_config.dart
 class ApiConfig {
   // Replace with your actual Google Cloud Vision API key
-  static const String googleVisionApiKey = 'YOUR_GOOGLE_CLOUD_VISION_API_KEY';
+  static const String googleVisionApiKey = 'AIzaSyCaes3fAkFgeRjyUMejW710_PXhDPA8ADM';
   
   // You can get this from Google Cloud Console:
   // 1. Go to https://console.cloud.google.com/
