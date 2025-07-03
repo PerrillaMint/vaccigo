@@ -1,4 +1,4 @@
-// lib/screens/onboarding/camera_scan_screen.dart - LAYOUT FIXES for responsive design
+// lib/screens/onboarding/camera_scan_screen.dart - FIXED camera sizing and validation issues
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../services/google_vision_service.dart';
@@ -211,29 +211,23 @@ class _CameraScanScreenState extends State<CameraScanScreen>
           }
           return true;
         },
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                children: [
-                  // Camera preview
-                  _buildCameraPreview(constraints),
-                  
-                  // Processing overlay
-                  if (_isProcessing) _buildProcessingOverlay(constraints),
-                  
-                  // Scanning frame
-                  if (!_isProcessing) _buildScanningFrame(constraints),
-                  
-                  // Control buttons
-                  if (!_isProcessing) _buildControlButtons(constraints),
-                  
-                  // Back button
-                  _buildBackButton(),
-                ],
-              );
-            },
-          ),
+        child: Stack(
+          children: [
+            // FIXED: Full screen camera preview
+            _buildFullScreenCameraPreview(),
+            
+            // Processing overlay
+            if (_isProcessing) _buildProcessingOverlay(),
+            
+            // Scanning frame overlay
+            if (!_isProcessing) _buildScanningFrame(),
+            
+            // Control buttons
+            if (!_isProcessing) _buildControlButtons(),
+            
+            // Back button
+            _buildBackButton(),
+          ],
         ),
       ),
     );
@@ -243,102 +237,65 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Center(
-              child: Container(
-                margin: EdgeInsets.all(constraints.maxWidth < 400 ? 16 : 24),
-                constraints: BoxConstraints(
-                  maxWidth: constraints.maxWidth < 400 ? constraints.maxWidth - 32 : 400,
+        child: Center(
+          child: Container(
+            margin: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Colors.red,
                 ),
-                padding: EdgeInsets.all(constraints.maxWidth < 400 ? 16 : 32),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
+                const SizedBox(height: 16),
+                const Text(
+                  'Erreur de caméra',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: 12),
+                Text(
+                  _error ?? 'Une erreur inconnue s\'est produite',
+                  style: const TextStyle(fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Erreur de caméra',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Retour'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white,
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _error ?? 'Une erreur inconnue s\'est produite',
-                      style: const TextStyle(fontSize: 14),
-                      textAlign: TextAlign.center,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
+                    ElevatedButton.icon(
+                      onPressed: _initializeCamera,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Réessayer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
-                    const SizedBox(height: 24),
-                    // FIXED: Responsive button layout
-                    if (constraints.maxWidth < 320) ...[
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back),
-                            label: const Text('Retour'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
-                            onPressed: _initializeCamera,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Réessayer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back),
-                            label: const Text('Retour'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: _initializeCamera,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Réessayer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
-              ),
-            );
-          },
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -347,25 +304,24 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Widget _buildLoadingView() {
     return const Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: Colors.white),
-              SizedBox(height: 16),
-              Text(
-                'Initialisation...',
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-            ],
-          ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Colors.white),
+            SizedBox(height: 16),
+            Text(
+              'Initialisation de la caméra...',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCameraPreview(BoxConstraints constraints) {
+  // FIXED: Simplified full screen camera preview
+  Widget _buildFullScreenCameraPreview() {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return Container(
         color: Colors.black,
@@ -375,28 +331,20 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       );
     }
 
-    final size = constraints.biggest;
-    final aspectRatio = _cameraController!.value.aspectRatio;
-    
-    late double scale;
-    if (size.aspectRatio > aspectRatio) {
-      scale = size.height / (size.width / aspectRatio);
-    } else {
-      scale = size.width / (size.height * aspectRatio);
-    }
-
-    return Transform.scale(
-      scale: scale,
-      child: Center(
-        child: AspectRatio(
-          aspectRatio: aspectRatio,
+    // FIXED: Use SizedBox.expand to take full screen
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _cameraController!.value.previewSize!.height,
+          height: _cameraController!.value.previewSize!.width,
           child: CameraPreview(_cameraController!),
         ),
       ),
     );
   }
 
-  Widget _buildProcessingOverlay(BoxConstraints constraints) {
+  Widget _buildProcessingOverlay() {
     return Container(
       color: Colors.black54,
       child: const Center(
@@ -436,70 +384,38 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
   }
 
-  // FIXED: Responsive scanning frame
-  Widget _buildScanningFrame(BoxConstraints constraints) {
-    final screenWidth = constraints.maxWidth;
-    final screenHeight = constraints.maxHeight;
-    
-    // FIXED: Adaptive frame size based on screen size
-    double frameWidth;
-    double frameHeight;
-    
-    if (screenWidth < 400) {
-      frameWidth = screenWidth * 0.85;
-      frameHeight = frameWidth * 1.1;
-    } else {
-      frameWidth = screenWidth * 0.8;
-      frameHeight = frameWidth * 1.2;
-    }
-    
-    // Ensure frame doesn't exceed screen bounds
-    if (frameHeight > screenHeight * 0.6) {
-      frameHeight = screenHeight * 0.6;
-      frameWidth = frameHeight / 1.2;
-    }
-    
+  Widget _buildScanningFrame() {
     return Center(
       child: Container(
-        width: frameWidth,
-        height: frameHeight,
+        width: 300,
+        height: 360,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.white, width: 2),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Column(
+        child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.center_focus_strong,
               color: Colors.white,
               size: 48,
             ),
-            const SizedBox(height: 16),
-            Container(
-              constraints: BoxConstraints(
-                maxWidth: frameWidth - 32,
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                screenWidth < 400 
-                    ? "Positionnez votre\ncarnet dans le cadre"
-                    : "Positionnez votre carnet\ndans le cadre",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: screenWidth < 400 ? 14 : 16,
-                  shadows: const [
-                    Shadow(
-                      blurRadius: 10.0,
-                      color: Colors.black,
-                      offset: Offset(2.0, 2.0),
-                    ),
-                  ],
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            SizedBox(height: 16),
+            Text(
+              "Positionnez votre document\ndans le cadre",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                shadows: [
+                  Shadow(
+                    blurRadius: 10.0,
+                    color: Colors.black,
+                    offset: Offset(2.0, 2.0),
+                  ),
+                ],
               ),
             ),
           ],
@@ -508,64 +424,30 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
   }
 
-  // FIXED: Responsive control buttons
-  Widget _buildControlButtons(BoxConstraints constraints) {
-    final isSmallScreen = constraints.maxWidth < 400;
-    
+  Widget _buildControlButtons() {
     return Positioned(
       left: 0,
       right: 0,
       bottom: 0,
       child: SafeArea(
         child: Container(
-          padding: EdgeInsets.all(isSmallScreen ? 16 : 20),
-          child: isSmallScreen 
-              ? _buildCompactControls()
-              : _buildStandardControls(),
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildControlButton(
+                icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+                onPressed: _toggleFlash,
+              ),
+              _buildCaptureButton(),
+              _buildControlButton(
+                icon: Icons.photo_library,
+                onPressed: _selectFromGallery,
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _buildCompactControls() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildControlButton(
-              icon: _flashOn ? Icons.flash_on : Icons.flash_off,
-              onPressed: _toggleFlash,
-              size: 48,
-            ),
-            _buildControlButton(
-              icon: Icons.photo_library,
-              onPressed: _selectFromGallery,
-              size: 48,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _buildCaptureButton(size: 64),
-      ],
-    );
-  }
-
-  Widget _buildStandardControls() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _buildControlButton(
-          icon: _flashOn ? Icons.flash_on : Icons.flash_off,
-          onPressed: _toggleFlash,
-        ),
-        _buildCaptureButton(),
-        _buildControlButton(
-          icon: Icons.photo_library,
-          onPressed: _selectFromGallery,
-        ),
-      ],
     );
   }
 
@@ -673,6 +555,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
+  // FIXED: Removed validation step - go straight to AI analysis
   Future<void> _captureAndProcess() async {
     if (_isDisposed || _isProcessing || !_isMounted) return;
     
@@ -684,6 +567,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     setState(() => _isProcessing = true);
     
     try {
+      // Capture image
       final imagePath = await Future.any([
         CameraService.captureImage(),
         Future.delayed(const Duration(seconds: 10), () => throw TimeoutException('Capture timeout')),
@@ -693,13 +577,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         throw Exception('Échec de la capture d\'image');
       }
       
-      bool isValid = await _visionService.isValidVaccinationCard(imagePath);
+      // REMOVED: Skip validation - go straight to AI processing
+      debugPrint('Processing image with AI: $imagePath');
       
-      if (!isValid) {
-        _showErrorDialog('Image non reconnue comme carnet de vaccination');
-        return;
-      }
-      
+      // Process with AI directly
       ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
       
       if (_isMounted && !_isDisposed) {
@@ -711,7 +592,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       }
     } catch (e) {
       debugPrint('Capture error: $e');
-      _showErrorDialog('Erreur lors du traitement');
+      _showErrorDialog('Erreur lors du traitement: $e');
     } finally {
       if (_isMounted && !_isDisposed) {
         setState(() => _isProcessing = false);
@@ -719,6 +600,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
+  // FIXED: Also remove validation from gallery selection
   Future<void> _selectFromGallery() async {
     if (_isDisposed || _isProcessing || !_isMounted) return;
     
@@ -735,13 +617,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         return;
       }
       
-      bool isValid = await _visionService.isValidVaccinationCard(imagePath);
+      // REMOVED: Skip validation - go straight to AI processing
+      debugPrint('Processing gallery image with AI: $imagePath');
       
-      if (!isValid) {
-        _showErrorDialog('Image non reconnue comme carnet de vaccination');
-        return;
-      }
-      
+      // Process with AI directly
       ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
       
       if (_isMounted && !_isDisposed) {
@@ -753,7 +632,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       }
     } catch (e) {
       debugPrint('Gallery selection error: $e');
-      _showErrorDialog('Erreur lors du traitement');
+      _showErrorDialog('Erreur lors du traitement: $e');
     } finally {
       if (_isMounted && !_isDisposed) {
         setState(() => _isProcessing = false);
