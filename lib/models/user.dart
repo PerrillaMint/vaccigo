@@ -1,47 +1,66 @@
-// lib/models/user.dart - COMPLETELY REWRITTEN with null safety fixes
+// lib/models/user.dart - Modèle utilisateur avec sécurité renforcée
 import 'package:hive/hive.dart';
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
 
+// Génère automatiquement user.g.dart avec les adaptateurs Hive
 part 'user.g.dart';
 
+// Annotation Hive pour la sérialisation - typeId unique pour éviter les conflits
 @HiveType(typeId: 0)
 class User extends HiveObject {
+  // === CHAMPS PRINCIPAUX ===
+  // Nom complet de l'utilisateur (prénom + nom)
   @HiveField(0)
   String name;
   
+  // Adresse email - utilisée comme identifiant unique
   @HiveField(1)
   String email;
 
+  // Hash sécurisé du mot de passe (jamais le mot de passe en clair!)
   @HiveField(2)
   String passwordHash;
 
+  // Date de naissance au format DD/MM/YYYY
   @HiveField(3)
   String dateOfBirth;
 
+  // === INFORMATIONS MÉDICALES OPTIONNELLES ===
+  // Maladies chroniques de l'utilisateur (diabète, hypertension, etc.)
   @HiveField(4)
   String? diseases;
 
+  // Traitements médicaux en cours (médicaments, thérapies)
   @HiveField(5)
   String? treatments;
 
+  // Allergies connues (médicaments, aliments, substances)
   @HiveField(6)
   String? allergies;
 
+  // === SÉCURITÉ ===
+  // Sel cryptographique pour sécuriser le hachage du mot de passe
+  // Unique pour chaque utilisateur, empêche les attaques par rainbow table
   @HiveField(7)
   String? salt;
 
+  // === MÉTADONNÉES ===
+  // Date de création du compte
   @HiveField(8)
   DateTime createdAt;
 
+  // Dernière connexion de l'utilisateur
   @HiveField(9)
   DateTime lastLogin;
 
+  // Indique si le compte est actif (permet la désactivation temporaire)
   @HiveField(10)
   bool isActive;
 
-  // Main constructor - Hive will use this for reconstruction
+  // === CONSTRUCTEUR PRINCIPAL ===
+  // Utilisé par Hive pour reconstruire l'objet depuis la base de données
   User({
     required this.name,
     required this.email,
@@ -55,14 +74,16 @@ class User extends HiveObject {
     DateTime? lastLogin,
     this.isActive = true,
   }) : 
+    // Initialise les dates avec des valeurs par défaut si non fournies
     createdAt = createdAt ?? DateTime.now(),
     lastLogin = lastLogin ?? DateTime.now();
 
-  // Factory constructor for creating new users with plain password
+  // === FACTORY CONSTRUCTOR SÉCURISÉ ===
+  // Crée un nouvel utilisateur avec hachage automatique du mot de passe
   factory User.create({
     required String name,
     required String email,
-    required String password,
+    required String password, // Mot de passe en clair - sera hashé
     required String dateOfBirth,
     String? diseases,
     String? treatments,
@@ -72,14 +93,17 @@ class User extends HiveObject {
     bool isActive = true,
   }) {
     try {
+      // Génère un sel cryptographique unique pour cet utilisateur
       final salt = _generateSalt();
+      
+      // Hash le mot de passe avec le sel pour sécuriser le stockage
       final passwordHash = _hashPassword(password, salt);
       
-      print('=== USER CREATION DEBUG ===');
-      print('Creating user: $email');
-      print('Generated salt: $salt');
-      print('Password hash: $passwordHash');
-      print('===========================');
+      print('=== CRÉATION UTILISATEUR ===');
+      print('Utilisateur: $email');
+      print('Sel généré: $salt');
+      print('Hash créé: $passwordHash');
+      print('============================');
       
       return User(
         name: name,
@@ -95,138 +119,156 @@ class User extends HiveObject {
         isActive: isActive,
       );
     } catch (e) {
-      print('Error creating user: $e');
+      print('Erreur lors de la création de l\'utilisateur: $e');
       rethrow;
     }
   }
 
-  // Secure password hashing
+  // === MÉTHODES DE SÉCURITÉ PRIVÉES ===
+  
+  // Génère un sel cryptographique aléatoire de 32 bytes
   static String _generateSalt() {
     try {
+      // Utilise un générateur sécurisé pour la cryptographie
       final random = Random.secure();
+      
+      // Génère 32 bytes aléatoires (256 bits de sécurité)
       final values = List<int>.generate(32, (i) => random.nextInt(256));
+      
+      // Encode en base64 pour stockage sous forme de string
       final saltString = base64.encode(values);
       
       if (saltString.isEmpty) {
-        throw Exception('Generated salt is empty');
+        throw Exception('Le sel généré est vide');
       }
       
       return saltString;
     } catch (e) {
-      print('Error generating salt: $e');
+      print('Erreur lors de la génération du sel: $e');
       rethrow;
     }
   }
 
+  // Hash un mot de passe avec un sel en utilisant SHA-256
   static String _hashPassword(String password, String salt) {
     try {
       if (password.isEmpty) {
-        throw Exception('Password cannot be empty');
+        throw Exception('Le mot de passe ne peut pas être vide');
       }
       if (salt.isEmpty) {
-        throw Exception('Salt cannot be empty');
+        throw Exception('Le sel ne peut pas être vide');
       }
       
+      // Combine le mot de passe et le sel
       final bytes = utf8.encode(password + salt);
+      
+      // Applique le hachage SHA-256
       final digest = sha256.convert(bytes);
+      
+      // Convertit en string hexadécimale
       final hashString = digest.toString();
       
       if (hashString.isEmpty) {
-        throw Exception('Generated hash is empty');
+        throw Exception('Le hash généré est vide');
       }
       
       return hashString;
     } catch (e) {
-      print('Error hashing password: $e');
+      print('Erreur lors du hachage du mot de passe: $e');
       rethrow;
     }
   }
 
-  // FIXED: Completely rewritten password verification with null safety
+  // === VÉRIFICATION DE MOT DE PASSE ===
+  // Vérifie si un mot de passe fourni correspond au hash stocké
   bool verifyPassword(String password) {
-    print('=== PASSWORD VERIFICATION DEBUG ===');
-    print('Verifying password for user: $email');
-    print('Input password length: ${password.length}');
-    print('Stored salt: $salt');
-    print('Stored hash: $passwordHash');
+    print('=== VÉRIFICATION MOT DE PASSE ===');
+    print('Vérification pour: $email');
+    print('Longueur mot de passe: ${password.length}');
+    print('Sel stocké: $salt');
+    print('Hash stocké: $passwordHash');
     
     try {
-      // FIXED: Validate input
+      // Valide l'entrée
       if (password.isEmpty) {
-        print('ERROR: Password is empty');
-        print('===================================');
+        print('ERREUR: Mot de passe vide');
+        print('=================================');
         return false;
       }
       
-      // FIXED: Check if salt exists BEFORE using it
+      // Vérifie que le sel existe AVANT de l'utiliser
       if (salt == null) {
-        print('ERROR: Salt is null - this user was not properly created');
-        print('===================================');
+        print('ERREUR: Sel null - utilisateur mal créé');
+        print('=================================');
         return false;
       }
       
       if (salt!.isEmpty) {
-        print('ERROR: Salt is empty - this user was not properly created');
-        print('===================================');
+        print('ERREUR: Sel vide - utilisateur mal créé');
+        print('=================================');
         return false;
       }
       
-      // FIXED: Check if passwordHash exists
+      // Vérifie que le hash existe
       if (passwordHash.isEmpty) {
-        print('ERROR: Password hash is empty - this user was not properly created');
-        print('===================================');
+        print('ERREUR: Hash vide - utilisateur mal créé');
+        print('=================================');
         return false;
       }
       
-      // FIXED: Safe password verification with proper error handling
+      // Vérification sécurisée avec gestion d'erreur
       final hashedInput = _hashPassword(password, salt!);
       final isValid = hashedInput == passwordHash;
       
-      print('Generated hash from input: $hashedInput');
-      print('Password matches: $isValid');
-      print('===================================');
+      print('Hash généré: $hashedInput');
+      print('Mots de passe correspondent: $isValid');
+      print('=================================');
       
       return isValid;
       
     } catch (e) {
-      print('ERROR during password verification: $e');
+      print('ERREUR pendant la vérification: $e');
       print('Stack trace: ${StackTrace.current}');
-      print('===================================');
+      print('=================================');
       return false;
     }
   }
 
-  // FIXED: Enhanced password update with validation and null safety
+  // === MISE À JOUR DE MOT DE PASSE ===
+  // Met à jour le mot de passe de l'utilisateur avec un nouveau hash et sel
   void updatePassword(String newPassword) {
     try {
       if (newPassword.isEmpty) {
-        throw Exception('Password cannot be empty');
+        throw Exception('Le mot de passe ne peut pas être vide');
       }
       
+      // Génère un nouveau sel pour plus de sécurité
       final newSalt = _generateSalt();
       final newHash = _hashPassword(newPassword, newSalt);
       
-      // Validate generated values
+      // Valide les valeurs générées
       if (newSalt.isEmpty || newHash.isEmpty) {
-        throw Exception('Failed to generate valid salt or hash');
+        throw Exception('Échec de génération du sel ou hash valide');
       }
       
+      // Met à jour les champs
       salt = newSalt;
       passwordHash = newHash;
       
-      print('=== PASSWORD UPDATE DEBUG ===');
-      print('Updated password for user: $email');
-      print('New salt: $newSalt');
-      print('New hash: $newHash');
-      print('==============================');
+      print('=== MISE À JOUR MOT DE PASSE ===');
+      print('Mot de passe mis à jour pour: $email');
+      print('Nouveau sel: $newSalt');
+      print('Nouveau hash: $newHash');
+      print('===============================');
       
     } catch (e) {
-      print('Error updating password: $e');
+      print('Erreur lors de la mise à jour du mot de passe: $e');
       rethrow;
     }
   }
 
-  // FIXED: Method to check if user data is valid with null safety
+  // === VALIDATION DES DONNÉES ===
+  // Vérifie que les données de l'utilisateur sont valides
   bool get isDataValid {
     try {
       return name.isNotEmpty && 
@@ -236,57 +278,59 @@ class User extends HiveObject {
              salt!.isNotEmpty &&
              dateOfBirth.isNotEmpty;
     } catch (e) {
-      print('Error checking data validity: $e');
+      print('Erreur lors de la vérification de validité: $e');
       return false;
     }
   }
 
-  // FIXED: Method to repair user data if needed with null safety
+  // Répare les données utilisateur corrompues si possible
   bool repairUserData(String plainPassword) {
     if (isDataValid) return true;
     
     try {
-      print('=== REPAIRING USER DATA ===');
-      print('User: $email');
-      print('Missing salt: ${salt == null || (salt != null && salt!.isEmpty)}');
-      print('Missing hash: ${passwordHash.isEmpty}');
-      print('Missing name: ${name.isEmpty}');
-      print('Missing email: ${email.isEmpty}');
-      print('Missing dateOfBirth: ${dateOfBirth.isEmpty}');
+      print('=== RÉPARATION DONNÉES UTILISATEUR ===');
+      print('Utilisateur: $email');
+      print('Sel manquant: ${salt == null || (salt != null && salt!.isEmpty)}');
+      print('Hash manquant: ${passwordHash.isEmpty}');
+      print('Nom manquant: ${name.isEmpty}');
+      print('Email manquant: ${email.isEmpty}');
+      print('Date naissance manquante: ${dateOfBirth.isEmpty}');
       
       if (plainPassword.isEmpty) {
-        print('Cannot repair: plainPassword is empty');
-        print('===========================');
+        print('Impossible de réparer: mot de passe vide');
+        print('=====================================');
         return false;
       }
       
-      // Only repair if we have the essential data
+      // Ne répare que si les données essentielles existent
       if (name.isEmpty || email.isEmpty || dateOfBirth.isEmpty) {
-        print('Cannot repair: Essential user data is missing');
-        print('===========================');
+        print('Impossible de réparer: données essentielles manquantes');
+        print('=====================================');
         return false;
       }
       
-      // Generate new salt and hash
+      // Génère un nouveau sel et hash
       final newSalt = _generateSalt();
       final newHash = _hashPassword(plainPassword, newSalt);
       
       salt = newSalt;
       passwordHash = newHash;
       
-      print('Repaired with new salt: $newSalt');
-      print('===========================');
+      print('Réparé avec nouveau sel: $newSalt');
+      print('=====================================');
       
       return isDataValid;
       
     } catch (e) {
-      print('Failed to repair user data: $e');
-      print('===========================');
+      print('Échec de la réparation des données: $e');
+      print('=====================================');
       return false;
     }
   }
 
-  // Data validation methods with null safety
+  // === MÉTHODES DE VALIDATION STATIQUES ===
+  
+  // Valide un nom d'utilisateur
   static String? validateName(String? name) {
     if (name == null) {
       return 'Le nom est requis';
@@ -302,12 +346,14 @@ class User extends HiveObject {
     if (trimmedName.length > 100) {
       return 'Le nom est trop long';
     }
+    // Vérifie les caractères dangereux pour la sécurité
     if (RegExp(r'[<>"\/\\]').hasMatch(trimmedName)) {
       return 'Le nom contient des caractères invalides';
     }
     return null;
   }
 
+  // Valide une adresse email
   static String? validateEmail(String? email) {
     if (email == null) {
       return "L'email est requis";
@@ -318,12 +364,14 @@ class User extends HiveObject {
       return "L'email est requis";
     }
     
+    // Normalise en minuscules
     final sanitizedEmail = trimmedEmail.toLowerCase();
     
     if (sanitizedEmail.length > 254) {
       return "L'email est trop long";
     }
     
+    // Expression régulière stricte pour valider l'email
     final emailRegex = RegExp(
       r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
     );
@@ -335,6 +383,7 @@ class User extends HiveObject {
     return null;
   }
 
+  // Valide un mot de passe selon les critères de sécurité
   static String? validatePassword(String? password) {
     if (password == null) {
       return 'Le mot de passe est requis';
@@ -349,13 +398,16 @@ class User extends HiveObject {
       return 'Le mot de passe est trop long';
     }
     
+    // Vérifie la présence d'au moins une lettre
     if (!RegExp(r'[a-zA-Z]').hasMatch(password)) {
       return 'Le mot de passe doit contenir au moins une lettre';
     }
+    // Vérifie la présence d'au moins un chiffre
     if (!RegExp(r'[0-9]').hasMatch(password)) {
       return 'Le mot de passe doit contenir au moins un chiffre';
     }
     
+    // Liste des mots de passe faibles courants
     final weakPasswords = [
       '12345678', 'password', 'motdepasse', 'azerty123', 'qwerty123'
     ];
@@ -366,6 +418,7 @@ class User extends HiveObject {
     return null;
   }
 
+  // Valide une date de naissance
   static String? validateDateOfBirth(String? date) {
     if (date == null) {
       return 'La date de naissance est requise';
@@ -376,6 +429,7 @@ class User extends HiveObject {
       return 'La date de naissance est requise';
     }
     
+    // Vérifie le format DD/MM/YYYY
     final dateRegex = RegExp(r'^\d{2}/\d{2}/\d{4}$');
     if (!dateRegex.hasMatch(trimmedDate)) {
       return 'Format invalide. Utilisez JJ/MM/AAAA';
@@ -391,16 +445,19 @@ class User extends HiveObject {
       final month = int.parse(parts[1]);
       final year = int.parse(parts[2]);
       
+      // Valide les plages de valeurs
       if (day < 1 || day > 31) return 'Jour invalide';
       if (month < 1 || month > 12) return 'Mois invalide';
       
       final currentYear = DateTime.now().year;
       if (year < 1900 || year > currentYear) return 'Année invalide';
       
+      // Calcule et valide l'âge
       final age = currentYear - year;
       if (age < 0) return 'Date de naissance future invalide';
       if (age > 150) return 'Âge invalide';
       
+      // Vérifie que la date existe réellement (pas de 30 février)
       final birthDate = DateTime(year, month, day);
       if (birthDate.day != day || birthDate.month != month || birthDate.year != year) {
         return 'Date invalide';
@@ -412,17 +469,19 @@ class User extends HiveObject {
     }
   }
 
-  // Sanitize input data with null safety
+  // === MÉTHODES UTILITAIRES ===
+  
+  // Nettoie et sécurise une chaîne d'entrée
   static String _sanitizeString(String? input) {
     if (input == null) return '';
     
     return input
-        .replaceAll(RegExp(r'[<>"\/\\]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[<>"\/\\]'), '') // Supprime caractères dangereux
+        .replaceAll(RegExp(r'\s+'), ' ')      // Normalise les espaces
         .trim();
   }
 
-  // Validate all user data with null safety
+  // Valide toutes les données utilisateur en une fois
   static Map<String, String> validateUserData({
     String? name,
     String? email,
@@ -449,7 +508,8 @@ class User extends HiveObject {
     return errors;
   }
 
-  // Secure factory constructor with null safety
+  // === FACTORY CONSTRUCTOR AVEC VALIDATION ===
+  // Crée un utilisateur en validant toutes les données d'entrée
   factory User.createSecure({
     required String name,
     required String email,
@@ -460,6 +520,7 @@ class User extends HiveObject {
     String? allergies,
   }) {
     try {
+      // Valide toutes les données avant création
       final errors = validateUserData(
         name: name,
         email: email,
@@ -474,6 +535,7 @@ class User extends HiveObject {
         throw ValidationException('Données utilisateur invalides', errors);
       }
       
+      // Nettoie les données d'entrée
       final sanitizedName = _sanitizeString(name);
       final sanitizedEmail = email.trim().toLowerCase();
       final sanitizedDateOfBirth = dateOfBirth.trim();
@@ -495,24 +557,26 @@ class User extends HiveObject {
         allergies: sanitizedAllergies,
       );
     } catch (e) {
-      print('Error in createSecure: $e');
+      print('Erreur dans createSecure: $e');
       rethrow;
     }
   }
 
-  // Update last login timestamp with null safety
+  // === MÉTHODES DE GESTION ===
+  
+  // Met à jour l'heure de dernière connexion
   void updateLastLogin() {
     try {
       lastLogin = DateTime.now();
       if (isInBox) {
-        save();
+        save(); // Sauvegarde automatiquement si l'objet est dans Hive
       }
     } catch (e) {
-      print('Failed to save last login time: $e');
+      print('Échec de sauvegarde de l\'heure de connexion: $e');
     }
   }
 
-  // Deactivate user with null safety
+  // Désactive le compte utilisateur
   void deactivate() {
     try {
       isActive = false;
@@ -520,11 +584,11 @@ class User extends HiveObject {
         save();
       }
     } catch (e) {
-      print('Failed to save user deactivation: $e');
+      print('Échec de sauvegarde de la désactivation: $e');
     }
   }
 
-  // Get age from date of birth with null safety
+  // Calcule l'âge à partir de la date de naissance
   int get age {
     try {
       if (dateOfBirth.isEmpty) return 0;
@@ -542,6 +606,7 @@ class User extends HiveObject {
       final now = DateTime.now();
       int age = now.year - birthDate.year;
       
+      // Ajuste si l'anniversaire n'est pas encore passé cette année
       if (now.month < birthDate.month || 
           (now.month == birthDate.month && now.day < birthDate.day)) {
         age--;
@@ -549,12 +614,13 @@ class User extends HiveObject {
       
       return age >= 0 ? age : 0;
     } catch (e) {
-      print('Error calculating age: $e');
+      print('Erreur lors du calcul de l\'âge: $e');
       return 0;
     }
   }
 
-  // Convert to safe JSON (no sensitive data) with null safety
+  // === SÉRIALISATION SÉCURISÉE ===
+  // Convertit en JSON sans exposer les données sensibles
   Map<String, dynamic> toSafeJson() {
     try {
       return {
@@ -569,13 +635,14 @@ class User extends HiveObject {
         'hasDiseases': diseases?.isNotEmpty == true,
         'hasTreatments': treatments?.isNotEmpty == true,
         'hasAllergies': allergies?.isNotEmpty == true,
+        // NOTE: passwordHash et salt sont volontairement exclus pour sécurité
       };
     } catch (e) {
-      print('Error creating safe JSON: $e');
+      print('Erreur lors de la création du JSON sécurisé: $e');
       return {
         'name': name,
         'email': email,
-        'error': 'Failed to serialize user data',
+        'error': 'Échec de sérialisation des données utilisateur',
       };
     }
   }
@@ -589,16 +656,14 @@ class User extends HiveObject {
     }
   }
 
-  // FIXED: Safe method to get diseases
+  // === ACCESSEURS SÉCURISÉS ===
+  // Méthodes pour accéder aux champs optionnels sans risque de null
+  
   String get safeDiseases => diseases ?? '';
-  
-  // FIXED: Safe method to get treatments  
   String get safeTreatments => treatments ?? '';
-  
-  // FIXED: Safe method to get allergies
   String get safeAllergies => allergies ?? '';
   
-  // FIXED: Safe method to check if user has medical info
+  // Vérifie si l'utilisateur a des informations médicales
   bool get hasMedicalInfo {
     try {
       return (diseases?.isNotEmpty == true) ||
@@ -610,17 +675,18 @@ class User extends HiveObject {
   }
 }
 
-// Custom validation exception with null safety
+// === EXCEPTION PERSONNALISÉE ===
+// Exception lancée lors d'erreurs de validation
 class ValidationException implements Exception {
   final String message;
-  final Map<String, String> errors;
+  final Map<String, String> errors; // Détails des erreurs par champ
 
   ValidationException(this.message, this.errors);
 
   @override
   String toString() {
     try {
-      return 'ValidationException: $message - Errors: $errors';
+      return 'ValidationException: $message - Erreurs: $errors';
     } catch (e) {
       return 'ValidationException: $message';
     }
