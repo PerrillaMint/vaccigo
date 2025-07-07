@@ -1,42 +1,48 @@
-// lib/services/email_service.dart
+// lib/services/email_service.dart - Service d'envoi d'emails avec sécurité et simulation
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 
+// Service centralisé pour l'envoi d'emails
+// Supporte plusieurs fournisseurs (SendGrid, Gmail SMTP) avec fallback vers simulation
+// Gestion sécurisée des tokens de réinitialisation et templates HTML
 class EmailService {
-  // Configuration - Replace with your actual email service credentials
-  static const String _apiKey = 'YOUR_SENDGRID_API_KEY'; // SendGrid API key
-  static const String _senderEmail = 'noreply@vaccigo.com'; // Your sender email
+  // === CONFIGURATION DES SERVICES EMAIL ===
+  
+  // Configuration SendGrid - remplacez par vos vraies clés API
+  static const String _apiKey = 'YOUR_SENDGRID_API_KEY';
+  static const String _senderEmail = 'noreply@vaccigo.com';
   static const String _senderName = 'Vaccigo Support';
   
-  // Alternative: Gmail SMTP settings (if using Gmail)
+  // Configuration alternative Gmail SMTP (si utilisation de Gmail)
   static const String _gmailEmail = 'your-email@gmail.com';
-  static const String _gmailPassword = 'your-app-password'; // Use App Password, not regular password
+  static const String _gmailPassword = 'your-app-password'; // Utilisez un mot de passe d'app, pas le mot de passe normal
   
-  // Store reset tokens temporarily (in production, use a proper database)
+  // === GESTION DES TOKENS DE RÉINITIALISATION ===
+  // Stockage temporaire des tokens (en production, utilisez une vraie base de données)
   static final Map<String, ResetToken> _resetTokens = {};
 
-  /// Send password reset email
+  // Envoie un email de réinitialisation de mot de passe avec token sécurisé
   Future<bool> sendPasswordResetEmail(String email, String userName) async {
     try {
-      // Generate secure reset token
+      // Génère un token de réinitialisation sécurisé
       final token = _generateResetToken();
       final resetUrl = 'https://your-app.com/reset-password?token=$token';
       
-      // Store token (expires in 1 hour)
+      // Stocke le token avec expiration dans 1 heure
       _resetTokens[email] = ResetToken(
         token: token,
         email: email,
         expiresAt: DateTime.now().add(const Duration(hours: 1)),
       );
       
-      // Prepare email content
+      // Prépare le contenu de l'email
       final subject = 'Réinitialisation de votre mot de passe Vaccigo';
       final htmlContent = _buildPasswordResetEmailHtml(userName, resetUrl, token);
       final textContent = _buildPasswordResetEmailText(userName, resetUrl, token);
       
-      // Try SendGrid first, fall back to Gmail SMTP
+      // Essaie SendGrid en premier, puis fallback vers Gmail SMTP
       bool sent = false;
       
       if (_apiKey != 'YOUR_SENDGRID_API_KEY') {
@@ -49,7 +55,7 @@ class EmailService {
       }
       
       if (!sent) {
-        // Fallback to local simulation
+        // Fallback vers simulation locale
         sent = await _simulateEmailSending(email, subject, htmlContent);
       }
       
@@ -60,21 +66,21 @@ class EmailService {
     }
   }
 
-  /// Verify reset token
+  // Vérifie la validité d'un token de réinitialisation
   bool verifyResetToken(String email, String token) {
     final storedToken = _resetTokens[email];
     if (storedToken == null) return false;
     
     if (storedToken.token != token) return false;
     if (DateTime.now().isAfter(storedToken.expiresAt)) {
-      _resetTokens.remove(email); // Clean up expired token
+      _resetTokens.remove(email); // Nettoie le token expiré
       return false;
     }
     
     return true;
   }
 
-  /// Consume reset token (use it once)
+  // Consomme un token de réinitialisation (l'utilise une seule fois)
   bool consumeResetToken(String email, String token) {
     if (verifyResetToken(email, token)) {
       _resetTokens.remove(email);
@@ -83,7 +89,8 @@ class EmailService {
     return false;
   }
 
-  /// Send email via email service (SendGrid, etc.)
+  // === ENVOI VIA SERVICE EMAIL EXTERNE ===
+  // Implémentation SendGrid API avec gestion d'erreurs complète
   Future<bool> _sendEmailViaService({
     required String to,
     required String subject,
@@ -91,7 +98,7 @@ class EmailService {
     required String textContent,
   }) async {
     try {
-      // SendGrid API implementation
+      // Requête vers l'API SendGrid
       final response = await http.post(
         Uri.parse('https://api.sendgrid.com/v3/mail/send'),
         headers: {
@@ -137,48 +144,51 @@ class EmailService {
     }
   }
 
-  /// Simulate email sending for development/demo
+  // === SIMULATION D'ENVOI POUR DÉVELOPPEMENT/DÉMO ===
+  // Simule l'envoi d'email pour les tests et démonstrations
   Future<bool> _simulateEmailSending(String email, String subject, String content) async {
-    print('=== SIMULATED EMAIL ===');
-    print('To: $email');
-    print('Subject: $subject');
-    print('Content Preview: ${content.substring(0, content.length > 200 ? 200 : content.length)}...');
+    print('=== EMAIL SIMULÉ ===');
+    print('À: $email');
+    print('Sujet: $subject');
+    print('Aperçu du contenu: ${content.substring(0, content.length > 200 ? 200 : content.length)}...');
     print('=====================');
     
-    // Simulate network delay
+    // Simule un délai réseau
     await Future.delayed(const Duration(seconds: 1));
     
-    // Log to console (in production, you might log to a file or database)
+    // Enregistre dans la console (en production, vous pourriez l'enregistrer dans un fichier ou base de données)
     _logEmailToConsole(email, subject, content);
     
-    return true; // Always return true for simulation
+    return true; // Retourne toujours true pour la simulation
   }
 
-  /// Log email details for debugging
+  // Enregistre les détails de l'email pour le débogage
   void _logEmailToConsole(String email, String subject, String content) {
     final timestamp = DateTime.now().toIso8601String();
     print('''
-📧 EMAIL SENT (SIMULATED) - $timestamp
-📤 To: $email
-📋 Subject: $subject
-🔗 Reset URL: ${_extractResetUrl(content)}
-⏰ Token expires in 1 hour
+📧 EMAIL ENVOYÉ (SIMULÉ) - $timestamp
+📤 À: $email
+📋 Sujet: $subject
+🔗 URL de réinitialisation: ${_extractResetUrl(content)}
+⏰ Le token expire dans 1 heure
 ''');
   }
 
+  // Extrait l'URL de réinitialisation du contenu pour le logging
   String _extractResetUrl(String content) {
     final regex = RegExp(r'https://[^"\s]+reset-password[^"\s]*');
     final match = regex.firstMatch(content);
-    return match?.group(0) ?? 'URL not found';
+    return match?.group(0) ?? 'URL introuvable';
   }
 
-  /// Generate secure reset token
+  // === GÉNÉRATION DE TOKENS SÉCURISÉS ===
+  // Génère un token de réinitialisation cryptographiquement sécurisé
   String _generateResetToken() {
     final random = Random.secure();
     final bytes = List<int>.generate(32, (i) => random.nextInt(256));
     final base64Token = base64Url.encode(bytes);
     
-    // Add timestamp hash for additional security
+    // Ajoute un hash de timestamp pour sécurité supplémentaire
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final combined = '$base64Token$timestamp';
     final hash = sha256.convert(utf8.encode(combined));
@@ -186,7 +196,8 @@ class EmailService {
     return '${base64Token}_${hash.toString().substring(0, 8)}';
   }
 
-  /// Build HTML email content
+  // === TEMPLATES EMAIL HTML ===
+  // Construit le contenu HTML de l'email de réinitialisation de mot de passe
   String _buildPasswordResetEmailHtml(String userName, String resetUrl, String token) {
     return '''
 <!DOCTYPE html>
@@ -305,7 +316,7 @@ class EmailService {
 ''';
   }
 
-  /// Build plain text email content
+  // Construit le contenu texte brut de l'email de réinitialisation
   String _buildPasswordResetEmailText(String userName, String resetUrl, String token) {
     return '''
 Bonjour $userName,
@@ -332,7 +343,8 @@ Token de sécurité : ${token.substring(0, 8)}***
 ''';
   }
 
-  /// Send welcome email to new users
+  // === EMAIL DE BIENVENUE ===
+  // Envoie un email de bienvenue aux nouveaux utilisateurs
   Future<bool> sendWelcomeEmail(String email, String userName) async {
     try {
       final subject = 'Bienvenue sur Vaccigo ! 🎉';
@@ -355,6 +367,7 @@ Token de sécurité : ${token.substring(0, 8)}***
     }
   }
 
+  // Template HTML pour l'email de bienvenue
   String _buildWelcomeEmailHtml(String userName) {
     return '''
 <!DOCTYPE html>
@@ -393,6 +406,7 @@ Token de sécurité : ${token.substring(0, 8)}***
 ''';
   }
 
+  // Template texte brut pour l'email de bienvenue
   String _buildWelcomeEmailText(String userName) {
     return '''
 🎉 Bienvenue sur Vaccigo !
@@ -413,14 +427,17 @@ L'équipe Vaccigo
 ''';
   }
 
-  /// Clean up expired tokens periodically
+  // === MAINTENANCE ===
+  // Nettoie périodiquement les tokens expirés
   void cleanupExpiredTokens() {
     final now = DateTime.now();
     _resetTokens.removeWhere((email, token) => now.isAfter(token.expiresAt));
   }
 }
 
-/// Reset token model
+// === MODÈLES DE DONNÉES ===
+
+// Modèle pour les tokens de réinitialisation de mot de passe
 class ResetToken {
   final String token;
   final String email;
@@ -433,15 +450,15 @@ class ResetToken {
   });
 }
 
-/// Email configuration for different providers
+// === CONFIGURATIONS EMAIL POUR DIFFÉRENTS FOURNISSEURS ===
 class EmailConfig {
-  // SendGrid configuration
+  // Configuration SendGrid
   static const sendGridConfig = {
     'apiUrl': 'https://api.sendgrid.com/v3/mail/send',
     'apiKey': 'YOUR_SENDGRID_API_KEY',
   };
   
-  // Gmail SMTP configuration
+  // Configuration Gmail SMTP
   static const gmailConfig = {
     'host': 'smtp.gmail.com',
     'port': 587,
@@ -449,7 +466,7 @@ class EmailConfig {
     'password': 'your-app-password',
   };
   
-  // Mailgun configuration
+  // Configuration Mailgun
   static const mailgunConfig = {
     'apiUrl': 'https://api.mailgun.net/v3/YOUR_DOMAIN/messages',
     'apiKey': 'YOUR_MAILGUN_API_KEY',

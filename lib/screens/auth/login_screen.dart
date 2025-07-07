@@ -1,10 +1,13 @@
-// lib/screens/auth/login_screen.dart - Emergency bypass and debug tools removed
+// lib/screens/auth/login_screen.dart - Écran de connexion avec sélection d'utilisateur
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../models/user.dart';
 import '../../services/database_service.dart';
 
+// Écran de connexion principal avec interface moderne
+// Permet la sélection d'utilisateurs existants et l'authentification par mot de passe
+// Inclut des outils de nettoyage de base de données et validation robuste
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
 
@@ -13,28 +16,36 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // Service de base de données pour toutes les opérations utilisateur
   final DatabaseService _databaseService = DatabaseService();
+  
+  // Contrôleur pour le champ mot de passe avec nettoyage automatique
   final _passwordController = TextEditingController();
-  List<User> _users = [];
-  bool _isLoading = true;
-  bool _obscurePassword = true;
-  bool _isPasswordWrong = false;
-  bool _isLoggingIn = false;
-  User? _selectedUser;
+  
+  // États de l'interface utilisateur
+  List<User> _users = [];              // Liste des utilisateurs disponibles
+  bool _isLoading = true;              // État de chargement initial
+  bool _obscurePassword = true;        // Masquage du mot de passe
+  bool _isPasswordWrong = false;       // Indicateur d'erreur mot de passe
+  bool _isLoggingIn = false;           // État de connexion en cours
+  User? _selectedUser;                 // Utilisateur actuellement sélectionné
 
   @override
   void initState() {
     super.initState();
+    // Charge la liste des utilisateurs au démarrage
     _loadUsers();
   }
 
   @override
   void dispose() {
+    // Nettoie les ressources et efface le mot de passe de la mémoire
     _passwordController.clear();
     _passwordController.dispose();
     super.dispose();
   }
 
+  // Charge tous les utilisateurs actifs depuis la base de données
   Future<void> _loadUsers() async {
     if (!mounted) return;
     
@@ -61,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: CustomAppBar(
         title: 'Connexion',
         actions: [
+          // Bouton de nettoyage des doublons (visible seulement si chargé)
           IconButton(
             icon: const Icon(Icons.cleaning_services, color: AppColors.secondary),
             onPressed: _isLoading ? null : _showCleanupDialog,
@@ -83,12 +95,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header section - Fixed height
+                      // En-tête avec instructions - hauteur fixe
                       _buildHeader(),
                       
                       const SizedBox(height: 24),
                       
-                      // Main content - Flexible height
+                      // Contenu principal - hauteur flexible
                       if (_isLoading)
                         _buildLoadingState()
                       else if (_users.isEmpty)
@@ -98,13 +110,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       const SizedBox(height: 24),
                       
-                      // Password field
+                      // Champ mot de passe (affiché seulement si utilisateur sélectionné)
                       if (_selectedUser != null)
                         _buildPasswordField(),
                       
                       const SizedBox(height: 24),
                       
-                      // Action buttons
+                      // Boutons d'action
                       _buildActionButtons(),
                       
                       const SizedBox(height: 24),
@@ -119,6 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // En-tête avec design moderne et instructions claires
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
@@ -139,6 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Icône utilisateur avec style moderne
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -152,6 +166,8 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Titre principal
           const Text(
             'Sélectionnez votre profil',
             style: TextStyle(
@@ -162,6 +178,8 @@ class _LoginScreenState extends State<LoginScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
+          
+          // Instructions avec gestion des dépassements
           const Text(
             'Choisissez un utilisateur et entrez votre mot de passe',
             style: TextStyle(
@@ -177,6 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // État de chargement avec indicateur visuel
   Widget _buildLoadingState() {
     return Container(
       height: 200,
@@ -199,6 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // État vide avec invitation à créer un utilisateur
   Widget _buildEmptyState() {
     return Container(
       padding: const EdgeInsets.all(24),
@@ -216,12 +236,15 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Icône d'état vide
           Icon(
             Icons.person_add,
             size: 64,
             color: AppColors.textMuted,
           ),
           const SizedBox(height: 16),
+          
+          // Titre et description
           const Text(
             'Aucun utilisateur trouvé',
             style: TextStyle(
@@ -243,6 +266,8 @@ class _LoginScreenState extends State<LoginScreen> {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 16),
+          
+          // Bouton de création d'utilisateur
           ElevatedButton.icon(
             onPressed: () => Navigator.pushNamed(context, '/user-creation'),
             icon: const Icon(Icons.add),
@@ -261,6 +286,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // Liste des utilisateurs avec indicateurs de statut et sélection
   Widget _buildUsersList() {
     return Container(
       decoration: BoxDecoration(
@@ -278,7 +304,7 @@ class _LoginScreenState extends State<LoginScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with user count
+          // En-tête avec compteur d'utilisateurs
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -296,6 +322,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
+                
+                // Badge de comptage
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -322,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           
-          // Users list
+          // Liste des utilisateurs avec interaction
           ...List.generate(_users.length, (index) {
             final user = _users[index];
             final isSelected = _selectedUser == user;
@@ -359,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Row(
                       children: [
-                        // Avatar
+                        // Avatar utilisateur
                         Container(
                           width: 40,
                           height: 40,
@@ -381,7 +409,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         
                         const SizedBox(width: 12),
                         
-                        // User info
+                        // Informations utilisateur
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -415,7 +443,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  // Data validity indicator
+                                  
+                                  // Indicateur de validité des données
                                   if (!user.isDataValid)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -438,7 +467,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         
-                        // Selection indicator
+                        // Indicateur de sélection
                         if (isSelected)
                           const SizedBox(
                             width: 24,
@@ -465,10 +494,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // Champ de saisie du mot de passe avec validation visuelle
   Widget _buildPasswordField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Label avec icône
         const Row(
           children: [
             Icon(
@@ -496,6 +527,8 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
         const SizedBox(height: 8),
+        
+        // Champ de texte avec bouton de visibilité
         TextFormField(
           controller: _passwordController,
           obscureText: _obscurePassword,
@@ -534,6 +567,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           onChanged: (value) {
+            // Efface l'erreur quand l'utilisateur tape
             if (_isPasswordWrong) {
               setState(() => _isPasswordWrong = false);
             }
@@ -543,11 +577,12 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // Boutons d'action principaux et secondaires
   Widget _buildActionButtons() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Login button
+        // Bouton de connexion principal (visible seulement si utilisateur sélectionné)
         if (_selectedUser != null) ...[
           ElevatedButton.icon(
             onPressed: _isLoggingIn ? null : _loginWithSelectedUser,
@@ -578,6 +613,8 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          
+          // Lien mot de passe oublié
           TextButton(
             onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/forgot-password'),
             child: const Text('Mot de passe oublié?'),
@@ -585,6 +622,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 12),
         ],
         
+        // Bouton de création de nouvel utilisateur
         OutlinedButton.icon(
           onPressed: _isLoggingIn ? null : () => Navigator.pushNamed(context, '/user-creation'),
           icon: const Icon(Icons.person_add),
@@ -606,9 +644,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // Logique de connexion avec validation et gestion d'erreurs
   Future<void> _loginWithSelectedUser() async {
     if (_selectedUser == null || _isLoggingIn) return;
 
+    // Validation du mot de passe côté client
     if (_passwordController.text.isEmpty) {
       setState(() => _isPasswordWrong = true);
       return;
@@ -617,7 +657,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoggingIn = true);
 
     try {
-      // Check if user data is valid before attempting authentication
+      // Vérifie la validité des données utilisateur avant l'authentification
       if (!_selectedUser!.isDataValid) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -631,6 +671,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // Authentification via le service de base de données
       final user = await _databaseService.authenticateUser(
         _selectedUser!.email, 
         _passwordController.text
@@ -641,6 +682,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // Définit l'utilisateur courant pour la session
       await _databaseService.setCurrentUser(user);
       
       if (mounted) {
@@ -650,6 +692,7 @@ class _LoginScreenState extends State<LoginScreen> {
         });
         _passwordController.clear();
         
+        // Message de succès
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -663,6 +706,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
         
+        // Navigation vers l'écran principal
         Navigator.pushReplacementNamed(context, '/vaccination-summary');
       }
     } catch (e) {
@@ -676,6 +720,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Dialogue de confirmation pour le nettoyage de la base de données
   void _showCleanupDialog() {
     showDialog(
       context: context,
@@ -717,13 +762,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // Exécute le nettoyage de la base de données avec feedback utilisateur
   Future<void> _performCleanup() async {
     try {
       setState(() => _isLoading = true);
       
+      // Exécute le nettoyage via le service de base de données
       final result = await _databaseService.cleanupDatabase();
       final duplicatesRemoved = result['duplicateUsersRemoved'] ?? 0;
       
+      // Recharge la liste des utilisateurs
       await _loadUsers();
       
       if (mounted) {
@@ -748,6 +796,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Affiche un message d'erreur avec gestion des dépassements
   void _showErrorMessage(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

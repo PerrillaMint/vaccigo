@@ -1,8 +1,11 @@
-// lib/screens/auth/welcome_screen.dart - Only logo and app name removed, everything else unchanged
+// lib/screens/auth/welcome_screen.dart - Écran d'accueil et présentation de l'application
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 
+// Écran d'accueil principal présentant l'application Vaccigo
+// Design moderne et attrayant pour engager les nouveaux utilisateurs
+// Interface responsive avec call-to-action clairs
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
 
@@ -24,27 +27,27 @@ class WelcomeScreen extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Top spacer
+                      // Espace supérieur adaptatif (10% de la hauteur)
                       SizedBox(height: constraints.maxHeight * 0.1),
                       
-                      // Logo section removed - was here originally
+                      // Section logo supprimée - était ici à l'origine
                       
                       SizedBox(height: constraints.maxHeight * 0.05),
                       
-                      // Title section
+                      // Section titre principal avec typographie moderne
                       _buildTitleSection(),
                       
                       SizedBox(height: constraints.maxHeight * 0.08),
                       
-                      // Features list
+                      // Liste des fonctionnalités clés
                       _buildFeaturesList(),
                       
                       SizedBox(height: constraints.maxHeight * 0.08),
                       
-                      // Action buttons
+                      // Boutons d'action principaux
                       _buildActionButtons(context),
                       
-                      // Bottom spacer
+                      // Espace inférieur adaptatif
                       SizedBox(height: constraints.maxHeight * 0.1),
                     ],
                   ),
@@ -57,9 +60,11 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
+  // Section titre avec typographie élégante et hiérarchie visuelle
   Widget _buildTitleSection() {
     return Column(
       children: [
+        // Titre principal avec mise en forme RichText pour les accents de couleur
         RichText(
           textAlign: TextAlign.center,
           text: const TextSpan(
@@ -69,10 +74,12 @@ class WelcomeScreen extends StatelessWidget {
               height: 1.2,
             ),
             children: [
+              // Première partie en couleur primaire
               TextSpan(
                 text: 'Mon carnet de\nvaccination\n',
                 style: TextStyle(color: AppColors.primary),
               ),
+              // Mot-clé "numérique" en couleur secondaire pour l'accent
               TextSpan(
                 text: 'numérique',
                 style: TextStyle(
@@ -83,12 +90,14 @@ class WelcomeScreen extends StatelessWidget {
             ],
           ),
         ),
-        // Vaccigo text removed - was here originally
+        // Texte Vaccigo supprimé - était ici à l'origine
         const SizedBox(height: AppSpacing.md),
       ],
     );
   }
 
+  // Liste des valeurs et promesses de l'application
+  // Design simple mais efficace pour communiquer les bénéfices
   Widget _buildFeaturesList() {
     final features = [
       'VIVRE',
@@ -106,7 +115,7 @@ class WelcomeScreen extends StatelessWidget {
             fontSize: 16,
             fontWeight: FontWeight.w500,
             color: AppColors.primary.withOpacity(0.8),
-            letterSpacing: 1.2,
+            letterSpacing: 1.2, // Espacement des lettres pour un effet moderne
           ),
           textAlign: TextAlign.center,
         ),
@@ -114,10 +123,12 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 
+  // Boutons d'action avec hiérarchie visuelle claire
+  // Bouton principal (Démarrer) et bouton secondaire (Se connecter)
   Widget _buildActionButtons(BuildContext context) {
     return Column(
       children: [
-        // Main action button
+        // Bouton principal pour les nouveaux utilisateurs
         AppButton(
           text: 'Démarrer',
           icon: Icons.arrow_forward,
@@ -127,7 +138,7 @@ class WelcomeScreen extends StatelessWidget {
         
         const SizedBox(height: AppSpacing.md),
         
-        // Secondary login button
+        // Bouton secondaire pour les utilisateurs existants
         AppButton(
           text: 'Se connecter',
           icon: Icons.login,
@@ -138,7 +149,7 @@ class WelcomeScreen extends StatelessWidget {
         
         const SizedBox(height: AppSpacing.lg),
         
-        // Help text
+        // Texte d'aide subtil pour guider les utilisateurs existants
         Text(
           'Vous avez déjà un compte?',
           style: TextStyle(
