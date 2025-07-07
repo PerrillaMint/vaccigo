@@ -1,8 +1,11 @@
-// lib/screens/auth/card_selection_screen.dart - Updated with new design
+// lib/screens/auth/card_selection_screen.dart - Écran de sélection du type de carnet
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 
+// Écran permettant à l'utilisateur de choisir entre différents types de carnets
+// Actuellement: carnet de vaccination personnel ou préparation de voyages
+// Interface moderne avec cartes cliquables et design cohérent
 class CardSelectionScreen extends StatelessWidget {
   const CardSelectionScreen({Key? key}) : super(key: key);
 
@@ -10,16 +13,18 @@ class CardSelectionScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      // Barre d'application avec le titre de l'app
       appBar: const CustomAppBar(
         title: 'Vaccigo',
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          // Effet de rebond pour un meilleur ressenti utilisateur
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: Column(
             children: [
-              // Header
+              // En-tête avec titre et description
               AppPageHeader(
                 title: 'Veuillez choisir votre carnet',
                 subtitle: 'Sélectionnez le type de carnet que vous souhaitez utiliser',
@@ -28,7 +33,8 @@ class CardSelectionScreen extends StatelessWidget {
               
               const SizedBox(height: AppSpacing.xxl),
               
-              // Cards
+              // Cartes d'options principales
+              // Option 1: Carnet de vaccination personnel
               _buildOptionCard(
                 context,
                 title: 'Mes Vaccins',
@@ -40,6 +46,7 @@ class CardSelectionScreen extends StatelessWidget {
               
               const SizedBox(height: AppSpacing.lg),
               
+              // Option 2: Préparation de voyages (fonctionnalité future)
               _buildOptionCard(
                 context,
                 title: 'Mes Voyages',
@@ -47,7 +54,7 @@ class CardSelectionScreen extends StatelessWidget {
                 icon: Icons.flight,
                 color: AppColors.accent,
                 onTap: () {
-                  // Future feature for travel planning
+                  // Fonctionnalité à développer pour la planification de voyages
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Fonctionnalité à venir!'),
@@ -59,7 +66,7 @@ class CardSelectionScreen extends StatelessWidget {
               
               const SizedBox(height: AppSpacing.xxl),
               
-              // Info section
+              // Section d'information sur l'app
               _buildInfoSection(),
               
               const SizedBox(height: AppSpacing.xl),
@@ -70,6 +77,8 @@ class CardSelectionScreen extends StatelessWidget {
     );
   }
 
+  // Construit une carte d'option cliquable avec icône et description
+  // Utilise un design moderne avec ombres et animations subtiles
   Widget _buildOptionCard(
     BuildContext context, {
     required String title,
@@ -83,7 +92,7 @@ class CardSelectionScreen extends StatelessWidget {
       child: AppCard(
         child: Row(
           children: [
-            // Icon container
+            // Conteneur d'icône avec couleur thématique
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
@@ -99,7 +108,7 @@ class CardSelectionScreen extends StatelessWidget {
             
             const SizedBox(width: AppSpacing.lg),
             
-            // Content
+            // Contenu textuel de l'option
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,7 +133,7 @@ class CardSelectionScreen extends StatelessWidget {
               ),
             ),
             
-            // Arrow
+            // Flèche indicatrice d'action
             Icon(
               Icons.arrow_forward_ios,
               color: color,
@@ -136,6 +145,8 @@ class CardSelectionScreen extends StatelessWidget {
     );
   }
 
+  // Section d'information sur les avantages de l'app
+  // Design avec bordure colorée pour attirer l'attention
   Widget _buildInfoSection() {
     return AppCard(
       backgroundColor: AppColors.secondary.withOpacity(0.1),
