@@ -10,7 +10,7 @@ import '../models/scanned_vaccination_data.dart';
 // Extrait automatiquement: nom du vaccin, numéro de lot, date, et infos supplémentaires
 class GoogleVisionService {
   // Clé API Google Cloud Vision - remplacez par votre vraie clé
-  static const String _apiKey = 'YOUR_GOOGLE_VISION_API_KEY';
+  static const String _apiKey = 'AIzaSyCaes3fAkFgeRjyUMejW710_PXhDPA8ADM';
   static const String _baseUrl = 'https://vision.googleapis.com/v1/images:annotate';
 
   // === MÉTHODE PRINCIPALE DE TRAITEMENT ===
@@ -27,7 +27,7 @@ class GoogleVisionService {
       
       // Si la confiance ML Kit est très faible, essaie Cloud Vision comme fallback
       // Cloud Vision est plus puissant mais nécessite une connexion internet
-      if (mlKitResult.confidence < 0.3 && _apiKey != 'YOUR_GOOGLE_VISION_API_KEY') {
+      if (mlKitResult.confidence < 0.3 && _apiKey != 'AIzaSyCaes3fAkFgeRjyUMejW710_PXhDPA8ADM') {
         print('🌐 Tentative avec Google Cloud Vision API pour de meilleurs résultats...');
         try {
           final cloudResult = await _processWithCloudVision(imagePath);
