@@ -4,7 +4,7 @@ class ApiConfig {
   // Clé API Google Vision pour l'analyse d'images de carnet de vaccination
   // IMPORTANT: Remplacez par votre vraie clé API Google Cloud Vision
   // Cette clé permet d'utiliser l'API de reconnaissance de texte dans les images
-  static const String googleVisionApiKey = '';
+  static const String googleVisionApiKey = 'AIzaSyCaes3fAkFgeRjyUMejW710_PXhDPA8ADM';
   
   // Instructions pour obtenir votre clé API Google Vision:
   // 1. Allez sur https://console.cloud.google.com/
