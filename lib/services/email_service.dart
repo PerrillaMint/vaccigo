@@ -11,7 +11,11 @@ class EmailService {
   // === CONFIGURATION DES SERVICES EMAIL ===
   
   // Configuration SendGrid - remplacez par vos vraies clés API
+<<<<<<< HEAD
   static const String _apiKey = 'YOUR_SENDGRID_API_KEY';
+=======
+  static const String _apiKey = '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';
+>>>>>>> 93c22a8 (comments)
   static const String _senderEmail = 'noreply@vaccigo.com';
   static const String _senderName = 'Vaccigo Support';
   
@@ -45,7 +49,11 @@ class EmailService {
       // Essaie SendGrid en premier, puis fallback vers Gmail SMTP
       bool sent = false;
       
+<<<<<<< HEAD
       if (_apiKey != 'YOUR_SENDGRID_API_KEY') {
+=======
+      if (_apiKey != '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') {
+>>>>>>> 93c22a8 (comments)
         sent = await _sendEmailViaService(
           to: email,
           subject: subject,
@@ -351,7 +359,11 @@ Token de sécurité : ${token.substring(0, 8)}***
       final htmlContent = _buildWelcomeEmailHtml(userName);
       final textContent = _buildWelcomeEmailText(userName);
       
+<<<<<<< HEAD
       if (_apiKey != 'YOUR_SENDGRID_API_KEY') {
+=======
+      if (_apiKey != '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') {
+>>>>>>> 93c22a8 (comments)
         return await _sendEmailViaService(
           to: email,
           subject: subject,
@@ -455,7 +467,11 @@ class EmailConfig {
   // Configuration SendGrid
   static const sendGridConfig = {
     'apiUrl': 'https://api.sendgrid.com/v3/mail/send',
+<<<<<<< HEAD
     'apiKey': 'YOUR_SENDGRID_API_KEY',
+=======
+    'apiKey': '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',
+>>>>>>> 93c22a8 (comments)
   };
   
   // Configuration Gmail SMTP
