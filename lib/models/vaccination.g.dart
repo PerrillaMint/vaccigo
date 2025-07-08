@@ -18,7 +18,7 @@ class VaccinationAdapter extends TypeAdapter<Vaccination> {
     };
     return Vaccination(
       vaccineName: fields[0] as String,
-      lot: fields[1] as String,
+      lot: fields[1] as String?,
       date: fields[2] as String,
       ps: fields[3] as String,
       userId: fields[4] as String,

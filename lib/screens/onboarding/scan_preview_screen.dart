@@ -6,6 +6,7 @@ import '../../models/scanned_vaccination_data.dart';
 import '../../models/vaccination.dart';
 import '../../services/database_service.dart';
 
+
 class ScanPreviewScreen extends StatefulWidget {
   const ScanPreviewScreen({Key? key}) : super(key: key);
 
