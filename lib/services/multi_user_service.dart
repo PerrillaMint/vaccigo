@@ -1,7 +1,6 @@
 // lib/services/multi_user_service.dart - Service pour gérer plusieurs utilisateurs sur un compte
 import 'package:hive/hive.dart';
-import '../models/user.dart';
-import '../models/vaccination.dart';
+import '../models/enhanced_user.dart';
 import 'database_service.dart';
 
 class MultiUserService {
@@ -10,7 +9,7 @@ class MultiUserService {
 
   // Crée un compte famille avec un utilisateur principal
   Future<FamilyAccount> createFamilyAccount({
-    required User primaryUser,
+    required EnhancedUser primaryUser,
     required String familyName,
   }) async {
     try {
@@ -28,6 +27,7 @@ class MultiUserService {
       
       // Met à jour l'utilisateur avec l'ID famille
       primaryUser.familyAccountId = key.toString();
+      primaryUser.role = UserRole.primary;
       await primaryUser.save();
       
       return familyAccount;
@@ -39,7 +39,7 @@ class MultiUserService {
   // Ajoute un membre à un compte famille
   Future<void> addFamilyMember({
     required String familyAccountId,
-    required User newMember,
+    required EnhancedUser newMember,
     required String currentUserId,
   }) async {
     try {
@@ -51,9 +51,11 @@ class MultiUserService {
         throw Exception('Compte famille introuvable');
       }
       
-      // Vérifie que l'utilisateur actuel est le propriétaire principal
-      if (familyAccount.primaryUserId != currentUserId) {
-        throw Exception('Seul le propriétaire principal peut ajouter des membres');
+      // Vérifie que l'utilisateur actuel est le propriétaire principal ou administrateur
+      final currentUser = await _databaseService.getUserById(currentUserId);
+      if (currentUser == null || 
+          (currentUser.role != UserRole.primary && currentUser.role != UserRole.secondary)) {
+        throw Exception('Permissions insuffisantes pour ajouter des membres');
       }
       
       // Vérifie la limite de membres
@@ -61,9 +63,13 @@ class MultiUserService {
         throw Exception('Maximum 6 membres par compte famille');
       }
       
+      // Sauvegarde le nouveau membre d'abord
+      await _databaseService.saveUser(newMember);
+      
       // Ajoute le nouveau membre
       familyAccount.memberIds.add(newMember.key.toString());
       newMember.familyAccountId = familyAccountId;
+      newMember.role = UserRole.member;
       
       await familyAccount.save();
       await newMember.save();
@@ -74,7 +80,7 @@ class MultiUserService {
   }
 
   // Récupère tous les membres d'une famille
-  Future<List<User>> getFamilyMembers(String familyAccountId) async {
+  Future<List<EnhancedUser>> getFamilyMembers(String familyAccountId) async {
     try {
       final box = await _getFamilyBox();
       final key = int.parse(familyAccountId);
@@ -82,7 +88,7 @@ class MultiUserService {
       
       if (familyAccount == null) return [];
       
-      final members = <User>[];
+      final members = <EnhancedUser>[];
       for (final memberId in familyAccount.memberIds) {
         final user = await _databaseService.getUserById(memberId);
         if (user != null && user.isActive) {
@@ -113,8 +119,11 @@ class MultiUserService {
       }
       
       // Vérifie les permissions
-      if (familyAccount.primaryUserId != currentUserId && 
-          memberIdToRemove != currentUserId) {
+      final currentUser = await _databaseService.getUserById(currentUserId);
+      if (currentUser == null || 
+          (familyAccount.primaryUserId != currentUserId && 
+           memberIdToRemove != currentUserId &&
+           currentUser.role != UserRole.secondary)) {
         throw Exception('Permission refusée');
       }
       
@@ -131,6 +140,7 @@ class MultiUserService {
       final user = await _databaseService.getUserById(memberIdToRemove);
       if (user != null) {
         user.familyAccountId = null;
+        user.role = UserRole.member;
         await user.save();
       }
       
@@ -164,11 +174,37 @@ class MultiUserService {
         throw Exception('Le nouveau propriétaire doit être membre de la famille');
       }
       
+      // Met à jour les rôles
+      final oldPrimary = await _databaseService.getUserById(currentUserId);
+      final newPrimary = await _databaseService.getUserById(newPrimaryUserId);
+      
+      if (oldPrimary != null) {
+        oldPrimary.role = UserRole.secondary;
+        await oldPrimary.save();
+      }
+      
+      if (newPrimary != null) {
+        newPrimary.role = UserRole.primary;
+        await newPrimary.save();
+      }
+      
       familyAccount.primaryUserId = newPrimaryUserId;
       await familyAccount.save();
       
     } catch (e) {
       throw Exception('Erreur transfert propriété: $e');
+    }
+  }
+
+  // Récupère les détails d'un compte famille
+  Future<FamilyAccount?> getFamilyAccount(String familyAccountId) async {
+    try {
+      final box = await _getFamilyBox();
+      final key = int.parse(familyAccountId);
+      return box.get(key);
+    } catch (e) {
+      print('Erreur récupération compte famille: $e');
+      return null;
     }
   }
 
@@ -204,7 +240,7 @@ class FamilyAccount extends HiveObject {
   });
 }
 
-// Adaptateur Hive généré automatiquement
+// Adaptateur Hive pour FamilyAccount
 class FamilyAccountAdapter extends TypeAdapter<FamilyAccount> {
   @override
   final int typeId = 4;

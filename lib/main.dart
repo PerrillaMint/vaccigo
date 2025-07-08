@@ -278,7 +278,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            textScaleFactor: MediaQuery.of(context).textScaleFactor.clamp(0.8, 1.2),
+            textScaler: MediaQuery.of(context).textScaler.clamp(0.8, 1.2),
           ),
           child: widget ?? const SizedBox.shrink(),
         );

@@ -451,11 +451,7 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
             keyboardType: TextInputType.phone,
             validator: (value) {
               if (value != null && value.isNotEmpty) {
-<<<<<<< HEAD
-                if (!RegExp(r'^\+?[\d\s\-\(\)]{8,}').hasMatch(value)) {
-=======
-                if (!RegExp(r'^\+?[\d\s\-\(\)]{8,}).hasMatch(value)) {
->>>>>>> 5a1703399749b87886218f9afafd557a9d10be2c
+                if (!RegExp(r'^\+?[\d\s\-\(\)]{8,}$').hasMatch(value)) {
                   return 'Format de téléphone invalide';
                 }
               }
@@ -764,11 +760,7 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
             if (value == null || value.trim().isEmpty) {
               return 'Email requis';
             }
-<<<<<<< HEAD
-            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}').hasMatch(value)) {
-=======
-            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}).hasMatch(value)) {
->>>>>>> 5a1703399749b87886218f9afafd557a9d10be2c
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
               return 'Email invalide';
             }
             if (_emailTaken) {
@@ -830,11 +822,7 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
         if (value == null || value.trim().isEmpty) {
           return 'Date de naissance requise';
         }
-<<<<<<< HEAD
-        if (!RegExp(r'^\d{2}/\d{2}/\d{4}').hasMatch(value)) {
-=======
-        if (!RegExp(r'^\d{2}/\d{2}/\d{4}).hasMatch(value)) {
->>>>>>> 5a1703399749b87886218f9afafd557a9d10be2c
+        if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(value)) {
           return 'Format invalide (JJ/MM/AAAA)';
         }
         return null;
@@ -1170,7 +1158,6 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
         int age = now.year - birthDate.year;
         if (now.month < birthDate.month || 
             (now.month == birthDate.month && now.day < birthDate.day)) {
-<<<<<<< HEAD
           age--;
         }
         return age >= 0 ? age : 0;
@@ -1330,6 +1317,3 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
     }
   }
 }
-=======
-          age--;
->>>>>>> 5a1703399749b87886218f9afafd557a9d10be2c
