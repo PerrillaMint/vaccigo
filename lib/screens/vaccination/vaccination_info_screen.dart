@@ -1,239 +1,137 @@
-// lib/screens/vaccination/vaccination_info_screen.dart - REMOVED plus button from app bar
+// lib/screens/vaccination/manual_entry_screen.dart - UPDATED: Lot number optional
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
-import '../../models/vaccination.dart';
-import '../../services/database_service.dart';
 
-class VaccinationInfoScreen extends StatefulWidget {
-  const VaccinationInfoScreen({Key? key}) : super(key: key);
+class ManualEntryScreen extends StatefulWidget {
+  const ManualEntryScreen({Key? key}) : super(key: key);
 
   @override
-  State<VaccinationInfoScreen> createState() => _VaccinationInfoScreenState();
+  State<ManualEntryScreen> createState() => _ManualEntryScreenState();
 }
 
-class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
-  final DatabaseService _databaseService = DatabaseService();
-  List<Vaccination> _vaccinations = [];
-  bool _isLoading = true;
+class _ManualEntryScreenState extends State<ManualEntryScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _vaccinController = TextEditingController();
+  final _lotController = TextEditingController();
+  final _dateController = TextEditingController();
+  final _psController = TextEditingController();
 
   @override
-  void initState() {
-    super.initState();
-    _loadVaccinations();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Check if we received existing data from scan preview
+    final Map<String, String>? existingData = 
+        ModalRoute.of(context)?.settings.arguments as Map<String, String>?;
+    
+    if (existingData != null) {
+      _vaccinController.text = existingData['vaccine'] ?? '';
+      _lotController.text = existingData['lot'] ?? '';
+      _dateController.text = existingData['date'] ?? '';
+      _psController.text = existingData['ps'] ?? '';
+    }
   }
 
-  Future<void> _loadVaccinations() async {
-    try {
-      final currentUser = await _databaseService.getCurrentUser();
-      if (currentUser != null) {
-        final vaccinations = await _databaseService.getVaccinationsByUser(
-          currentUser.key.toString(),
-        );
-        setState(() {
-          _vaccinations = vaccinations;
-          _isLoading = false;
-        });
-      } else {
-        final allVaccinations = await _databaseService.getAllVaccinations();
-        setState(() {
-          _vaccinations = allVaccinations;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
+  @override
+  void dispose() {
+    _vaccinController.dispose();
+    _lotController.dispose();
+    _dateController.dispose();
+    _psController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      // REMOVED: Plus button from app bar actions
       appBar: const CustomAppBar(
-        title: 'Mon Carnet',
-        // REMOVED: actions with plus button
+        title: 'Saisie manuelle',
       ),
-      body: _isLoading 
-          ? const AppLoading(message: 'Chargement de vos vaccinations...')
-          : SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Header section
-                            _buildHeaderSection(),
-                            
-                            const SizedBox(height: AppSpacing.xl),
-                            
-                            // Main content
-                            _buildVaccinationsSection(),
-                            
-                            const SizedBox(height: AppSpacing.xl),
-                            
-                            // Quick add section
-                            _buildQuickAddSection(),
-                            
-                            const SizedBox(height: AppSpacing.xl),
-                            
-                            // Additional sections
-                            _buildAdditionalSections(),
-                            
-                            const SizedBox(height: AppSpacing.lg),
-                          ],
-                        ),
-                      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Header - Fixed size
+                        _buildHeader(),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Form fields
+                        _buildFormFields(),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Help section
+                        _buildHelpSection(),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // Action buttons
+                        _buildActionButtons(),
+                        
+                        const SizedBox(height: 24),
+                      ],
                     ),
-                  );
-                },
-              ),
-            ),
-    );
-  }
-
-  Widget _buildHeaderSection() {
-    return AppCard(
-      backgroundColor: AppColors.secondary.withOpacity(0.1),
-      border: Border.all(
-        color: AppColors.secondary.withOpacity(0.3),
-        width: 1,
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.vaccines,
-              color: AppColors.primary,
-              size: 24,
-            ),
-          ),
-          
-          const SizedBox(width: AppSpacing.md),
-          
-          // FIXED: Use Expanded to prevent overflow
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Mes Vaccinations',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                StatusBadge(
-                  text: '${_vaccinations.length} vaccination(s) enregistrée(s)',
-                  type: StatusType.info,
-                ),
-              ],
-            ),
-          ),
-          
-          // KEEP: This plus button in the header section (different from app bar)
-          IconButton(
-            onPressed: _showAddVaccinationOptions,
-            icon: const Icon(
-              Icons.add_circle,
-              color: AppColors.secondary,
-              size: 28,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVaccinationsSection() {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Table header
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.medical_information,
-                  color: AppColors.accent,
-                  size: 20,
-                ),
-                SizedBox(width: AppSpacing.sm),
-                Expanded( // FIXED: Prevent header text overflow
-                  child: Text(
-                    'Information sur vos vaccinations',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.accent,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ],
-            ),
-          ),
-          
-          // Table content
-          if (_vaccinations.isEmpty)
-            _buildEmptyVaccinationsState()
-          else
-            _buildVaccinationsTable(),
-        ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyVaccinationsState() {
+  Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.secondary.withOpacity(0.1),
+            AppColors.light.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.secondary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.vaccines_outlined,
-            size: 64,
-            color: AppColors.textMuted,
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.edit_note,
+              size: 28,
+              color: AppColors.primary,
+            ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 12),
           const Text(
-            'Aucune vaccination enregistrée',
+            'Saisie manuelle',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -241,869 +139,410 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: 4),
           const Text(
-            'Ajoutez votre première vaccination pour commencer',
+            'Entrez ou modifiez les informations de vaccination',
             style: TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
-            maxLines: 2, // FIXED: Prevent overflow
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppButton(
-            text: 'Ajouter une vaccination',
-            icon: Icons.add,
-            onPressed: _showAddVaccinationOptions,
           ),
         ],
       ),
     );
   }
 
-  // FIXED: Completely rewritten table with proper responsive design
-  Widget _buildVaccinationsTable() {
+  Widget _buildFormFields() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Mobile-friendly table headers
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, 
-            vertical: AppSpacing.sm
-          ),
-          child: Row(
-            children: [
-              _buildTableHeader('Vaccin', flex: 4),
-              _buildTableHeader('Lot', flex: 2),
-              _buildTableHeader('Date', flex: 2),
-              _buildTableHeader('', flex: 1), // Actions column
-            ],
-          ),
+        // Vaccine name field (REQUIRED)
+        _buildTextField(
+          label: 'Nom du vaccin',
+          hint: 'Ex: Pfizer-BioNTech COVID-19, Grippe...',
+          controller: _vaccinController,
+          icon: Icons.vaccines,
+          isRequired: true,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Le nom du vaccin est requis';
+            }
+            return null;
+          },
         ),
         
-        const Divider(height: 1),
+        const SizedBox(height: 20),
         
-        // Vaccination rows - FIXED: Better mobile layout
-        ...List.generate(_vaccinations.length, (index) {
-          final vaccination = _vaccinations[index];
-          return _buildVaccinationRow(vaccination, index);
-        }),
+        // UPDATED: Lot number field (NOW OPTIONAL)
+        _buildTextField(
+          label: 'Numéro de lot',
+          hint: 'Ex: EW0553, FJ8529... (optionnel)',
+          controller: _lotController,
+          icon: Icons.confirmation_number,
+          isRequired: false, // CHANGEMENT: Plus obligatoire
+          validator: null, // CHANGEMENT: Pas de validation requise
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Date field (REQUIRED)
+        _buildDateField(),
+        
+        const SizedBox(height: 20),
+        
+        // Additional info field (OPTIONAL)
+        _buildTextField(
+          label: 'Informations supplémentaires',
+          hint: 'Ex: Dose de rappel, Première dose, Pharmacien...',
+          controller: _psController,
+          icon: Icons.info_outline,
+          maxLines: 3,
+          isRequired: false,
+        ),
       ],
     );
   }
 
-  Widget _buildTableHeader(String title, {int flex = 1}) {
-    if (title.isEmpty) {
-      return Expanded(
-        flex: flex,
-        child: const SizedBox(),
-      );
-    }
-    
-    return Expanded(
-      flex: flex,
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
+  Widget _buildTextField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required IconData icon,
+    bool isRequired = false,
+    int maxLines = 1,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: AppColors.primary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isRequired)
+              const Text(
+                ' *',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+          ],
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: AppColors.surface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: validator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+        ),
+      ],
     );
   }
 
-  // FIXED: Responsive vaccination row with proper overflow handling
-  Widget _buildVaccinationRow(Vaccination vaccination, int index) {
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm, 
-        vertical: AppSpacing.xs
-      ),
-      decoration: BoxDecoration(
-        color: index.isEven ? AppColors.surfaceVariant : AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.primary.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Switch to mobile layout on smaller screens
-          if (constraints.maxWidth < 600) {
-            return _buildMobileVaccinationRow(vaccination);
-          } else {
-            return _buildDesktopVaccinationRow(vaccination);
-          }
-        },
-      ),
-    );
-  }
-
-  // FIXED: Mobile-first vaccination card layout
-  Widget _buildMobileVaccinationRow(Vaccination vaccination) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Vaccine name with icon
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
+  Widget _buildDateField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(
+              Icons.calendar_today,
+              size: 20,
+              color: AppColors.primary,
+            ),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Date de vaccination',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
-                child: const Icon(
-                  Icons.shield,
-                  size: 16,
-                  color: AppColors.success,
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  vaccination.vaccineName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // Actions menu
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'delete') {
-                    _confirmDeleteVaccination(vaccination);
-                  } else if (value == 'edit') {
-                    _editVaccination(vaccination);
-                  }
-                },
-                itemBuilder: (BuildContext context) => [
-                  const PopupMenuItem<String>(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit, size: 16, color: AppColors.secondary),
-                        SizedBox(width: AppSpacing.sm),
-                        Text('Modifier'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        Icon(Icons.delete, size: 16, color: AppColors.error),
-                        SizedBox(width: AppSpacing.sm),
-                        Text('Supprimer'),
-                      ],
-                    ),
-                  ),
-                ],
-                child: const Icon(
-                  Icons.more_vert,
-                  color: AppColors.textSecondary,
-                  size: 18,
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: AppSpacing.sm),
-          
-          // Details row
-          Row(
-            children: [
-              // Lot number
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Lot',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      vaccination.lot,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textPrimary,
-                        fontFamily: 'monospace',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(width: AppSpacing.md),
-              
-              // Date
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Date',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      vaccination.date,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          
-          // Additional info if present
-          if (vaccination.ps.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: AppColors.info.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    size: 12,
-                    color: AppColors.info,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Text(
-                      vaccination.ps,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.info,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+            ),
+            Text(
+              ' *',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
-        ],
-      ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _dateController,
+          readOnly: true,
+          decoration: InputDecoration(
+            hintText: 'JJ/MM/AAAA',
+            filled: true,
+            fillColor: AppColors.surface,
+            suffixIcon: const Icon(Icons.calendar_today, color: AppColors.textMuted),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          onTap: _selectDate,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'La date de vaccination est requise';
+            }
+            return null;
+          },
+        ),
+      ],
     );
   }
 
-  // Desktop/tablet layout
-  Widget _buildDesktopVaccinationRow(Vaccination vaccination) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Row(
-        children: [
-          // Vaccine name (with icon)
-          Expanded(
-            flex: 4,
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Icon(
-                    Icons.shield,
-                    size: 16,
-                    color: AppColors.success,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        vaccination.vaccineName,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (vaccination.ps.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          vaccination.ps,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textMuted,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
+  Future<void> _selectDate() async {
+    final DateTime now = DateTime.now();
+    final DateTime firstDate = DateTime(1900);
+    final DateTime lastDate = now;
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      locale: const Locale('fr', 'FR'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: AppColors.onPrimary,
+              surface: AppColors.surface,
+              onSurface: AppColors.primary,
             ),
           ),
-          
-          // Lot number
-          Expanded(
-            flex: 2,
-            child: Text(
-              vaccination.lot,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textPrimary,
-                fontFamily: 'monospace',
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          
-          // Date
-          Expanded(
-            flex: 2,
-            child: Text(
-              vaccination.date,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          
-          // Actions
-          Expanded(
-            flex: 1,
-            child: PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'delete') {
-                  _confirmDeleteVaccination(vaccination);
-                } else if (value == 'edit') {
-                  _editVaccination(vaccination);
-                }
-              },
-              itemBuilder: (BuildContext context) => [
-                const PopupMenuItem<String>(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit, size: 16, color: AppColors.secondary),
-                      SizedBox(width: AppSpacing.sm),
-                      Text('Modifier'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete, size: 16, color: AppColors.error),
-                      SizedBox(width: AppSpacing.sm),
-                      Text('Supprimer'),
-                    ],
-                  ),
-                ),
-              ],
-              child: const Icon(
-                Icons.more_vert,
-                color: AppColors.textSecondary,
-                size: 18,
-              ),
-            ),
-          ),
-        ],
-      ),
+          child: child!,
+        );
+      },
     );
+
+    if (picked != null && mounted) {
+      final formattedDate = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+      _dateController.text = formattedDate;
+    }
   }
 
-  Widget _buildQuickAddSection() {
-    return AppCard(
-      backgroundColor: AppColors.primary.withOpacity(0.05),
-      border: Border.all(
-        color: AppColors.primary.withOpacity(0.2),
-        width: 1,
+  Widget _buildHelpSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.info.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.info.withOpacity(0.3),
+          width: 1,
+        ),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(
-                Icons.add_circle_outline,
-                color: AppColors.primary,
-                size: 24,
+              Icon(
+                Icons.help_outline,
+                color: AppColors.info,
+                size: 20,
               ),
-              const SizedBox(width: AppSpacing.md),
-              const Expanded(
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
-                  'Ajouter une nouvelle vaccination',
+                  'Aide à la saisie',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primary,
                   ),
-                  maxLines: 1, // FIXED: Prevent overflow
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 12),
           
-          // FIXED: Stack buttons vertically on small screens
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth < 400) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    AppButton(
-                      text: 'Scanner avec IA',
-                      icon: Icons.camera_alt,
-                      style: AppButtonStyle.secondary,
-                      onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    AppButton(
-                      text: 'Saisie manuelle',
-                      icon: Icons.edit,
-                      style: AppButtonStyle.secondary,
-                      onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
-                    ),
-                  ],
-                );
-              } else {
-                return Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        text: 'Scanner avec IA',
-                        icon: Icons.camera_alt,
-                        style: AppButtonStyle.secondary,
-                        onPressed: () => Navigator.pushNamed(context, '/camera-scan'),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: AppButton(
-                        text: 'Saisie manuelle',
-                        icon: Icons.edit,
-                        style: AppButtonStyle.secondary,
-                        onPressed: () => Navigator.pushNamed(context, '/manual-entry'),
-                      ),
-                    ),
-                  ],
-                );
-              }
-            },
+          _buildHelpItem(
+            'Nom du vaccin',
+            'Inscrivez le nom exact tel qu\'il apparaît sur votre carnet',
+          ),
+          _buildHelpItem(
+            'Numéro de lot (optionnel)',
+            'Série de chiffres et lettres unique pour chaque vaccin. Pas toujours disponible.',
+          ),
+          _buildHelpItem(
+            'Date',
+            'Date à laquelle vous avez reçu la vaccination',
+          ),
+          _buildHelpItem(
+            'Informations supplémentaires',
+            'Dose (1ère, 2ème, rappel), nom du professionnel de santé, etc.',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAdditionalSections() {
+  Widget _buildHelpItem(String title, String description) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            width: 4,
+            height: 4,
+            decoration: const BoxDecoration(
+              color: AppColors.info,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Reminders section
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(
-                    Icons.notifications_active,
-                    color: AppColors.warning,
-                    size: 20,
-                  ),
-                  SizedBox(width: AppSpacing.sm),
-                  Expanded( // FIXED: Prevent title overflow
-                    child: Text(
-                      'Rappels à venir',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.warning.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: const Text(
-                  'Grippe saisonnière recommandée - Octobre 2025',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.warning,
-                  ),
-                  maxLines: 2, // FIXED: Prevent overflow
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+        ElevatedButton.icon(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pushReplacementNamed(
+                context, 
+                '/scan-preview',
+                arguments: {
+                  'vaccine': _vaccinController.text.trim(),
+                  'lot': _lotController.text.trim(), // Peut être vide maintenant
+                  'date': _dateController.text.trim(),
+                  'ps': _psController.text.trim(),
+                },
+              );
+            }
+          },
+          icon: const Icon(Icons.preview),
+          label: const Text('Aperçu des informations'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
         
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: 12),
         
-        // Travel section
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(
-                    Icons.flight,
-                    color: AppColors.info,
-                    size: 20,
-                  ),
-                  SizedBox(width: AppSpacing.sm),
-                  Expanded( // FIXED: Prevent title overflow
-                    child: Text(
-                      'Mes voyages',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Aucun voyage planifié',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.info,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
+          icon: const Icon(Icons.camera_alt),
+          label: const Text('Scanner avec IA'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.secondary,
+            side: const BorderSide(color: AppColors.secondary),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ],
-    );
-  }
-
-  void _showAddVaccinationOptions() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.textMuted,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              const Text(
-                'Ajouter une vaccination',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-                maxLines: 1, // FIXED: Prevent overflow in modal
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              
-              // Scanner option
-              _buildBottomSheetOption(
-                icon: Icons.camera_alt,
-                title: 'Scanner avec IA',
-                subtitle: 'Analyser automatiquement votre carnet',
-                color: AppColors.primary,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/camera-scan');
-                },
-              ),
-              
-              const SizedBox(height: AppSpacing.md),
-              
-              // Manual option
-              _buildBottomSheetOption(
-                icon: Icons.edit,
-                title: 'Saisie manuelle',
-                subtitle: 'Entrer les informations manuellement',
-                color: AppColors.secondary,
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.pushNamed(context, '/manual-entry');
-                },
-              ),
-              
-              const SizedBox(height: AppSpacing.lg),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildBottomSheetOption({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: color.withOpacity(0.2),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded( // FIXED: Prevent text overflow in bottom sheet
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: color,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _confirmDeleteVaccination(Vaccination vaccination) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Supprimer la vaccination',
-            style: TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Êtes-vous sûr de vouloir supprimer cette vaccination ?'),
-              const SizedBox(height: AppSpacing.md),
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Vaccin: ${vaccination.vaccineName}',
-                      maxLines: 2, // FIXED: Prevent overflow in dialog
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text('Lot: ${vaccination.lot}'),
-                    Text('Date: ${vaccination.date}'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteVaccination(vaccination);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-              ),
-              child: const Text('Supprimer'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _deleteVaccination(Vaccination vaccination) async {
-    try {
-      final vaccinationKey = vaccination.key?.toString();
-      if (vaccinationKey == null) {
-        throw Exception('Vaccination key is null');
-      }
-      
-      await _databaseService.deleteVaccination(vaccinationKey);
-      await _loadVaccinations();
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: AppSpacing.sm),
-                Expanded( // FIXED: Prevent overflow in success message
-                  child: Text('Vaccination supprimée avec succès'),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error, color: Colors.white),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded( // FIXED: Prevent overflow in error message
-                  child: Text('Erreur lors de la suppression: $e'),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
-  void _editVaccination(Vaccination vaccination) {
-    Navigator.pushNamed(
-      context, 
-      '/manual-entry',
-      arguments: {
-        'vaccine': vaccination.vaccineName,
-        'lot': vaccination.lot,
-        'date': vaccination.date,
-        'ps': vaccination.ps,
-      },
     );
   }
 }

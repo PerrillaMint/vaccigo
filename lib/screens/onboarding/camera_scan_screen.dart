@@ -1,4 +1,4 @@
-// lib/screens/onboarding/camera_scan_screen.dart - FIXED camera sizing and validation issues
+// lib/screens/onboarding/camera_scan_screen.dart - FIXED for full page scanning
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../services/google_vision_service.dart';
@@ -213,20 +213,23 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         },
         child: Stack(
           children: [
-            // FIXED: Full screen camera preview
+            // ENHANCED: Full screen camera preview with proper aspect ratio
             _buildFullScreenCameraPreview(),
             
             // Processing overlay
             if (_isProcessing) _buildProcessingOverlay(),
             
-            // Scanning frame overlay
-            if (!_isProcessing) _buildScanningFrame(),
+            // ENHANCED: Full page scanning frame overlay
+            if (!_isProcessing) _buildFullPageScanningFrame(),
             
             // Control buttons
             if (!_isProcessing) _buildControlButtons(),
             
             // Back button
             _buildBackButton(),
+            
+            // ADDED: Instructions overlay
+            if (!_isProcessing) _buildInstructionsOverlay(),
           ],
         ),
       ),
@@ -320,7 +323,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
   }
 
-  // FIXED: Simplified full screen camera preview
+  // ENHANCED: Proper full screen camera preview with correct aspect ratio
   Widget _buildFullScreenCameraPreview() {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return Container(
@@ -331,14 +334,29 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       );
     }
 
-    // FIXED: Use SizedBox.expand to take full screen
-    return SizedBox.expand(
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: _cameraController!.value.previewSize!.height,
-          height: _cameraController!.value.previewSize!.width,
-          child: CameraPreview(_cameraController!),
+    // Get screen size
+    final screenSize = MediaQuery.of(context).size;
+    final deviceRatio = screenSize.width / screenSize.height;
+    
+    // Get camera preview size
+    final previewSize = _cameraController!.value.previewSize!;
+    final cameraRatio = previewSize.height / previewSize.width; // Note: height/width because preview is rotated
+    
+    // Calculate the scale to fill the screen
+    final scale = deviceRatio > cameraRatio
+        ? screenSize.width / (previewSize.height)
+        : screenSize.height / (previewSize.width);
+
+    return Container(
+      width: screenSize.width,
+      height: screenSize.height,
+      child: Transform.scale(
+        scale: scale,
+        child: Center(
+          child: AspectRatio(
+            aspectRatio: cameraRatio,
+            child: CameraPreview(_cameraController!),
+          ),
         ),
       ),
     );
@@ -371,7 +389,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
             ),
             SizedBox(height: 8),
             Text(
-              "Veuillez patienter",
+              "Analyse de toute la page en cours",
               style: TextStyle(
                 color: Colors.white70,
                 fontSize: 14,
@@ -384,41 +402,153 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
   }
 
-  Widget _buildScanningFrame() {
+  // ENHANCED: Full page scanning frame that covers most of the screen
+  Widget _buildFullPageScanningFrame() {
+    final screenSize = MediaQuery.of(context).size;
+    final safeArea = MediaQuery.of(context).padding;
+    
+    // Calculate frame size to cover most of the usable screen area
+    final frameWidth = screenSize.width * 0.85; // 85% of screen width
+    final availableHeight = screenSize.height - safeArea.top - safeArea.bottom - 120; // Account for controls
+    final frameHeight = availableHeight * 0.75; // 75% of available height
+    
     return Center(
       child: Container(
-        width: 300,
-        height: 360,
+        width: frameWidth,
+        height: frameHeight,
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.white, width: 2),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.secondary,
+            width: 3,
+          ),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: const Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            Icon(
-              Icons.center_focus_strong,
-              color: Colors.white,
-              size: 48,
-            ),
-            SizedBox(height: 16),
-            Text(
-              "Positionnez votre document\ndans le cadre",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                shadows: [
-                  Shadow(
-                    blurRadius: 10.0,
-                    color: Colors.black,
-                    offset: Offset(2.0, 2.0),
-                  ),
-                ],
+            // Corner indicators to show full page coverage
+            _buildCornerIndicator(Alignment.topLeft),
+            _buildCornerIndicator(Alignment.topRight),
+            _buildCornerIndicator(Alignment.bottomLeft),
+            _buildCornerIndicator(Alignment.bottomRight),
+            
+            // Center instruction
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.document_scanner,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "Placez votre document\ncomplet dans le cadre",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 10.0,
+                            color: Colors.black,
+                            offset: Offset(2.0, 2.0),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "L'IA analysera toute la page",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        shadows: [
+                          Shadow(
+                            blurRadius: 10.0,
+                            color: Colors.black,
+                            offset: Offset(1.0, 1.0),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // Corner indicators to help users align the full document
+  Widget _buildCornerIndicator(Alignment alignment) {
+    return Align(
+      alignment: alignment,
+      child: Container(
+        width: 20,
+        height: 20,
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.accent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ADDED: Instructions overlay at the top
+  Widget _buildInstructionsOverlay() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.7),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Column(
+            children: [
+              Text(
+                "📄 Scan de document complet",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 4),
+              Text(
+                "Assurez-vous que tout le document est visible",
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -486,13 +616,13 @@ class _CameraScanScreenState extends State<CameraScanScreen>
           child: Container(
             width: size * 0.8,
             height: size * 0.8,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white,
+              color: AppColors.secondary,
             ),
             child: Icon(
-              Icons.camera_alt,
-              color: Colors.black,
+              Icons.document_scanner,
+              color: Colors.white,
               size: size * 0.4,
             ),
           ),
@@ -555,7 +685,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  // FIXED: Removed validation step - go straight to AI analysis
+  // ENHANCED: Full page capture and processing
   Future<void> _captureAndProcess() async {
     if (_isDisposed || _isProcessing || !_isMounted) return;
     
@@ -567,7 +697,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     setState(() => _isProcessing = true);
     
     try {
-      // Capture image
+      debugPrint('📸 Capturing full page image...');
+      
+      // Capture the full camera image (not cropped)
       final imagePath = await Future.any([
         CameraService.captureImage(),
         Future.delayed(const Duration(seconds: 10), () => throw TimeoutException('Capture timeout')),
@@ -577,10 +709,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         throw Exception('Échec de la capture d\'image');
       }
       
-      // REMOVED: Skip validation - go straight to AI processing
-      debugPrint('Processing image with AI: $imagePath');
+      debugPrint('📄 Processing full page with AI: $imagePath');
       
-      // Process with AI directly
+      // Process the entire image with AI
       ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
       
       if (_isMounted && !_isDisposed) {
@@ -600,13 +731,15 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  // FIXED: Also remove validation from gallery selection
+  // ENHANCED: Full page gallery selection
   Future<void> _selectFromGallery() async {
     if (_isDisposed || _isProcessing || !_isMounted) return;
     
     setState(() => _isProcessing = true);
     
     try {
+      debugPrint('📸 Selecting full page image from gallery...');
+      
       final imagePath = await Future.any([
         CameraService.pickImageFromGallery(),
         Future.delayed(const Duration(seconds: 30), () => throw TimeoutException('Gallery timeout')),
@@ -617,10 +750,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         return;
       }
       
-      // REMOVED: Skip validation - go straight to AI processing
-      debugPrint('Processing gallery image with AI: $imagePath');
+      debugPrint('📄 Processing full page gallery image with AI: $imagePath');
       
-      // Process with AI directly
+      // Process the entire selected image with AI
       ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
       
       if (_isMounted && !_isDisposed) {

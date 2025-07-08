@@ -1,4 +1,4 @@
-// lib/screens/profile/user_creation_screen.dart - LAYOUT FIXES for small screens
+// lib/screens/profile/user_creation_screen.dart - COMPLETELY FIXED account creation issues
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
@@ -28,6 +28,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   bool _isCheckingEmail = false;
   bool _emailTaken = false;
   bool _passwordsMatch = true;
+  bool _formSubmitted = false;  // Track if form has been submitted
   Map<String, String>? _pendingVaccinationData;
 
   @override
@@ -86,6 +87,30 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     });
   }
 
+  Future<void> _checkEmailAvailability(String email) async {
+    if (!mounted) return;
+    
+    setState(() {
+      _isCheckingEmail = true;
+    });
+
+    try {
+      final exists = await _databaseService.emailExists(email);
+      if (mounted) {
+        setState(() {
+          _emailTaken = exists;
+          _isCheckingEmail = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCheckingEmail = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -93,7 +118,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       appBar: CustomAppBar(
         title: 'Créer un compte',
         actions: [
-          // FIXED: Only show help icon on larger screens
           if (MediaQuery.of(context).size.width > 320)
             IconButton(
               icon: const Icon(Icons.help_outline, color: AppColors.secondary),
@@ -104,29 +128,35 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       ),
       body: ColumnScrollWrapper(
         children: [
-          // Header - FIXED: More compact on small screens
           _buildHeader(),
           
-          // FIXED: Adjust spacing based on screen size
           SizedBox(height: MediaQuery.of(context).size.height > 600 ? AppSpacing.xl : AppSpacing.lg),
           
-          // Form fields
-          _buildFormFields(),
-          
-          // FIXED: Conditional password strength indicator
-          if (_passwordController.text.isNotEmpty && MediaQuery.of(context).size.height > 600)
-            _buildPasswordStrengthIndicator(),
-          
-          SizedBox(height: MediaQuery.of(context).size.height > 600 ? AppSpacing.xl : AppSpacing.lg),
-          
-          // Create account button
-          _buildCreateAccountButton(),
-          
-          const SizedBox(height: AppSpacing.lg),
-          
-          // Terms notice - FIXED: Only show on larger screens
-          if (MediaQuery.of(context).size.height > 600)
-            _buildTermsNotice(),
+          // FIXED: Proper Form widget with validation
+          Form(
+            key: _formKey,
+            // FIXED: Only validate after form submission attempt
+            autovalidateMode: _formSubmitted 
+                ? AutovalidateMode.onUserInteraction 
+                : AutovalidateMode.disabled,
+            child: Column(
+              children: [
+                _buildFormFields(),
+                
+                if (_passwordController.text.isNotEmpty && MediaQuery.of(context).size.height > 600)
+                  _buildPasswordStrengthIndicator(),
+                
+                SizedBox(height: MediaQuery.of(context).size.height > 600 ? AppSpacing.xl : AppSpacing.lg),
+                
+                _buildCreateAccountButton(),
+                
+                const SizedBox(height: AppSpacing.lg),
+                
+                if (MediaQuery.of(context).size.height > 600)
+                  _buildTermsNotice(),
+              ],
+            ),
+          ),
           
           const SizedBox(height: 24),
         ],
@@ -137,7 +167,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   Widget _buildHeader() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // FIXED: More compact header for small screens
         final isSmallScreen = constraints.maxWidth < 400 || MediaQuery.of(context).size.height < 600;
         
         return Container(
@@ -217,181 +246,305 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   }
 
   Widget _buildFormFields() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isSmallScreen = constraints.maxWidth < 400;
-        final spacing = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
+    final isSmallScreen = MediaQuery.of(context).size.width < 400;
+    final spacing = isSmallScreen ? AppSpacing.md : AppSpacing.lg;
+    
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // FIXED: Simplified text field with proper validation
+        _buildTextField(
+          label: 'Nom complet',
+          hint: 'Prénom et nom',
+          controller: _nameController,
+          icon: Icons.person,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Nom requis';
+            }
+            if (value.trim().length < 2) {
+              return 'Minimum 2 caractères';
+            }
+            return null;
+          },
+        ),
         
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Full name field
-            AppTextField(
-              label: 'Nom complet',
-              hint: 'Prénom et nom',
-              controller: _nameController,
-              prefixIcon: Icons.person,
-              isRequired: true,
-              keyboardType: TextInputType.name,
-              enabled: !_isLoading,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Nom requis';
-                }
-                if (value.trim().length < 2) {
-                  return 'Minimum 2 caractères';
-                }
-                return null;
-              },
-            ),
-            
-            SizedBox(height: spacing),
-            
-            // Email field - FIXED: Improved layout
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppTextField(
-                  label: 'Email',
-                  hint: 'votre@email.com',
-                  controller: _emailController,
-                  prefixIcon: Icons.email,
-                  isRequired: true,
-                  keyboardType: TextInputType.emailAddress,
-                  enabled: !_isLoading,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Email requis';
-                    }
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                      return 'Email invalide';
-                    }
-                    if (_emailTaken) {
-                      return 'Email déjà utilisé';
-                    }
-                    return null;
-                  },
-                ),
-                // FIXED: Compact email status indicators
-                if (_isCheckingEmail) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      const Text(
-                        'Vérification...',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (_emailTaken) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  const Row(
-                    children: [
-                      Icon(Icons.error, size: 12, color: AppColors.error),
-                      SizedBox(width: AppSpacing.sm),
-                      Text(
-                        'Email déjà utilisé',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.error,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-            
-            SizedBox(height: spacing),
-            
-            // Password field
-            AppTextField(
-              label: 'Mot de passe',
-              hint: 'Min. 8 caractères',
-              controller: _passwordController,
-              prefixIcon: Icons.lock,
-              isPassword: true,
-              isRequired: true,
-              enabled: !_isLoading,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Mot de passe requis';
-                }
-                if (value.length < 8) {
-                  return 'Minimum 8 caractères';
-                }
-                return null;
-              },
-            ),
-            
-            SizedBox(height: spacing),
-            
-            // Confirm password field
-            AppTextField(
-              label: 'Confirmer',
-              hint: 'Retapez le mot de passe',
-              controller: _confirmPasswordController,
-              prefixIcon: Icons.lock_outline,
-              isPassword: true,
-              isRequired: true,
-              enabled: !_isLoading,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Confirmation requise';
-                }
-                if (value != _passwordController.text) {
-                  return 'Mots de passe différents';
-                }
-                return null;
-              },
-            ),
-            
-            // FIXED: Compact password match indicator
-            if (_confirmPasswordController.text.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Row(
-                children: [
-                  Icon(
-                    _passwordsMatch ? Icons.check_circle : Icons.error,
-                    size: 16,
+        SizedBox(height: spacing),
+        
+        // FIXED: Email field with better error handling
+        _buildEmailField(),
+        
+        SizedBox(height: spacing),
+        
+        // FIXED: Password field
+        _buildTextField(
+          label: 'Mot de passe',
+          hint: 'Min. 8 caractères',
+          controller: _passwordController,
+          icon: Icons.lock,
+          isPassword: true,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Mot de passe requis';
+            }
+            if (value.length < 8) {
+              return 'Minimum 8 caractères';
+            }
+            if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
+              return 'Au moins une lettre requise';
+            }
+            if (!RegExp(r'[0-9]').hasMatch(value)) {
+              return 'Au moins un chiffre requis';
+            }
+            return null;
+          },
+        ),
+        
+        SizedBox(height: spacing),
+        
+        // FIXED: Confirm password field
+        _buildTextField(
+          label: 'Confirmer',
+          hint: 'Retapez le mot de passe',
+          controller: _confirmPasswordController,
+          icon: Icons.lock_outline,
+          isPassword: true,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Confirmation requise';
+            }
+            if (value != _passwordController.text) {
+              return 'Mots de passe différents';
+            }
+            return null;
+          },
+        ),
+        
+        // FIXED: Password match indicator
+        if (_confirmPasswordController.text.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Icon(
+                _passwordsMatch ? Icons.check_circle : Icons.error,
+                size: 16,
+                color: _passwordsMatch ? AppColors.success : AppColors.error,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  _passwordsMatch 
+                      ? 'Mots de passe identiques'
+                      : 'Mots de passe différents',
+                  style: TextStyle(
+                    fontSize: 12,
                     color: _passwordsMatch ? AppColors.success : AppColors.error,
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      _passwordsMatch 
-                          ? 'Mots de passe identiques'
-                          : 'Mots de passe différents',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _passwordsMatch ? AppColors.success : AppColors.error,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
-            
-            SizedBox(height: spacing),
-            
-            // Date of birth field
-            _buildDateField(),
+          ),
+        ],
+        
+        SizedBox(height: spacing),
+        
+        // FIXED: Date field
+        _buildDateField(),
+      ],
+    );
+  }
+
+  // FIXED: Simplified text field builder
+  Widget _buildTextField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required IconData icon,
+    bool isPassword = false,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Text(
+              ' *',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        
+        TextFormField(
+          controller: controller,
+          obscureText: isPassword,
+          enabled: !_isLoading,
+          decoration: InputDecoration(
+            hintText: hint,
+            filled: true,
+            fillColor: AppColors.surface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: validator,
+        ),
+      ],
+    );
+  }
+
+  // FIXED: Better email field with status indicators
+  Widget _buildEmailField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.email, size: 20, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            const Expanded(
+              child: Text(
+                'Email',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Text(
+              ' *',
+              style: TextStyle(
+                color: AppColors.error,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        
+        TextFormField(
+          controller: _emailController,
+          enabled: !_isLoading,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(
+            hintText: 'votre@email.com',
+            filled: true,
+            fillColor: AppColors.surface,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Email requis';
+            }
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+              return 'Email invalide';
+            }
+            if (_emailTaken) {
+              return 'Email déjà utilisé';
+            }
+            return null;
+          },
+        ),
+        
+        // Email status indicators
+        if (_isCheckingEmail) ...[
+          const SizedBox(height: AppSpacing.xs),
+          const Row(
+            children: [
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Vérification...',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+        if (_emailTaken) ...[
+          const SizedBox(height: AppSpacing.xs),
+          const Row(
+            children: [
+              Icon(Icons.error, size: 12, color: AppColors.error),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'Email déjà utilisé',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.error,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -401,11 +554,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
       children: [
         const Row(
           children: [
-            Icon(
-              Icons.cake,
-              size: 20,
-              color: AppColors.primary,
-            ),
+            Icon(Icons.cake, size: 20, color: AppColors.primary),
             SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
@@ -430,13 +579,36 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
+        
         TextFormField(
           controller: _dateOfBirthController,
           readOnly: true,
           enabled: !_isLoading,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: 'JJ/MM/AAAA',
-            suffixIcon: Icon(Icons.calendar_today, color: AppColors.textMuted),
+            filled: true,
+            fillColor: AppColors.surface,
+            suffixIcon: const Icon(Icons.calendar_today, color: AppColors.textMuted),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.error, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
           ),
           onTap: _isLoading ? null : _selectDate,
           validator: (value) {
@@ -450,7 +622,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     );
   }
 
-  // FIXED: Compact password strength indicator
   Widget _buildPasswordStrengthIndicator() {
     final password = _passwordController.text;
     final strength = _calculatePasswordStrength(password);
@@ -630,35 +801,18 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     }
   }
 
-  Future<void> _checkEmailAvailability(String email) async {
-    if (!mounted) return;
-    
-    setState(() {
-      _isCheckingEmail = true;
-      _emailTaken = false;
-    });
-
-    try {
-      final exists = await _databaseService.emailExists(email);
-      if (mounted) {
-        setState(() {
-          _emailTaken = exists;
-          _isCheckingEmail = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isCheckingEmail = false;
-        });
-      }
-    }
-  }
-
+  // FIXED: Main account creation logic
   Future<void> _createUser() async {
     _emailCheckTimer?.cancel();
     
+    // FIXED: Set form as submitted to enable validation
+    setState(() {
+      _formSubmitted = true;
+    });
+    
+    // FIXED: Validate the form properly
     if (!_formKey.currentState!.validate()) {
+      _showErrorMessage('Veuillez corriger les erreurs dans le formulaire');
       return;
     }
 
@@ -675,11 +829,13 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // FIXED: Additional email check before creation
       final emailExists = await _databaseService.emailExists(_emailController.text.trim());
       if (emailExists) {
         throw Exception('Cette adresse email est déjà utilisée');
       }
 
+      // FIXED: Create user with proper error handling
       final user = User.createSecure(
         name: _nameController.text.trim(),
         email: _emailController.text.trim().toLowerCase(),
@@ -687,8 +843,13 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         dateOfBirth: _dateOfBirthController.text.trim(),
       );
 
+      // FIXED: Save user to database
       await _databaseService.saveUser(user);
 
+      // FIXED: Set current user session
+      await _databaseService.setCurrentUser(user);
+
+      // Try to send welcome email (don't fail if this fails)
       try {
         await _emailService.sendWelcomeEmail(
           user.email, 
@@ -696,9 +857,11 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         );
       } catch (emailError) {
         print('Welcome email failed: $emailError');
+        // Don't show error to user for email failure
       }
 
       if (mounted) {
+        // FIXED: Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
@@ -715,6 +878,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           ),
         );
         
+        // FIXED: Navigate to next screen
         Navigator.pushNamed(
           context, 
           '/additional-info', 
@@ -725,14 +889,15 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         );
       }
     } catch (e) {
+      print('User creation error: $e');
       if (mounted) {
         String errorMessage;
         if (e is ValidationException) {
-          errorMessage = 'Données invalides';
+          errorMessage = 'Données invalides: ${e.message}';
         } else if (e.toString().contains('email')) {
-          errorMessage = 'Email déjà utilisé';
+          errorMessage = 'Email déjà utilisé ou invalide';
         } else {
-          errorMessage = 'Erreur de création';
+          errorMessage = 'Erreur de création de compte. Réessayez.';
         }
         
         _showErrorMessage(errorMessage);
@@ -783,10 +948,11 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('• Utilisez votre vrai nom'),
-                Text('• Email valide requis'),
-                Text('• Mot de passe: 8+ caractères'),
-                Text('• Données sécurisées localement'),
+                Text('• Utilisez votre vrai nom complet'),
+                Text('• Email valide requis pour la connexion'),
+                Text('• Mot de passe: minimum 8 caractères avec lettres et chiffres'),
+                Text('• Date de naissance pour personnaliser votre profil'),
+                Text('• Vos données sont sécurisées localement'),
               ],
             ),
           ),
