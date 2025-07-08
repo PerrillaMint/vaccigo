@@ -13,11 +13,12 @@ class Vaccination extends HiveObject {
   @HiveField(0)
   String vaccineName;
 
-  // Numéro de lot du vaccin - traçabilité pharmaceutique
+  // Numéro de lot du vaccin - traçabilité pharmaceutique (MAINTENANT OPTIONNEL)
   // Format variable selon le fabricant (ex: "EW0553", "FF1234", "ABC-2024-001")
   // Permet de retrouver les détails de fabrication en cas de problème
+  // CHANGEMENT: Peut être null ou vide si non disponible
   @HiveField(1)
-  String lot;
+  String? lot;
 
   // Date de vaccination au format DD/MM/YYYY
   // Date à laquelle l'injection a été administrée
@@ -36,13 +37,26 @@ class Vaccination extends HiveObject {
   @HiveField(4)
   String userId;
 
-  // Constructeur principal avec tous les champs obligatoires
-  // Tous les champs sont requis pour assurer l'intégrité des données
+  // Constructeur principal avec lot optionnel
   Vaccination({
     required this.vaccineName,
-    required this.lot,
+    this.lot, // CHANGEMENT: lot maintenant optionnel
     required this.date,
     required this.ps,
     required this.userId,
   });
+
+  // Méthode utilitaire pour obtenir le lot de manière sécurisée
+  String get safeLot => lot ?? 'Non renseigné';
+  
+  // Vérifie si le lot est disponible
+  bool get hasLot => lot != null && lot!.isNotEmpty;
+  
+  // Valide que les données de vaccination sont complètes
+  bool get isValid {
+    return vaccineName.isNotEmpty && 
+           date.isNotEmpty && 
+           userId.isNotEmpty;
+    // Note: lot n'est plus requis pour la validation
+  }
 }
