@@ -451,7 +451,7 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
             keyboardType: TextInputType.phone,
             validator: (value) {
               if (value != null && value.isNotEmpty) {
-                if (!RegExp(r'^\+?[\d\s\-\(\)]{8,}).hasMatch(value)) {
+                if (!RegExp(r'^\+?[\d\s\-\(\)]{8,}').hasMatch(value)) {
                   return 'Format de téléphone invalide';
                 }
               }
@@ -760,7 +760,7 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
             if (value == null || value.trim().isEmpty) {
               return 'Email requis';
             }
-            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}).hasMatch(value)) {
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}').hasMatch(value)) {
               return 'Email invalide';
             }
             if (_emailTaken) {
@@ -822,7 +822,7 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
         if (value == null || value.trim().isEmpty) {
           return 'Date de naissance requise';
         }
-        if (!RegExp(r'^\d{2}/\d{2}/\d{4}).hasMatch(value)) {
+        if (!RegExp(r'^\d{2}/\d{2}/\d{4}').hasMatch(value)) {
           return 'Format invalide (JJ/MM/AAAA)';
         }
         return null;
@@ -1159,3 +1159,161 @@ class _EnhancedUserCreationScreenState extends State<EnhancedUserCreationScreen>
         if (now.month < birthDate.month || 
             (now.month == birthDate.month && now.day < birthDate.day)) {
           age--;
+        }
+        return age >= 0 ? age : 0;
+      }
+    } catch (e) {
+      return 25; // Age par défaut
+    }
+    return 25;
+  }
+
+  bool _isUserTypeRecommended(UserType type, int age) {
+    switch (type) {
+      case UserType.child:
+        return age < 13;
+      case UserType.teen:
+        return age >= 13 && age < 18;
+      case UserType.adult:
+        return age >= 18 && age < 65;
+      case UserType.senior:
+        return age >= 65;
+    }
+  }
+
+  IconData _getUserTypeIcon(UserType type) {
+    switch (type) {
+      case UserType.child:
+        return Icons.child_care;
+      case UserType.teen:
+        return Icons.school;
+      case UserType.adult:
+        return Icons.person;
+      case UserType.senior:
+        return Icons.elderly;
+    }
+  }
+
+  String _getUserTypeLabel(UserType type) {
+    switch (type) {
+      case UserType.child:
+        return 'Enfant';
+      case UserType.teen:
+        return 'Adolescent';
+      case UserType.adult:
+        return 'Adulte';
+      case UserType.senior:
+        return 'Senior';
+    }
+  }
+
+  String _getUserTypeDescription(UserType type) {
+    switch (type) {
+      case UserType.child:
+        return 'Moins de 13 ans - Supervision parentale requise';
+      case UserType.teen:
+        return '13-17 ans - Supervision parentale recommandée';
+      case UserType.adult:
+        return '18-64 ans - Compte autonome complet';
+      case UserType.senior:
+        return '65 ans et plus - Fonctionnalités adaptées';
+    }
+  }
+
+  double _calculatePasswordStrength(String password) {
+    if (password.isEmpty) return 0.0;
+    
+    double score = 0.0;
+    
+    if (password.length >= 8) score += 0.25;
+    if (password.length >= 12) score += 0.15;
+    if (RegExp(r'[a-z]').hasMatch(password)) score += 0.15;
+    if (RegExp(r'[A-Z]').hasMatch(password)) score += 0.15;
+    if (RegExp(r'[0-9]').hasMatch(password)) score += 0.15;
+    if (RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) score += 0.15;
+    
+    return score.clamp(0.0, 1.0);
+  }
+
+  Future<void> _createUser() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final user = EnhancedUser.createSecure(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        dateOfBirth: _dateOfBirthController.text.trim(),
+        userType: _selectedUserType,
+        role: _createFamilyAccount ? UserRole.primary : UserRole.member,
+        phoneNumber: _phoneController.text.trim().isNotEmpty ? _phoneController.text.trim() : null,
+        emergencyContact: _emergencyContactController.text.trim().isNotEmpty ? _emergencyContactController.text.trim() : null,
+      );
+
+      await _databaseService.saveUser(user);
+      await _databaseService.setCurrentUser(user);
+
+      // Crée le compte famille si demandé
+      if (_createFamilyAccount) {
+        try {
+          await _multiUserService.createFamilyAccount(
+            primaryUser: user,
+            familyName: _familyNameController.text.trim(),
+          );
+        } catch (e) {
+          print('Erreur création compte famille: $e');
+          // Continue même si la création du compte famille échoue
+        }
+      }
+
+      // Envoie l'email de bienvenue
+      try {
+        await _emailService.sendWelcomeEmail(
+          user.email,
+          user.name.split(' ').first,
+        );
+      } catch (e) {
+        print('Erreur envoi email bienvenue: $e');
+        // Ne bloque pas pour l'email
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Compte créé avec succès !'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+
+        // Navigation vers l'écran suivant
+        Navigator.pushNamed(
+          context,
+          '/additional-info',
+          arguments: {
+            'user': user,
+            'vaccinationData': _pendingVaccinationData,
+          },
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorMessage('Erreur: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showErrorMessage(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
+  }
+}
