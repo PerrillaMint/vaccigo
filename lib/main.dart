@@ -1,4 +1,4 @@
-// lib/main.dart - Point d'entrée principal de l'application Vaccigo
+// lib/main.dart - Point d'entrée principal de l'application Vaccigo (SPLASH SCREEN REMOVED)
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -28,7 +28,7 @@ import 'screens/profile/additional_info_screen.dart';
 import 'screens/vaccination/vaccination_info_screen.dart';
 import 'screens/vaccination/vaccination_summary_screen.dart';
 import 'screens/vaccination/vaccination_management_screen.dart';
-import 'screens/splash_screen.dart';
+// REMOVED: splash_screen.dart import
 
 // Point d'entrée principal de l'application
 // Cette fonction initialise tous les services nécessaires avant de lancer l'app
@@ -102,7 +102,7 @@ void main() async {
       // Non critique - l'app peut fonctionner sans catégories par défaut
     }
     
-    // Lance l'application avec le statut de la caméra
+    // Lance l'application avec le statut de la caméra - DIRECTLY TO WELCOME SCREEN
     runApp(MyApp(cameraInitialized: cameraInitialized));
     
   } catch (e, stackTrace) {
@@ -215,12 +215,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       locale: const Locale('fr', 'FR'), // Langue par défaut: français
       
       // === CONFIGURATION DE NAVIGATION ===
-      initialRoute: '/splash', // L'app démarre toujours par l'écran de chargement
+      // CHANGED: App now starts directly at welcome screen instead of splash
+      initialRoute: '/', // Start directly at welcome screen
       
       // Définition de toutes les routes de navigation
       routes: {
-        '/splash': (context) => const SplashScreen(),                        // Écran de chargement
-        '/': (context) => const WelcomeScreen(),                            // Écran d'accueil
+        // REMOVED: '/splash' route completely
+        '/': (context) => const WelcomeScreen(),                            // Écran d'accueil (now initial)
         '/login': (context) => const LoginScreen(),                         // Connexion
         '/forgot-password': (context) => const ForgotPasswordScreen(),      // Mot de passe oublié
         '/card-selection': (context) => const CardSelectionScreen(),        // Choix du type de carnet
@@ -235,10 +236,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/vaccination-management': (context) => const VaccinationManagementScreen(), // Gestion
       },
       
-      // Gestion des routes inconnues - redirige vers le splash
+      // Gestion des routes inconnues - redirige vers welcome au lieu de splash
       onUnknownRoute: (settings) {
         return MaterialPageRoute(
-          builder: (context) => const SplashScreen(),
+          builder: (context) => const WelcomeScreen(), // CHANGED: from SplashScreen to WelcomeScreen
         );
       },
       
@@ -362,9 +363,9 @@ class ErrorDisplay extends StatelessWidget {
                       child: ElevatedButton(
                         onPressed: () {
                           if (context.mounted) {
-                            // Redémarre l'app en retournant au splash
+                            // Redémarre l'app en retournant au welcome au lieu de splash
                             Navigator.of(context).pushNamedAndRemoveUntil(
-                              '/splash',
+                              '/', // CHANGED: from '/splash' to '/'
                               (route) => false, // Supprime toutes les routes précédentes
                             );
                           }
