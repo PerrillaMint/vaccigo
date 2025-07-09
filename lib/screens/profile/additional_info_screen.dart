@@ -1,8 +1,8 @@
-// lib/screens/profile/additional_info_screen.dart - COMPLETELY FIXED layout issues
+// lib/screens/profile/additional_info_screen.dart - Fixed to use EnhancedUser
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
-import '../../models/user.dart';
+import '../../models/enhanced_user.dart';
 import '../../models/vaccination.dart';
 import '../../services/database_service.dart';
 
@@ -20,7 +20,7 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
   final _allergiesController = TextEditingController();
   final _databaseService = DatabaseService();
   bool _isLoading = false;
-  User? _user;
+  EnhancedUser? _user;
   Map<String, String>? _pendingVaccinationData;
 
   @override
@@ -29,13 +29,13 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
     
     final arguments = ModalRoute.of(context)?.settings.arguments;
     
-    if (arguments is User) {
+    if (arguments is EnhancedUser) {
       // Legacy flow - just user
       _user = arguments;
       _loadUserData();
     } else if (arguments is Map<String, dynamic>) {
       // New flow - user + vaccination data
-      _user = arguments['user'] as User?;
+      _user = arguments['user'] as EnhancedUser?;
       _pendingVaccinationData = arguments['vaccinationData'] as Map<String, String>?;
       _loadUserData();
     }
@@ -64,7 +64,6 @@ class _AdditionalInfoScreenState extends State<AdditionalInfoScreen> {
       appBar: const CustomAppBar(
         title: 'Informations complémentaires',
       ),
-      // COMPLETELY FIXED: Using ColumnScrollWrapper to avoid layout issues
       body: Form(
         key: _formKey,
         child: ColumnScrollWrapper(

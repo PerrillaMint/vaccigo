@@ -1,5 +1,6 @@
-// lib/screens/family/family_management_screen.dart - Gestion des comptes famille
+// lib/screens/family/family_management_screen.dart - Fixed imports and types
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../models/enhanced_user.dart';
@@ -42,9 +43,9 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
       );
       
       // Charge les détails du compte famille
-      final box = await Hive.openBox<FamilyAccount>('family_accounts_v1');
-      final familyAccountKey = int.parse(currentUser.familyAccountId!);
-      final familyAccount = box.get(familyAccountKey);
+      final familyAccount = await _multiUserService.getFamilyAccount(
+        currentUser.familyAccountId!
+      );
 
       setState(() {
         _currentUser = currentUser;
@@ -612,7 +613,6 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showCreateFamilyDialog() {
-    // Implémentation de la création de famille
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Fonctionnalité de création de famille à venir'),
@@ -622,7 +622,6 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showEditFamilyDialog() {
-    // Implémentation de l'édition de famille
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Fonctionnalité d\'édition à venir'),
@@ -632,7 +631,6 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showShareDialog() {
-    // Implémentation du partage
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Fonctionnalité de partage à venir'),
@@ -642,7 +640,6 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showSettingsDialog() {
-    // Implémentation des paramètres
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Paramètres de famille à venir'),

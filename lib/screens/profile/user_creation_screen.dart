@@ -1,9 +1,9 @@
-// lib/screens/profile/user_creation_screen.dart - COMPLETELY FIXED account creation issues
+// lib/screens/profile/user_creation_screen.dart - Fixed to use EnhancedUser
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
-import '../../models/user.dart';
+import '../../models/enhanced_user.dart';
 import '../../services/database_service.dart';
 import '../../services/email_service.dart';
 
@@ -28,7 +28,7 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
   bool _isCheckingEmail = false;
   bool _emailTaken = false;
   bool _passwordsMatch = true;
-  bool _formSubmitted = false;  // Track if form has been submitted
+  bool _formSubmitted = false;
   Map<String, String>? _pendingVaccinationData;
 
   @override
@@ -132,10 +132,8 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           
           SizedBox(height: MediaQuery.of(context).size.height > 600 ? AppSpacing.xl : AppSpacing.lg),
           
-          // FIXED: Proper Form widget with validation
           Form(
             key: _formKey,
-            // FIXED: Only validate after form submission attempt
             autovalidateMode: _formSubmitted 
                 ? AutovalidateMode.onUserInteraction 
                 : AutovalidateMode.disabled,
@@ -252,7 +250,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // FIXED: Simplified text field with proper validation
         _buildTextField(
           label: 'Nom complet',
           hint: 'Prénom et nom',
@@ -271,12 +268,10 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         
         SizedBox(height: spacing),
         
-        // FIXED: Email field with better error handling
         _buildEmailField(),
         
         SizedBox(height: spacing),
         
-        // FIXED: Password field
         _buildTextField(
           label: 'Mot de passe',
           hint: 'Min. 8 caractères',
@@ -302,7 +297,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         
         SizedBox(height: spacing),
         
-        // FIXED: Confirm password field
         _buildTextField(
           label: 'Confirmer',
           hint: 'Retapez le mot de passe',
@@ -320,7 +314,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           },
         ),
         
-        // FIXED: Password match indicator
         if (_confirmPasswordController.text.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.sm),
           Row(
@@ -350,13 +343,11 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         
         SizedBox(height: spacing),
         
-        // FIXED: Date field
         _buildDateField(),
       ],
     );
   }
 
-  // FIXED: Simplified text field builder
   Widget _buildTextField({
     required String label,
     required String hint,
@@ -431,7 +422,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     );
   }
 
-  // FIXED: Better email field with status indicators
   Widget _buildEmailField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -507,7 +497,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           },
         ),
         
-        // Email status indicators
         if (_isCheckingEmail) ...[
           const SizedBox(height: AppSpacing.xs),
           const Row(
@@ -801,16 +790,13 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     }
   }
 
-  // FIXED: Main account creation logic
   Future<void> _createUser() async {
     _emailCheckTimer?.cancel();
     
-    // FIXED: Set form as submitted to enable validation
     setState(() {
       _formSubmitted = true;
     });
     
-    // FIXED: Validate the form properly
     if (!_formKey.currentState!.validate()) {
       _showErrorMessage('Veuillez corriger les erreurs dans le formulaire');
       return;
@@ -829,27 +815,21 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // FIXED: Additional email check before creation
       final emailExists = await _databaseService.emailExists(_emailController.text.trim());
       if (emailExists) {
         throw Exception('Cette adresse email est déjà utilisée');
       }
 
-      // FIXED: Create user with proper error handling
-      final user = User.createSecure(
+      final user = EnhancedUser.createSecure(
         name: _nameController.text.trim(),
         email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text,
         dateOfBirth: _dateOfBirthController.text.trim(),
       );
 
-      // FIXED: Save user to database
       await _databaseService.saveUser(user);
-
-      // FIXED: Set current user session
       await _databaseService.setCurrentUser(user);
 
-      // Try to send welcome email (don't fail if this fails)
       try {
         await _emailService.sendWelcomeEmail(
           user.email, 
@@ -857,11 +837,9 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
         );
       } catch (emailError) {
         print('Welcome email failed: $emailError');
-        // Don't show error to user for email failure
       }
 
       if (mounted) {
-        // FIXED: Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
@@ -878,7 +856,6 @@ class _UserCreationScreenState extends State<UserCreationScreen> {
           ),
         );
         
-        // FIXED: Navigate to next screen
         Navigator.pushNamed(
           context, 
           '/additional-info', 

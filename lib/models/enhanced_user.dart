@@ -1,4 +1,4 @@
-// lib/models/enhanced_user.dart - Modèle utilisateur amélioré avec gestion famille
+// lib/models/enhanced_user.dart - Fixed model without duplicate adapters
 import 'package:hive/hive.dart';
 import 'dart:convert';
 import 'dart:math';
@@ -432,37 +432,6 @@ enum UserType {
   
   @HiveField(3)
   senior,     // 65 ans et plus
-}
-
-// Adaptateurs Hive pour les énumérations
-class UserRoleAdapter extends TypeAdapter<UserRole> {
-  @override
-  final int typeId = 10;
-
-  @override
-  UserRole read(BinaryReader reader) {
-    return UserRole.values[reader.readByte()];
-  }
-
-  @override
-  void write(BinaryWriter writer, UserRole obj) {
-    writer.writeByte(obj.index);
-  }
-}
-
-class UserTypeAdapter extends TypeAdapter<UserType> {
-  @override
-  final int typeId = 11;
-
-  @override
-  UserType read(BinaryReader reader) {
-    return UserType.values[reader.readByte()];
-  }
-
-  @override
-  void write(BinaryWriter writer, UserType obj) {
-    writer.writeByte(obj.index);
-  }
 }
 
 // Exception de validation

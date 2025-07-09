@@ -1,4 +1,4 @@
-// lib/screens/profile/enhanced_user_creation_screen.dart - Création d'utilisateur améliorée
+// lib/screens/profile/enhanced_user_creation_screen.dart - Fixed to use EnhancedUser
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
