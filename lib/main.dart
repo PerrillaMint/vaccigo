@@ -1,14 +1,14 @@
-// lib/main.dart - CORRECTIONS POUR MULTI-UTILISATEURS - FIXED
+// lib/main.dart - UPDATED with new multi-vaccination routes
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 // Import des modèles avec les nouveaux modèles améliorés
-import 'models/enhanced_user.dart'; // NOUVEAU
+import 'models/enhanced_user.dart';
 import 'models/vaccination.dart';
 import 'models/vaccine_category.dart';
 import 'models/travel.dart';
-import 'services/multi_user_service.dart'; // NOUVEAU
+import 'services/multi_user_service.dart';
 
 // Import des services principaux
 import 'services/database_service.dart';
@@ -23,13 +23,14 @@ import 'screens/auth/card_selection_screen.dart';
 import 'screens/onboarding/travel_options_screen.dart';
 import 'screens/onboarding/camera_scan_screen.dart';
 import 'screens/onboarding/scan_preview_screen.dart';
+import 'screens/onboarding/multi_vaccination_scan_screen.dart'; // NOUVEAU
 import 'screens/vaccination/manual_entry_screen.dart';
-import 'screens/profile/enhanced_user_creation_screen.dart'; // NOUVEAU
+import 'screens/profile/enhanced_user_creation_screen.dart';
 import 'screens/profile/additional_info_screen.dart';
 import 'screens/vaccination/vaccination_info_screen.dart';
 import 'screens/vaccination/vaccination_summary_screen.dart';
 import 'screens/vaccination/vaccination_management_screen.dart';
-import 'screens/family/family_management_screen.dart'; // NOUVEAU
+import 'screens/family/family_management_screen.dart';
 
 void main() async {
   try {
@@ -101,7 +102,6 @@ void main() async {
     }
     
     // === MIGRATION DES DONNÉES EXISTANTES ===
-    // Migre les anciens utilisateurs vers le nouveau modèle si nécessaire
     try {
       await _migrateExistingUsers();
       debugPrint('✅ Migration des utilisateurs terminée');
@@ -122,42 +122,50 @@ void main() async {
 Future<void> _migrateExistingUsers() async {
   try {
     // Ouvre l'ancienne boîte utilisateurs s'il y en a une
-    final oldBox = await Hive.openBox('users_v2');
-    final newBox = await Hive.openBox<EnhancedUser>('enhanced_users_v1');
+    final oldBoxName = 'users_v2';
+    final newBoxName = 'enhanced_users_v1';
     
-    if (oldBox.isNotEmpty && newBox.isEmpty) {
-      debugPrint('🔄 Migration de ${oldBox.length} utilisateur(s) vers le nouveau modèle...');
+    // Vérifie si l'ancienne boîte existe
+    if (await Hive.boxExists(oldBoxName)) {
+      final oldBox = await Hive.openBox(oldBoxName);
+      final newBox = await Hive.openBox<EnhancedUser>(newBoxName);
       
-      for (final key in oldBox.keys) {
-        try {
-          final oldUser = oldBox.get(key);
-          if (oldUser != null) {
-            // Crée un nouvel utilisateur amélioré à partir de l'ancien
-            final enhancedUser = EnhancedUser(
-              name: oldUser.name ?? 'Utilisateur Migré',
-              email: oldUser.email ?? 'migration@example.com',
-              passwordHash: oldUser.passwordHash ?? '',
-              dateOfBirth: oldUser.dateOfBirth ?? '01/01/1990',
-              diseases: oldUser.diseases,
-              treatments: oldUser.treatments,
-              allergies: oldUser.allergies,
-              salt: oldUser.salt,
-              createdAt: oldUser.createdAt ?? DateTime.now(),
-              lastLogin: oldUser.lastLogin ?? DateTime.now(),
-              isActive: oldUser.isActive ?? true,
-              userType: UserType.adult, // Par défaut
-              role: UserRole.primary,   // Premier utilisateur = propriétaire
-              emailVerified: false,
-            );
-            
-            await newBox.add(enhancedUser);
+      if (oldBox.isNotEmpty && newBox.isEmpty) {
+        debugPrint('🔄 Migration de ${oldBox.length} utilisateur(s) vers le nouveau modèle...');
+        
+        for (final key in oldBox.keys) {
+          try {
+            final oldUser = oldBox.get(key);
+            if (oldUser != null) {
+              // Crée un nouvel utilisateur amélioré à partir de l'ancien
+              final enhancedUser = EnhancedUser(
+                name: oldUser.name ?? 'Utilisateur Migré',
+                email: oldUser.email ?? 'migration@example.com',
+                passwordHash: oldUser.passwordHash ?? '',
+                dateOfBirth: oldUser.dateOfBirth ?? '01/01/1990',
+                diseases: oldUser.diseases,
+                treatments: oldUser.treatments,
+                allergies: oldUser.allergies,
+                salt: oldUser.salt,
+                createdAt: oldUser.createdAt ?? DateTime.now(),
+                lastLogin: oldUser.lastLogin ?? DateTime.now(),
+                isActive: oldUser.isActive ?? true,
+                userType: UserType.adult,
+                role: UserRole.primary,
+                emailVerified: false,
+              );
+              
+              await newBox.add(enhancedUser);
+            }
+          } catch (e) {
+            debugPrint('Erreur migration utilisateur $key: $e');
           }
-        } catch (e) {
-          debugPrint('Erreur migration utilisateur $key: $e');
         }
+        
+        debugPrint('✅ Migration terminée');
       }
       
-      debugPrint('✅ Migration terminée');
+      await oldBox.close();
     }
   } catch (e) {
     debugPrint('Erreur lors de la migration: $e');
@@ -247,7 +255,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       
       initialRoute: '/',
       
-      // ROUTES MISES À JOUR avec les nouveaux écrans
+      // ROUTES MISES À JOUR avec le nouvel écran multi-vaccination
       routes: {
         '/': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
@@ -258,11 +266,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/scan-preview': (context) => const ScanPreviewScreen(),
         '/manual-entry': (context) => const ManualEntryScreen(),
         '/vaccination-info': (context) => const VaccinationInfoScreen(),
-        '/user-creation': (context) => const EnhancedUserCreationScreen(), // NOUVEAU
+        '/user-creation': (context) => const EnhancedUserCreationScreen(),
         '/additional-info': (context) => const AdditionalInfoScreen(),
         '/vaccination-summary': (context) => const VaccinationSummaryScreen(),
         '/vaccination-management': (context) => const VaccinationManagementScreen(),
-        '/family-management': (context) => const FamilyManagementScreen(), // NOUVEAU
+        '/family-management': (context) => const FamilyManagementScreen(),
+      },
+      
+      // NOUVEAU: Gestionnaire de routes pour les routes avec paramètres
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case '/multi-vaccination-scan':
+            // Route pour l'écran de scan multiple avec paramètres
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args != null && 
+                args.containsKey('imagePath') && 
+                args.containsKey('userId')) {
+              return MaterialPageRoute(
+                builder: (context) => MultiVaccinationScanScreen(
+                  imagePath: args['imagePath'] as String,
+                  userId: args['userId'] as String,
+                ),
+              );
+            }
+            break;
+        }
+        return null;
       },
       
       onUnknownRoute: (settings) {
@@ -358,7 +387,6 @@ class ErrorDisplay extends StatelessWidget {
                           ),
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              // Force restart de l'application
                               if (context.mounted) {
                                 Navigator.of(context).pushNamedAndRemoveUntil(
                                   '/',
@@ -384,10 +412,8 @@ class ErrorDisplay extends StatelessWidget {
                         
                         const SizedBox(height: 16),
                         
-                        // Bouton pour signaler le bug
                         TextButton(
                           onPressed: () {
-                            // Dans une vraie app, on pourrait envoyer un rapport de bug
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('Fonctionnalité de rapport de bug à venir'),
@@ -483,7 +509,6 @@ class ResponsiveLayoutHelper {
     return baseSpacing;
   }
   
-  // Nouveau: support pour différentes orientations
   static bool isLandscape(BuildContext context) {
     return MediaQuery.of(context).orientation == Orientation.landscape;
   }

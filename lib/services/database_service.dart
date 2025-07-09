@@ -1,4 +1,4 @@
-// lib/services/database_service.dart - Fixed to use EnhancedUser
+// lib/services/database_service.dart - Fixed Hive type conflicts
 import 'package:hive/hive.dart';
 import 'dart:async';
 import 'dart:io';
@@ -6,10 +6,9 @@ import '../models/enhanced_user.dart';
 import '../models/vaccination.dart';
 import '../models/vaccine_category.dart';
 
-// Service principal pour toutes les opérations de base de données
 class DatabaseService {
-  // === NOMS DES BOÎTES HIVE ===
-  static const String _userBoxName = 'users_v2';
+  // === NOMS DES BOÎTES HIVE AVEC VERSIONING ===
+  static const String _userBoxName = 'enhanced_users_v1'; // CHANGED: Use enhanced_users
   static const String _vaccinationBoxName = 'vaccinations_v2';
   static const String _categoryBoxName = 'vaccine_categories_v2';
   static const String _sessionBoxName = 'session_v2';
@@ -28,20 +27,64 @@ class DatabaseService {
     final now = DateTime.now();
     _operationTimestamps.putIfAbsent(operation, () => []);
     
-    // Nettoie les timestamps plus anciens qu'une minute
     _operationTimestamps[operation]!.removeWhere(
       (timestamp) => now.difference(timestamp).inMinutes >= 1
     );
     
-    // Vérifie si la limite est dépassée
     if (_operationTimestamps[operation]!.length >= _maxOperationsPerMinute) {
       print('Limite de taux dépassée pour l\'opération: $operation');
       return false;
     }
     
-    // Ajoute le timestamp actuel
     _operationTimestamps[operation]!.add(now);
     return true;
+  }
+
+  // === GESTION SÉCURISÉE DES BOÎTES HIVE AVEC MIGRATION ===
+  Future<Box<T>> _getBox<T>(String boxName) async {
+    if (_boxCache.containsKey(boxName)) {
+      return await _boxCache[boxName]!.future as Box<T>;
+    }
+
+    final completer = Completer<Box>();
+    _boxCache[boxName] = completer;
+
+    try {
+      // FIXED: Handle type conflicts by closing and reopening with correct type
+      if (Hive.isBoxOpen(boxName)) {
+        final existingBox = Hive.box(boxName);
+        await existingBox.close();
+        print('Fermeture de la boîte existante: $boxName');
+      }
+
+      final box = await Hive.openBox<T>(boxName);
+      _lastAccess[boxName] = DateTime.now();
+      completer.complete(box);
+      print('Boîte ouverte avec succès: $boxName (Type: $T)');
+      return box;
+    } catch (e) {
+      print('Échec de l\'ouverture de la boîte $boxName: $e');
+      
+      // Try to delete corrupted box and recreate
+      try {
+        if (Hive.isBoxOpen(boxName)) {
+          await Hive.box(boxName).close();
+        }
+        await Hive.deleteBoxFromDisk(boxName);
+        print('Boîte corrompue supprimée: $boxName');
+        
+        final box = await Hive.openBox<T>(boxName);
+        _lastAccess[boxName] = DateTime.now();
+        completer.complete(box);
+        print('Boîte recréée avec succès: $boxName');
+        return box;
+      } catch (recreateError) {
+        print('Impossible de recréer la boîte: $recreateError');
+        _boxCache.remove(boxName);
+        completer.completeError(recreateError);
+        rethrow;
+      }
+    }
   }
 
   // === SYSTÈME D'AUDIT ===
@@ -65,29 +108,6 @@ class DatabaseService {
       });
     } catch (e) {
       print('Échec de l\'enregistrement de l\'événement d\'audit: $e');
-    }
-  }
-
-  // === GESTION SÉCURISÉE DES BOÎTES HIVE ===
-  Future<Box<T>> _getBox<T>(String boxName) async {
-    if (_boxCache.containsKey(boxName)) {
-      return await _boxCache[boxName]!.future as Box<T>;
-    }
-
-    final completer = Completer<Box>();
-    _boxCache[boxName] = completer;
-
-    try {
-      final box = await Hive.openBox<T>(boxName);
-      _lastAccess[boxName] = DateTime.now();
-      completer.complete(box);
-      print('Boîte ouverte avec succès: $boxName');
-      return box;
-    } catch (e) {
-      print('Échec de l\'ouverture de la boîte $boxName: $e');
-      _boxCache.remove(boxName);
-      completer.completeError(e);
-      rethrow;
     }
   }
 
@@ -130,7 +150,6 @@ class DatabaseService {
       
       print('Utilisateur sauvegardé avec succès, données valides');
       
-      // Enregistre l'événement dans l'audit
       await _logAuditEvent(
         action: 'CREATE',
         entity: 'User',
@@ -551,6 +570,42 @@ class DatabaseService {
       print('Erreur lors de la sauvegarde de vaccination: $e');
       if (e is DatabaseException) rethrow;
       throw DatabaseException('Erreur lors de la sauvegarde de la vaccination: $e');
+    }
+  }
+
+  // NOUVEAU: Sauvegarde multiple de vaccinations (pour les carnets scannés)
+  Future<void> saveMultipleVaccinations(List<Vaccination> vaccinations) async {
+    if (!_checkRateLimit('saveMultipleVaccinations')) {
+      throw DatabaseException('Limite de taux dépassée');
+    }
+
+    try {
+      final box = await _getBox<Vaccination>(_vaccinationBoxName);
+      
+      for (final vaccination in vaccinations) {
+        if (vaccination.vaccineName.trim().isNotEmpty && 
+            vaccination.userId.trim().isNotEmpty) {
+          final key = await box.add(vaccination);
+          print('Vaccination sauvegardée: ${vaccination.vaccineName} - ${vaccination.date}');
+          
+          await _logAuditEvent(
+            action: 'CREATE_BATCH',
+            entity: 'Vaccination',
+            entityId: key.toString(),
+            userId: vaccination.userId,
+            metadata: {
+              'vaccineName': vaccination.vaccineName,
+              'date': vaccination.date,
+              'batchSize': vaccinations.length,
+            },
+          );
+        }
+      }
+      
+      print('${vaccinations.length} vaccinations sauvegardées en lot');
+    } catch (e) {
+      print('Erreur lors de la sauvegarde multiple: $e');
+      throw DatabaseException('Erreur lors de la sauvegarde multiple: $e');
     }
   }
 
