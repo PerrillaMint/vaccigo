@@ -1,9 +1,9 @@
-// lib/screens/vaccination/vaccination_summary_screen.dart - REMOVED home button
+// lib/screens/vaccination/vaccination_summary_screen.dart - FIXED to use EnhancedUser
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../services/database_service.dart';
-import '../../models/user.dart';
+import '../../models/enhanced_user.dart';
 
 class VaccinationSummaryScreen extends StatefulWidget {
   const VaccinationSummaryScreen({Key? key}) : super(key: key);
@@ -14,7 +14,7 @@ class VaccinationSummaryScreen extends StatefulWidget {
 
 class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
   final DatabaseService _databaseService = DatabaseService();
-  User? _currentUser;
+  EnhancedUser? _currentUser;
   bool _isLoading = true;
 
   @override
@@ -42,7 +42,7 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
       backgroundColor: AppColors.background,
       appBar: const CustomAppBar(
         title: 'Mon Carnet Vaccigo',
-        showBackButton: false, // FIXED: Completely remove the back arrow button
+        showBackButton: false,
       ),
       body: _isLoading 
           ? const AppLoading(message: 'Chargement de votre profil...')
@@ -86,8 +86,6 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
                     
                     // Success message
                     _buildSuccessMessage(),
-                    
-                    // REMOVED: Quick access button section completely
                     
                     const SizedBox(height: AppSpacing.lg),
                   ],
@@ -251,8 +249,6 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
     );
   }
 
-  // REMOVED: _buildQuickAccessButton() method completely
-
   void _showUserProfileDialog() {
     if (_currentUser == null) return;
 
@@ -279,11 +275,13 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
                 _buildUserInfo('Email', _currentUser!.email),
                 _buildUserInfo('Date de naissance', _currentUser!.dateOfBirth),
                 _buildUserInfo('Âge', '${_currentUser!.age} ans'),
-                if (_currentUser!.diseases != null)
+                _buildUserInfo('Type', _getUserTypeLabel(_currentUser!.userType)),
+                _buildUserInfo('Rôle', _getUserRoleLabel(_currentUser!.role)),
+                if (_currentUser!.diseases != null && _currentUser!.diseases!.isNotEmpty)
                   _buildUserInfo('Maladies', _currentUser!.diseases!),
-                if (_currentUser!.treatments != null)
+                if (_currentUser!.treatments != null && _currentUser!.treatments!.isNotEmpty)
                   _buildUserInfo('Traitements', _currentUser!.treatments!),
-                if (_currentUser!.allergies != null)
+                if (_currentUser!.allergies != null && _currentUser!.allergies!.isNotEmpty)
                   _buildUserInfo('Allergies', _currentUser!.allergies!),
               ],
             ),
@@ -298,7 +296,7 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
                 style: TextStyle(color: AppColors.error),
               ),
             ),
-            const Spacer(), // Push other buttons to the right
+            const Spacer(),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Fermer'),
@@ -309,7 +307,9 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
                 Navigator.pushNamed(
                   context, 
                   '/additional-info', 
-                  arguments: _currentUser,
+                  arguments: {
+                    'user': _currentUser,
+                  },
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -432,7 +432,7 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/login',
-          (route) => false, // Remove all previous routes
+          (route) => false,
         );
       }
     } catch (e) {
@@ -493,5 +493,29 @@ class _VaccinationSummaryScreenState extends State<VaccinationSummaryScreen> {
         ],
       ),
     );
+  }
+
+  String _getUserTypeLabel(UserType type) {
+    switch (type) {
+      case UserType.child:
+        return 'Enfant';
+      case UserType.teen:
+        return 'Adolescent';
+      case UserType.adult:
+        return 'Adulte';
+      case UserType.senior:
+        return 'Senior';
+    }
+  }
+
+  String _getUserRoleLabel(UserRole role) {
+    switch (role) {
+      case UserRole.primary:
+        return 'Propriétaire';
+      case UserRole.secondary:
+        return 'Administrateur';
+      case UserRole.member:
+        return 'Membre';
+    }
   }
 }
