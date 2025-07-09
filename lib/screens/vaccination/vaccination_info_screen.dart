@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../models/vaccination.dart';
-import '../../models/user.dart';
+import '../../models/enhanced_user.dart';
 import '../../services/database_service.dart';
 
 class VaccinationInfoScreen extends StatefulWidget {
@@ -16,7 +16,7 @@ class VaccinationInfoScreen extends StatefulWidget {
 class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
   final DatabaseService _databaseService = DatabaseService();
   List<Vaccination> _vaccinations = [];
-  User? _currentUser;
+  EnhancedUser? _currentUser;
   bool _isLoading = true;
   String _searchQuery = '';
   String _sortBy = 'date'; // 'date', 'vaccine', 'status'
