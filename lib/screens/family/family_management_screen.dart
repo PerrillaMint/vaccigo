@@ -1,6 +1,6 @@
-// lib/screens/family/family_management_screen.dart - Fixed imports and types
+// lib/screens/family/family_management_screen.dart - Gestion des comptes famille - FIXED
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../models/enhanced_user.dart';
@@ -8,7 +8,7 @@ import '../../services/multi_user_service.dart';
 import '../../services/database_service.dart';
 
 class FamilyManagementScreen extends StatefulWidget {
-  const FamilyManagementScreen({Key? key}) : super(key: key);
+  const FamilyManagementScreen({super.key});
 
   @override
   State<FamilyManagementScreen> createState() => _FamilyManagementScreenState();
@@ -43,9 +43,9 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
       );
       
       // Charge les détails du compte famille
-      final familyAccount = await _multiUserService.getFamilyAccount(
-        currentUser.familyAccountId!
-      );
+      final box = await Hive.openBox<FamilyAccount>('family_accounts_v1');
+      final familyAccountKey = int.parse(currentUser.familyAccountId!);
+      final familyAccount = box.get(familyAccountKey);
 
       setState(() {
         _currentUser = currentUser;
@@ -189,7 +189,7 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
                 ),
               ),
               if (_isPrimaryUser)
-                StatusBadge(
+                const StatusBadge(
                   text: 'Propriétaire',
                   type: StatusType.success,
                   icon: Icons.admin_panel_settings,
@@ -613,6 +613,7 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showCreateFamilyDialog() {
+    // Implémentation de la création de famille
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Fonctionnalité de création de famille à venir'),
@@ -622,6 +623,7 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showEditFamilyDialog() {
+    // Implémentation de l'édition de famille
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Fonctionnalité d\'édition à venir'),
@@ -631,6 +633,7 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showShareDialog() {
+    // Implémentation du partage
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Fonctionnalité de partage à venir'),
@@ -640,6 +643,7 @@ class _FamilyManagementScreenState extends State<FamilyManagementScreen> {
   }
 
   void _showSettingsDialog() {
+    // Implémentation des paramètres
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Paramètres de famille à venir'),

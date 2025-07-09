@@ -1,4 +1,4 @@
-// lib/main.dart - CORRECTIONS POUR MULTI-UTILISATEURS
+// lib/main.dart - CORRECTIONS POUR MULTI-UTILISATEURS - FIXED
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -167,7 +167,7 @@ Future<void> _migrateExistingUsers() async {
 class MyApp extends StatefulWidget {
   final bool cameraInitialized;
   
-  const MyApp({Key? key, this.cameraInitialized = false}) : super(key: key);
+  const MyApp({super.key, this.cameraInitialized = false});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -278,7 +278,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            textScaler: MediaQuery.of(context).textScaler.clamp(0.8, 1.2),
+            textScaler: MediaQuery.of(context).textScaler.clamp(
+              minScaleFactor: 0.8, 
+              maxScaleFactor: 1.2
+            ),
           ),
           child: widget ?? const SizedBox.shrink(),
         );
@@ -291,7 +294,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 class ErrorDisplay extends StatelessWidget {
   final String error;
   
-  const ErrorDisplay({Key? key, required this.error}) : super(key: key);
+  const ErrorDisplay({super.key, required this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -416,7 +419,7 @@ class ErrorDisplay extends StatelessWidget {
 class ErrorApp extends StatelessWidget {
   final String error;
   
-  const ErrorApp({Key? key, required this.error}) : super(key: key);
+  const ErrorApp({super.key, required this.error});
 
   @override
   Widget build(BuildContext context) {

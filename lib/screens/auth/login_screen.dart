@@ -1,15 +1,15 @@
-// lib/screens/auth/login_screen.dart - Écran de connexion avec sélection d'utilisateur
+// lib/screens/auth/login_screen.dart - Écran de connexion avec sélection d'utilisateur - FIXED
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
-import '../../models/user.dart';
+import '../../models/enhanced_user.dart'; // FIXED: Use EnhancedUser instead of User
 import '../../services/database_service.dart';
 
 // Écran de connexion principal avec interface moderne
 // Permet la sélection d'utilisateurs existants et l'authentification par mot de passe
 // Inclut des outils de nettoyage de base de données et validation robuste
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -23,12 +23,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   
   // États de l'interface utilisateur
-  List<User> _users = [];              // Liste des utilisateurs disponibles
-  bool _isLoading = true;              // État de chargement initial
-  bool _obscurePassword = true;        // Masquage du mot de passe
-  bool _isPasswordWrong = false;       // Indicateur d'erreur mot de passe
-  bool _isLoggingIn = false;           // État de connexion en cours
-  User? _selectedUser;                 // Utilisateur actuellement sélectionné
+  List<EnhancedUser> _users = [];        // FIXED: Use EnhancedUser type
+  bool _isLoading = true;                // État de chargement initial
+  bool _obscurePassword = true;          // Masquage du mot de passe
+  bool _isPasswordWrong = false;         // Indicateur d'erreur mot de passe
+  bool _isLoggingIn = false;             // État de connexion en cours
+  EnhancedUser? _selectedUser;           // FIXED: Use EnhancedUser type
 
   @override
   void initState() {
@@ -197,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // État de chargement avec indicateur visuel
   Widget _buildLoadingState() {
-    return Container(
+    return SizedBox(
       height: 200,
       child: const Center(
         child: Column(
