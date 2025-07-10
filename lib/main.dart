@@ -1,16 +1,16 @@
-// lib/main.dart - UPDATED with new multi-vaccination routes
+// lib/main.dart - Version corrigée avec initialisation DB robuste
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-// Import des modèles avec les nouveaux modèles améliorés
+// Import des modèles
 import 'models/enhanced_user.dart';
 import 'models/vaccination.dart';
 import 'models/vaccine_category.dart';
 import 'models/travel.dart';
 import 'services/multi_user_service.dart';
 
-// Import des services principaux
+// Import des services
 import 'services/database_service.dart';
 import 'services/camera_service.dart';
 
@@ -23,7 +23,7 @@ import 'screens/auth/card_selection_screen.dart';
 import 'screens/onboarding/travel_options_screen.dart';
 import 'screens/onboarding/camera_scan_screen.dart';
 import 'screens/onboarding/scan_preview_screen.dart';
-import 'screens/onboarding/multi_vaccination_scan_screen.dart'; // NOUVEAU
+import 'screens/onboarding/multi_vaccination_scan_screen.dart';
 import 'screens/vaccination/manual_entry_screen.dart';
 import 'screens/profile/enhanced_user_creation_screen.dart';
 import 'screens/profile/additional_info_screen.dart';
@@ -36,139 +36,121 @@ void main() async {
   try {
     WidgetsFlutterBinding.ensureInitialized();
     
-    // === INITIALISATION DE LA CAMÉRA ===
+    print('🚀 Démarrage de Vaccigo...');
+    
+    // === INITIALISATION CAMÉRA ===
     bool cameraInitialized = false;
     try {
       await CameraService.initialize();
       cameraInitialized = true;
-      debugPrint('✅ Service caméra initialisé avec succès');
+      print('✅ Service caméra initialisé');
     } catch (e) {
-      debugPrint('⚠️ Échec de l\'initialisation de la caméra: $e');
+      print('⚠️ Caméra non disponible: $e');
     }
     
-    // === INITIALISATION DE LA BASE DE DONNÉES HIVE ===
+    // === INITIALISATION HIVE ===
     try {
       await Hive.initFlutter();
-      debugPrint('✅ Base de données Hive initialisée');
+      print('✅ Hive initialisé');
     } catch (e) {
-      debugPrint('❌ Échec de l\'initialisation Hive: $e');
+      print('❌ Erreur Hive: $e');
       rethrow;
     }
     
-    // === ENREGISTREMENT DES ADAPTATEURS HIVE AMÉLIORÉS ===
-    try {
-      // Enregistre l'adaptateur EnhancedUser (typeId: 0)
-      if (!Hive.isAdapterRegistered(0)) {
-        Hive.registerAdapter(EnhancedUserAdapter());
-      }
-      
-      // Enregistre les nouveaux adaptateurs pour les énumérations
-      if (!Hive.isAdapterRegistered(10)) {
-        Hive.registerAdapter(UserRoleAdapter());
-      }
-      if (!Hive.isAdapterRegistered(11)) {
-        Hive.registerAdapter(UserTypeAdapter());
-      }
-      
-      // Enregistre l'adaptateur FamilyAccount (typeId: 4)
-      if (!Hive.isAdapterRegistered(4)) {
-        Hive.registerAdapter(FamilyAccountAdapter());
-      }
-      
-      // Adaptateurs existants
-      if (!Hive.isAdapterRegistered(1)) {
-        Hive.registerAdapter(VaccinationAdapter());
-      }
-      if (!Hive.isAdapterRegistered(2)) {
-        Hive.registerAdapter(VaccineCategoryAdapter());
-      }
-      if (!Hive.isAdapterRegistered(3)) {
-        Hive.registerAdapter(TravelAdapter());
-      }
-      
-      debugPrint('✅ Adaptateurs Hive enregistrés avec succès');
-    } catch (e) {
-      debugPrint('❌ Échec de l\'enregistrement des adaptateurs: $e');
-      rethrow;
-    }
+    // === NETTOYAGE DES ANCIENNES VERSIONS ===
+    await _cleanupOldVersions();
     
-    // === INITIALISATION DES DONNÉES PAR DÉFAUT ===
+    // === ENREGISTREMENT DES ADAPTATEURS ===
+    await _registerAdapters();
+    
+    // === INITIALISATION BASE DE DONNÉES ===
     try {
       final databaseService = DatabaseService();
+      await databaseService.initializeDatabase();
       await databaseService.initializeDefaultCategories();
-      debugPrint('✅ Données par défaut initialisées');
+      print('✅ Base de données initialisée');
     } catch (e) {
-      debugPrint('⚠️ Échec de l\'initialisation des données par défaut: $e');
-    }
-    
-    // === MIGRATION DES DONNÉES EXISTANTES ===
-    try {
-      await _migrateExistingUsers();
-      debugPrint('✅ Migration des utilisateurs terminée');
-    } catch (e) {
-      debugPrint('⚠️ Échec de la migration: $e');
+      print('❌ Erreur initialisation DB: $e');
+      // Continue quand même pour permettre la création manuelle
     }
     
     runApp(MyApp(cameraInitialized: cameraInitialized));
     
   } catch (e, stackTrace) {
-    debugPrint('💥 Erreur fatale pendant l\'initialisation: $e');
-    debugPrint('🔍 Stack trace: $stackTrace');
+    print('💥 Erreur fatale: $e');
+    print('📍 Stack trace: $stackTrace');
     runApp(ErrorApp(error: e.toString()));
   }
 }
 
-// Migration des utilisateurs existants vers le nouveau modèle
-Future<void> _migrateExistingUsers() async {
-  try {
-    // Ouvre l'ancienne boîte utilisateurs s'il y en a une
-    final oldBoxName = 'users_v2';
-    final newBoxName = 'enhanced_users_v1';
-    
-    // Vérifie si l'ancienne boîte existe
-    if (await Hive.boxExists(oldBoxName)) {
-      final oldBox = await Hive.openBox(oldBoxName);
-      final newBox = await Hive.openBox<EnhancedUser>(newBoxName);
-      
-      if (oldBox.isNotEmpty && newBox.isEmpty) {
-        debugPrint('🔄 Migration de ${oldBox.length} utilisateur(s) vers le nouveau modèle...');
-        
-        for (final key in oldBox.keys) {
-          try {
-            final oldUser = oldBox.get(key);
-            if (oldUser != null) {
-              // Crée un nouvel utilisateur amélioré à partir de l'ancien
-              final enhancedUser = EnhancedUser(
-                name: oldUser.name ?? 'Utilisateur Migré',
-                email: oldUser.email ?? 'migration@example.com',
-                passwordHash: oldUser.passwordHash ?? '',
-                dateOfBirth: oldUser.dateOfBirth ?? '01/01/1990',
-                diseases: oldUser.diseases,
-                treatments: oldUser.treatments,
-                allergies: oldUser.allergies,
-                salt: oldUser.salt,
-                createdAt: oldUser.createdAt ?? DateTime.now(),
-                lastLogin: oldUser.lastLogin ?? DateTime.now(),
-                isActive: oldUser.isActive ?? true,
-                userType: UserType.adult,
-                role: UserRole.primary,
-                emailVerified: false,
-              );
-              
-              await newBox.add(enhancedUser);
-            }
-          } catch (e) {
-            debugPrint('Erreur migration utilisateur $key: $e');
-          }
-        }
-        
-        debugPrint('✅ Migration terminée');
+// Nettoyage des anciennes versions de boîtes
+Future<void> _cleanupOldVersions() async {
+  final oldBoxes = [
+    'users_v2',
+    'enhanced_users_v1',
+    'vaccinations_v2',
+    'vaccine_categories_v2', 
+    'session_v2',
+  ];
+  
+  for (final boxName in oldBoxes) {
+    try {
+      if (Hive.isBoxOpen(boxName)) {
+        await Hive.box(boxName).close();
       }
-      
-      await oldBox.close();
+      if (await Hive.boxExists(boxName)) {
+        await Hive.deleteBoxFromDisk(boxName);
+        print('🧹 Ancienne boîte supprimée: $boxName');
+      }
+    } catch (e) {
+      print('⚠️ Erreur nettoyage $boxName: $e');
     }
+  }
+}
+
+// Enregistrement sécurisé des adaptateurs
+Future<void> _registerAdapters() async {
+  try {
+    // Adaptateur EnhancedUser (typeId: 0)
+    if (!Hive.isAdapterRegistered(0)) {
+      Hive.registerAdapter(EnhancedUserAdapter());
+      print('📝 Adaptateur EnhancedUser enregistré');
+    }
+    
+    // Adaptateurs pour les énumérations (typeId: 10, 11)
+    if (!Hive.isAdapterRegistered(10)) {
+      Hive.registerAdapter(UserRoleAdapter());
+      print('📝 Adaptateur UserRole enregistré');
+    }
+    if (!Hive.isAdapterRegistered(11)) {
+      Hive.registerAdapter(UserTypeAdapter());
+      print('📝 Adaptateur UserType enregistré');
+    }
+    
+    // Adaptateur FamilyAccount (typeId: 4)
+    if (!Hive.isAdapterRegistered(4)) {
+      Hive.registerAdapter(FamilyAccountAdapter());
+      print('📝 Adaptateur FamilyAccount enregistré');
+    }
+    
+    // Adaptateurs existants (typeId: 1, 2, 3)
+    if (!Hive.isAdapterRegistered(1)) {
+      Hive.registerAdapter(VaccinationAdapter());
+      print('📝 Adaptateur Vaccination enregistré');
+    }
+    if (!Hive.isAdapterRegistered(2)) {
+      Hive.registerAdapter(VaccineCategoryAdapter());
+      print('📝 Adaptateur VaccineCategory enregistré');
+    }
+    if (!Hive.isAdapterRegistered(3)) {
+      Hive.registerAdapter(TravelAdapter());
+      print('📝 Adaptateur Travel enregistré');
+    }
+    
+    print('✅ Tous les adaptateurs Hive enregistrés');
   } catch (e) {
-    debugPrint('Erreur lors de la migration: $e');
+    print('❌ Erreur enregistrement adaptateurs: $e');
+    rethrow;
   }
 }
 
@@ -220,25 +202,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       await CameraService.dispose();
       final databaseService = DatabaseService();
       await databaseService.dispose();
-      debugPrint('✅ Ressources nettoyées avec succès');
+      print('✅ Ressources nettoyées');
     } catch (e) {
-      debugPrint('⚠️ Erreur pendant le nettoyage des ressources: $e');
+      print('⚠️ Erreur nettoyage: $e');
     }
   }
 
   Future<void> _restartCameraService() async {
     try {
       await CameraService.restart();
-      debugPrint('✅ Service caméra redémarré avec succès');
+      print('✅ Service caméra redémarré');
     } catch (e) {
-      debugPrint('⚠️ Échec du redémarrage du service caméra: $e');
+      print('⚠️ Erreur redémarrage caméra: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Carnet de Vaccination',
+      title: 'Vaccigo - Carnet de Vaccination',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       
@@ -255,7 +237,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       
       initialRoute: '/',
       
-      // ROUTES MISES À JOUR avec le nouvel écran multi-vaccination
       routes: {
         '/': (context) => const WelcomeScreen(),
         '/login': (context) => const LoginScreen(),
@@ -273,11 +254,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         '/family-management': (context) => const FamilyManagementScreen(),
       },
       
-      // NOUVEAU: Gestionnaire de routes pour les routes avec paramètres
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/multi-vaccination-scan':
-            // Route pour l'écran de scan multiple avec paramètres
             final args = settings.arguments as Map<String, dynamic>?;
             if (args != null && 
                 args.containsKey('imagePath') && 
@@ -330,112 +309,71 @@ class ErrorDisplay extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Center(
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: constraints.maxWidth < 400 ? constraints.maxWidth - 32 : 400,
+        child: Center(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red,
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        const Text(
-                          'Une erreur s\'est produite',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2C5F66),
-                          ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        Container(
-                          constraints: BoxConstraints(
-                            maxWidth: constraints.maxWidth < 400 ? constraints.maxWidth - 64 : 320,
-                          ),
-                          child: Text(
-                            'Détails de l\'erreur:\n$error',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 6,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 200,
-                            minHeight: 48,
-                          ),
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              if (context.mounted) {
-                                Navigator.of(context).pushNamedAndRemoveUntil(
-                                  '/',
-                                  (route) => false,
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Redémarrer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF2C5F66),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 32,
-                                vertical: 16,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        TextButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Fonctionnalité de rapport de bug à venir'),
-                                backgroundColor: Colors.blue,
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Signaler ce problème',
-                            style: TextStyle(
-                              color: Color(0xFF2C5F66),
-                              decoration: TextDecoration.underline,
-                            ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 16),
+                  
+                  const Text(
+                    'Une erreur s\'est produite',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2C5F66),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Text(
+                      'Détails: ${error.length > 200 ? error.substring(0, 200) + "..." : error}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                ),
+                  const SizedBox(height: 24),
+                  
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      if (context.mounted) {
+                        Navigator.of(context).pushNamedAndRemoveUntil(
+                          '/',
+                          (route) => false,
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Redémarrer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2C5F66),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32,
+                        vertical: 16,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
@@ -450,74 +388,8 @@ class ErrorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Erreur',
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('fr', 'FR'),
-        Locale('en', 'US'),
-      ],
+      title: 'Vaccigo - Erreur',
       home: ErrorDisplay(error: error),
     );
-  }
-}
-
-// Utilitaires d'interface responsive améliorés
-class ResponsiveLayoutHelper {
-  static bool isSmallScreen(BuildContext context) {
-    return MediaQuery.of(context).size.width < 400;
-  }
-  
-  static bool isShortScreen(BuildContext context) {
-    return MediaQuery.of(context).size.height < 600;
-  }
-  
-  static bool isTablet(BuildContext context) {
-    return MediaQuery.of(context).size.width > 600;
-  }
-  
-  static double getResponsiveFontSize(BuildContext context, double baseSize) {
-    if (isSmallScreen(context)) {
-      return baseSize * 0.9;
-    }
-    if (isTablet(context)) {
-      return baseSize * 1.1;
-    }
-    return baseSize;
-  }
-  
-  static EdgeInsets getResponsivePadding(BuildContext context) {
-    if (isSmallScreen(context)) {
-      return const EdgeInsets.all(12);
-    }
-    if (isTablet(context)) {
-      return const EdgeInsets.all(24);
-    }
-    return const EdgeInsets.all(16);
-  }
-  
-  static double getResponsiveSpacing(BuildContext context, double baseSpacing) {
-    if (isSmallScreen(context) || isShortScreen(context)) {
-      return baseSpacing * 0.75;
-    }
-    if (isTablet(context)) {
-      return baseSpacing * 1.25;
-    }
-    return baseSpacing;
-  }
-  
-  static bool isLandscape(BuildContext context) {
-    return MediaQuery.of(context).orientation == Orientation.landscape;
-  }
-  
-  static int getResponsiveColumns(BuildContext context) {
-    final width = MediaQuery.of(context).size.width;
-    if (width < 400) return 1;
-    if (width < 600) return 2;
-    if (width < 900) return 3;
-    return 4;
   }
 }

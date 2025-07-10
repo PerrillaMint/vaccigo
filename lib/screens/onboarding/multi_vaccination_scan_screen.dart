@@ -1,10 +1,12 @@
-// lib/screens/onboarding/multi_vaccination_scan_screen.dart - Écran pour scanner plusieurs vaccinations
+// lib/screens/onboarding/multi_vaccination_scan_screen.dart - Version améliorée et robuste
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../services/enhanced_google_vision_service.dart';
 import '../../services/database_service.dart';
 import '../../models/vaccination.dart';
+// Import nécessaire pour File
+import 'dart:io';
 
 class MultiVaccinationScanScreen extends StatefulWidget {
   final String imagePath;
@@ -43,6 +45,14 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
         _errorMessage = null;
       });
 
+      print('🔍 Traitement image multi-vaccination: ${widget.imagePath}');
+      
+      // Vérifie l'existence du fichier
+      final file = File(widget.imagePath);
+      if (!await file.exists()) {
+        throw Exception('Fichier image introuvable');
+      }
+
       final vaccinations = await _visionService.processVaccinationCard(widget.imagePath);
       
       setState(() {
@@ -51,10 +61,15 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
         _isProcessing = false;
       });
 
+      print('✅ ${vaccinations.length} vaccination(s) détectée(s)');
+
     } catch (e) {
+      print('❌ Erreur traitement: $e');
       setState(() {
         _isProcessing = false;
         _errorMessage = 'Erreur lors de l\'analyse: $e';
+        _detectedVaccinations = [];
+        _selectedVaccinations = [];
       });
     }
   }
@@ -101,16 +116,16 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
               color: AppColors.secondary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
               children: [
                 const SizedBox(
-                  width: 64,
-                  height: 64,
+                  width: 80,
+                  height: 80,
                   child: CircularProgressIndicator(
                     strokeWidth: 6,
                     valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondary),
@@ -132,6 +147,21 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.primary.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.info.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    '⏱️ Cela peut prendre quelques secondes',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.info,
+                    ),
                   ),
                 ),
               ],
@@ -177,7 +207,9 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _errorMessage!,
+                    _errorMessage!.length > 100 
+                        ? '${_errorMessage!.substring(0, 100)}...'
+                        : _errorMessage!,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 14,
@@ -188,28 +220,41 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
               ),
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                AppButton(
-                  text: 'Réessayer',
-                  icon: Icons.refresh,
-                  style: AppButtonStyle.secondary,
-                  onPressed: _processImage,
-                ),
-                AppButton(
-                  text: 'Saisie manuelle',
-                  icon: Icons.edit,
-                  onPressed: () => Navigator.pushReplacementNamed(
-                    context,
-                    '/manual-entry',
-                  ),
-                ),
-              ],
-            ),
+            _buildErrorActions(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildErrorActions() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            AppButton(
+              text: 'Réessayer',
+              icon: Icons.refresh,
+              style: AppButtonStyle.secondary,
+              onPressed: _processImage,
+            ),
+            AppButton(
+              text: 'Nouvelle photo',
+              icon: Icons.camera_alt,
+              style: AppButtonStyle.secondary,
+              onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        AppButton(
+          text: 'Saisie manuelle',
+          icon: Icons.edit,
+          onPressed: () => Navigator.pushReplacementNamed(context, '/manual-entry'),
+          width: double.infinity,
+        ),
+      ],
     );
   }
 
@@ -248,7 +293,7 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'L\'IA n\'a pas pu détecter de vaccinations dans cette image',
+                    'L\'IA n\'a pas pu détecter de vaccinations\ndans cette image',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -266,18 +311,12 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
                   text: 'Nouvelle photo',
                   icon: Icons.camera_alt,
                   style: AppButtonStyle.secondary,
-                  onPressed: () => Navigator.pushReplacementNamed(
-                    context,
-                    '/camera-scan',
-                  ),
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
                 ),
                 AppButton(
                   text: 'Saisie manuelle',
                   icon: Icons.edit,
-                  onPressed: () => Navigator.pushReplacementNamed(
-                    context,
-                    '/manual-entry',
-                  ),
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/manual-entry'),
                 ),
               ],
             ),
@@ -293,22 +332,17 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // En-tête avec statistiques
           _buildHeader(),
-          
           const SizedBox(height: 24),
           
-          // Liste des vaccinations détectées
+          // Liste des vaccinations
           ...List.generate(_detectedVaccinations.length, (index) {
             return _buildVaccinationCard(index);
           }),
           
           const SizedBox(height: 16),
-          
-          // Boutons d'action
           _buildSelectionActions(),
-          
-          const SizedBox(height: 100), // Espace pour la bottom bar
+          const SizedBox(height: 100), // Espace pour bottom bar
         ],
       ),
     );
@@ -395,7 +429,7 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
         ),
         child: Column(
           children: [
-            // En-tête de la carte avec sélection
+            // En-tête avec sélection
             Row(
               children: [
                 Checkbox(
@@ -418,14 +452,11 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
                     ),
                   ),
                 ),
-                // Indicateur de confiance
                 _buildConfidenceIndicator(vaccination.confidence),
               ],
             ),
             
             const SizedBox(height: 12),
-            
-            // Détails de la vaccination
             _buildVaccinationDetails(vaccination),
           ],
         ),
@@ -481,34 +512,41 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
       children: [
         _buildDetailRow('Date', vaccination.date, Icons.calendar_today),
         if (vaccination.lot.isNotEmpty)
-          _buildDetailRow('Lot', vaccination.lot, Icons.qr_code),
+          _buildDetailRow('Lot', vaccination.lot, Icons.qr_code)
+        else
+          _buildDetailRow('Lot', 'Non détecté (optionnel)', Icons.qr_code_2, isOptional: true),
         if (vaccination.ps.isNotEmpty)
-          _buildDetailRow('Professionnel', vaccination.ps, Icons.medical_services),
+          _buildDetailRow('Notes', vaccination.ps, Icons.medical_services),
       ],
     );
   }
 
-  Widget _buildDetailRow(String label, String value, IconData icon) {
+  Widget _buildDetailRow(String label, String value, IconData icon, {bool isOptional = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: AppColors.textMuted),
+          Icon(
+            icon, 
+            size: 16, 
+            color: isOptional ? AppColors.textMuted : AppColors.textSecondary,
+          ),
           const SizedBox(width: 8),
           Text(
             '$label: ',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: AppColors.textSecondary,
+              color: isOptional ? AppColors.textMuted : AppColors.textSecondary,
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: AppColors.primary,
+                color: isOptional ? AppColors.textMuted : AppColors.primary,
+                fontStyle: isOptional ? FontStyle.italic : FontStyle.normal,
               ),
             ),
           ),
@@ -597,6 +635,10 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
         }
       }
 
+      if (selectedVaccinations.isEmpty) {
+        throw Exception('Aucune vaccination sélectionnée');
+      }
+
       // Convertit en objets Vaccination
       final vaccinations = _visionService.convertToVaccinations(
         selectedVaccinations,
@@ -622,9 +664,14 @@ class _MultiVaccinationScanScreenState extends State<MultiVaccinationScanScreen>
           ),
         );
 
-        Navigator.pushReplacementNamed(context, '/vaccination-summary');
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/vaccination-summary',
+          (route) => false,
+        );
       }
     } catch (e) {
+      print('❌ Erreur sauvegarde: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

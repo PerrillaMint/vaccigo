@@ -1,4 +1,4 @@
-// lib/screens/onboarding/scan_preview_screen.dart - Écran de prévisualisation avec support multi-vaccination
+// lib/screens/onboarding/scan_preview_screen.dart - Version améliorée avec moins d'erreurs
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../../constants/app_colors.dart';
@@ -6,6 +6,7 @@ import '../../widgets/common_widgets.dart';
 import '../../services/enhanced_google_vision_service.dart';
 import '../../services/database_service.dart';
 import '../../models/enhanced_user.dart';
+import '../../models/scanned_vaccination_data.dart';
 
 class ScanPreviewScreen extends StatefulWidget {
   const ScanPreviewScreen({Key? key}) : super(key: key);
@@ -19,52 +20,105 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   final _databaseService = DatabaseService();
   
   String? _imagePath;
+  ScannedVaccinationData? _scannedData;
   bool _isAnalyzing = false;
   bool _hasMultipleVaccinations = false;
   int _detectedCount = 0;
+  String? _analysisError;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     
     final arguments = ModalRoute.of(context)?.settings.arguments;
+    
+    // Gère différents types d'arguments
     if (arguments is String) {
       _imagePath = arguments;
-      _analyzeImageForCount();
+      _analyzeImage();
+    } else if (arguments is ScannedVaccinationData) {
+      _scannedData = arguments;
+      _imagePath = 'data_provided'; // Placeholder
+      setState(() {
+        _isAnalyzing = false;
+        _detectedCount = 1;
+      });
     }
   }
 
-  // Analyse rapide pour déterminer s'il y a plusieurs vaccinations
-  Future<void> _analyzeImageForCount() async {
-    if (_imagePath == null) return;
+  Future<void> _analyzeImage() async {
+    if (_imagePath == null || _imagePath == 'data_provided') return;
     
-    setState(() => _isAnalyzing = true);
+    setState(() {
+      _isAnalyzing = true;
+      _analysisError = null;
+    });
     
     try {
+      print('🔍 Analyse de l\'image: $_imagePath');
+      
+      // Vérifie que le fichier existe
+      final file = File(_imagePath!);
+      if (!await file.exists()) {
+        throw Exception('Fichier image introuvable');
+      }
+      
+      // Vérifie la taille du fichier
+      final stat = await file.stat();
+      if (stat.size == 0) {
+        throw Exception('Fichier image vide');
+      }
+      if (stat.size > 50 * 1024 * 1024) {
+        throw Exception('Fichier image trop volumineux (max 50MB)');
+      }
+      
+      // Analyse avec le service amélioré
       final vaccinations = await _visionService.processVaccinationCard(_imagePath!);
       
       setState(() {
         _detectedCount = vaccinations.length;
         _hasMultipleVaccinations = vaccinations.length > 1;
         _isAnalyzing = false;
+        
+        // Crée un ScannedVaccinationData pour compatibilité
+        if (vaccinations.isNotEmpty) {
+          final first = vaccinations.first;
+          _scannedData = ScannedVaccinationData(
+            vaccineName: first.vaccineName,
+            lot: first.lot,
+            date: first.date,
+            ps: first.ps,
+            confidence: first.confidence,
+          );
+        }
       });
+      
     } catch (e) {
-      setState(() => _isAnalyzing = false);
-      print('Erreur analyse rapide: $e');
+      print('❌ Erreur analyse: $e');
+      setState(() {
+        _isAnalyzing = false;
+        _analysisError = e.toString();
+        _detectedCount = 0;
+        
+        // Crée un résultat de fallback au lieu d'une erreur
+        _scannedData = ScannedVaccinationData(
+          vaccineName: 'Vaccination',
+          lot: '',
+          date: _getCurrentDate(),
+          ps: 'Données à vérifier',
+          confidence: 0.3,
+        );
+      });
     }
+  }
+
+  String _getCurrentDate() {
+    final now = DateTime.now();
+    return '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_imagePath == null) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(
-          child: Text('Erreur: Aucune image fournie'),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: CustomAppBar(
@@ -83,24 +137,13 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // En-tête avec titre
             _buildHeader(),
-            
             const SizedBox(height: 24),
-            
-            // Prévisualisation de l'image
             _buildImagePreview(),
-            
             const SizedBox(height: 24),
-            
-            // Statut de l'analyse
             _buildAnalysisStatus(),
-            
             const SizedBox(height: 32),
-            
-            // Boutons d'action
             _buildActionButtons(),
-            
             const SizedBox(height: 24),
           ],
         ),
@@ -155,7 +198,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Assurez-vous que le texte est lisible',
+                  'L\'IA a analysé votre carnet',
                   style: TextStyle(
                     fontSize: 14,
                     color: AppColors.textSecondary,
@@ -170,11 +213,30 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   }
 
   Widget _buildImagePreview() {
+    if (_imagePath == null || _imagePath == 'data_provided') {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.textMuted.withOpacity(0.3)),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.image, size: 48, color: AppColors.textMuted),
+              SizedBox(height: 8),
+              Text('Image traitée', style: TextStyle(color: AppColors.textMuted)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(
-        maxHeight: 400,
-      ),
+      constraints: const BoxConstraints(maxHeight: 400),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -198,18 +260,9 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.error_outline,
-                      size: 48,
-                      color: AppColors.error,
-                    ),
+                    Icon(Icons.error_outline, size: 48, color: AppColors.error),
                     SizedBox(height: 8),
-                    Text(
-                      'Impossible d\'afficher l\'image',
-                      style: TextStyle(
-                        color: AppColors.error,
-                      ),
-                    ),
+                    Text('Erreur affichage image', style: TextStyle(color: AppColors.error)),
                   ],
                 ),
               ),
@@ -222,127 +275,37 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
   Widget _buildAnalysisStatus() {
     if (_isAnalyzing) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.info.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.info.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: const Row(
-          children: [
-            SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.info),
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Analyse en cours...',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'L\'IA analyse votre carnet pour détecter les vaccinations',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+      return _buildAnalyzingStatus();
+    }
+
+    if (_analysisError != null) {
+      return _buildErrorStatus();
     }
 
     if (_detectedCount > 0) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.success.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: AppColors.success.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.success.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.check_circle,
-                color: AppColors.success,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _hasMultipleVaccinations 
-                        ? '$_detectedCount vaccinations détectées'
-                        : '1 vaccination détectée',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.success,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _hasMultipleVaccinations
-                        ? 'Votre carnet contient plusieurs vaccinations'
-                        : 'Une vaccination a été trouvée dans l\'image',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
+      return _buildSuccessStatus();
     }
 
+    return _buildNoDataStatus();
+  }
+
+  Widget _buildAnalyzingStatus() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.warning.withOpacity(0.1),
+        color: AppColors.info.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.warning.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.info.withOpacity(0.3), width: 1),
       ),
       child: const Row(
         children: [
-          Icon(
-            Icons.warning_amber,
-            color: AppColors.warning,
-            size: 24,
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.info),
+            ),
           ),
           SizedBox(width: 16),
           Expanded(
@@ -350,19 +313,187 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Aucune vaccination détectée',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.warning,
-                  ),
+                  'Analyse en cours...',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary),
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'L\'image ne semble pas contenir de données de vaccination lisibles',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
+                  'L\'IA analyse votre carnet de vaccination',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSuccessStatus() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.success.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.success.withOpacity(0.3), width: 1),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.check_circle, color: AppColors.success, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _hasMultipleVaccinations 
+                          ? '$_detectedCount vaccinations détectées'
+                          : '1 vaccination détectée',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.success,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _hasMultipleVaccinations
+                          ? 'Votre carnet contient plusieurs vaccinations'
+                          : 'Une vaccination a été trouvée',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          // Affiche un aperçu de la vaccination détectée
+          if (_scannedData != null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.success.withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.vaccines, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _scannedData!.vaccineName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 14, color: AppColors.textMuted),
+                      const SizedBox(width: 8),
+                      Text(_scannedData!.date, style: const TextStyle(fontSize: 12)),
+                      if (_scannedData!.lot.isNotEmpty) ...[
+                        const SizedBox(width: 16),
+                        const Icon(Icons.qr_code, size: 14, color: AppColors.textMuted),
+                        const SizedBox(width: 8),
+                        Text(_scannedData!.lot, style: const TextStyle(fontSize: 12)),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorStatus() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.warning.withOpacity(0.3), width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber, color: AppColors.warning, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Analyse incomplète',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.warning),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'L\'image a été partiellement analysée',
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+                if (_analysisError != null && _analysisError!.length < 100) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _analysisError!,
+                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoDataStatus() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.info.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.info.withOpacity(0.3), width: 1),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.info_outline, color: AppColors.info, size: 24),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Aucune vaccination détectée',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.info),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Vous pouvez continuer avec une saisie manuelle',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -376,14 +507,22 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Bouton principal selon le résultat
         if (_detectedCount > 0) ...[
-          // Bouton principal selon le type de contenu détecté
           AppButton(
             text: _hasMultipleVaccinations 
                 ? 'Traiter les $_detectedCount vaccinations'
-                : 'Traiter la vaccination',
+                : 'Continuer avec cette vaccination',
             icon: _hasMultipleVaccinations ? Icons.list : Icons.vaccines,
             onPressed: _isAnalyzing ? null : _processVaccinations,
+            width: double.infinity,
+          ),
+          const SizedBox(height: 12),
+        ] else if (!_isAnalyzing) ...[
+          AppButton(
+            text: 'Continuer avec saisie manuelle',
+            icon: Icons.edit,
+            onPressed: () => Navigator.pushReplacementNamed(context, '/manual-entry'),
             width: double.infinity,
           ),
           const SizedBox(height: 12),
@@ -394,12 +533,10 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           children: [
             Expanded(
               child: AppButton(
-                text: 'Reprendre la photo',
+                text: 'Nouvelle photo',
                 icon: Icons.camera_alt,
                 style: AppButtonStyle.secondary,
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/camera-scan');
-                },
+                onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
               ),
             ),
             const SizedBox(width: 12),
@@ -408,17 +545,13 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 text: 'Saisie manuelle',
                 icon: Icons.edit,
                 style: AppButtonStyle.secondary,
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/manual-entry');
-                },
+                onPressed: () => Navigator.pushReplacementNamed(context, '/manual-entry'),
               ),
             ),
           ],
         ),
         
         const SizedBox(height: 16),
-        
-        // Information sur la qualité d'image
         _buildImageQualityTips(),
       ],
     );
@@ -430,46 +563,32 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       decoration: BoxDecoration(
         color: AppColors.secondary.withOpacity(0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.secondary.withOpacity(0.2),
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.secondary.withOpacity(0.2), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(
-                Icons.lightbulb_outline,
-                color: AppColors.secondary,
-                size: 20,
-              ),
+              Icon(Icons.lightbulb_outline, color: AppColors.secondary, size: 20),
               SizedBox(width: 8),
               Text(
-                'Conseils pour une meilleure reconnaissance',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primary,
-                ),
+                'Conseils pour une meilleure détection',
+                style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.primary),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          
           ...[
-            '📸 Assurez-vous que l\'éclairage est bon',
-            '📄 Tenez l\'appareil bien droit au-dessus du carnet',
-            '🔍 Vérifiez que le texte est net et lisible',
-            '📐 Cadrez bien toute la page de vaccination',
+            '📸 Éclairage uniforme et suffisant',
+            '📄 Appareil bien droit au-dessus du carnet',
+            '🔍 Texte net et lisible dans l\'image',
+            '📐 Toute la page de vaccination visible',
           ].map((tip) => Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               tip,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary,
-              ),
+              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
           )),
         ],
@@ -478,29 +597,39 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   }
 
   Future<void> _processVaccinations() async {
-    final user = await _databaseService.getCurrentUser();
-    if (user == null) {
-      _showErrorMessage('Erreur: Utilisateur non connecté');
-      return;
-    }
+    try {
+      final user = await _databaseService.getCurrentUser();
+      if (user == null) {
+        _showErrorMessage('Erreur: Utilisateur non connecté');
+        return;
+      }
 
-    if (_hasMultipleVaccinations) {
-      // Navigue vers l'écran de gestion multiple
-      Navigator.pushNamed(
-        context,
-        '/multi-vaccination-scan',
-        arguments: {
-          'imagePath': _imagePath!,
-          'userId': user.key.toString(),
-        },
-      );
-    } else {
-      // Traite une seule vaccination (ancien comportement)
-      Navigator.pushNamed(
-        context,
-        '/vaccination-info',
-        arguments: _imagePath!,
-      );
+      if (_hasMultipleVaccinations && _imagePath != null && _imagePath != 'data_provided') {
+        // Multi-vaccination
+        Navigator.pushNamed(
+          context,
+          '/multi-vaccination-scan',
+          arguments: {
+            'imagePath': _imagePath!,
+            'userId': user.key.toString(),
+          },
+        );
+      } else {
+        // Vaccination simple
+        Navigator.pushNamed(
+          context,
+          '/vaccination-info',
+          arguments: _scannedData ?? ScannedVaccinationData(
+            vaccineName: 'Vaccination',
+            lot: '',
+            date: _getCurrentDate(),
+            ps: 'Données à compléter',
+            confidence: 0.5,
+          ),
+        );
+      }
+    } catch (e) {
+      _showErrorMessage('Erreur: $e');
     }
   }
 
@@ -509,17 +638,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.help_outline, color: AppColors.primary),
               SizedBox(width: 8),
-              Text(
-                'Aide',
-                style: TextStyle(color: AppColors.primary),
-              ),
+              Text('Aide', style: TextStyle(color: AppColors.primary)),
             ],
           ),
           content: const SingleChildScrollView(
@@ -528,25 +652,19 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Comment obtenir de meilleurs résultats :',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
+                  'Comment améliorer la détection :',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
                 SizedBox(height: 12),
                 Text('• Prenez la photo en pleine lumière'),
-                Text('• Évitez les ombres sur le carnet'),
+                Text('• Évitez les ombres et les reflets'),
                 Text('• Tenez l\'appareil bien droit'),
                 Text('• Assurez-vous que le texte est net'),
-                Text('• Cadrez toute la page de vaccination'),
+                Text('• Cadrez toute la page'),
                 SizedBox(height: 12),
                 Text(
                   'L\'IA peut détecter plusieurs vaccinations sur une même page.',
-                  style: TextStyle(
-                    fontStyle: FontStyle.italic,
-                    color: AppColors.textSecondary,
-                  ),
+                  style: TextStyle(fontStyle: FontStyle.italic, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -568,12 +686,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.error, color: Colors.white),
+              const Icon(Icons.info, color: Colors.white),
               const SizedBox(width: 8),
               Expanded(child: Text(message)),
             ],
           ),
-          backgroundColor: AppColors.error,
+          backgroundColor: AppColors.warning,
         ),
       );
     }

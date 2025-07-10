@@ -1,4 +1,4 @@
-// lib/services/database_service.dart - Fixed Hive type conflicts
+// lib/services/database_service.dart - Service base de données corrigé et sécurisé
 import 'package:hive/hive.dart';
 import 'dart:async';
 import 'dart:io';
@@ -7,41 +7,78 @@ import '../models/vaccination.dart';
 import '../models/vaccine_category.dart';
 
 class DatabaseService {
-  // === NOMS DES BOÎTES HIVE AVEC VERSIONING ===
-  static const String _userBoxName = 'enhanced_users_v1'; // CHANGED: Use enhanced_users
-  static const String _vaccinationBoxName = 'vaccinations_v2';
-  static const String _categoryBoxName = 'vaccine_categories_v2';
-  static const String _sessionBoxName = 'session_v2';
-  static const String _auditBoxName = 'audit_logs';
+  // === NOMS DES BOÎTES AVEC VERSIONING ===
+  static const String _userBoxName = 'enhanced_users_v2'; // UPDATED version
+  static const String _vaccinationBoxName = 'vaccinations_v3'; // UPDATED version
+  static const String _categoryBoxName = 'vaccine_categories_v3';
+  static const String _sessionBoxName = 'session_v3';
+  static const String _auditBoxName = 'audit_logs_v1';
 
-  // === GESTION DU CACHE ET PERFORMANCE ===
+  // === CACHE ET PERFORMANCE ===
+  static final Map<String, Box> _openBoxes = {};
   static final Map<String, Completer<Box>> _boxCache = {};
-  static final Map<String, DateTime> _lastAccess = {};
-  
-  // === LIMITATION DU TAUX D'OPÉRATIONS ===
-  static final Map<String, List<DateTime>> _operationTimestamps = {};
-  static const int _maxOperationsPerMinute = 100;
+  static bool _isInitialized = false;
 
-  // Vérifie si une opération respecte les limites de taux
-  bool _checkRateLimit(String operation) {
-    final now = DateTime.now();
-    _operationTimestamps.putIfAbsent(operation, () => []);
+  // === INITIALISATION SÉCURISÉE ===
+  Future<void> initializeDatabase() async {
+    if (_isInitialized) return;
     
-    _operationTimestamps[operation]!.removeWhere(
-      (timestamp) => now.difference(timestamp).inMinutes >= 1
-    );
-    
-    if (_operationTimestamps[operation]!.length >= _maxOperationsPerMinute) {
-      print('Limite de taux dépassée pour l\'opération: $operation');
-      return false;
+    try {
+      print('🔧 Initialisation de la base de données...');
+      
+      // Nettoie les anciennes boîtes corrompues
+      await _cleanupCorruptedBoxes();
+      
+      // Initialise les nouvelles boîtes
+      await _initializeBoxes();
+      
+      _isInitialized = true;
+      print('✅ Base de données initialisée avec succès');
+    } catch (e) {
+      print('❌ Erreur initialisation base de données: $e');
+      rethrow;
     }
-    
-    _operationTimestamps[operation]!.add(now);
-    return true;
   }
 
-  // === GESTION SÉCURISÉE DES BOÎTES HIVE AVEC MIGRATION ===
+  Future<void> _cleanupCorruptedBoxes() async {
+    final corruptedBoxes = [
+      'enhanced_users_v1',
+      'vaccinations_v2', 
+      'vaccine_categories_v2',
+      'session_v2',
+    ];
+    
+    for (final boxName in corruptedBoxes) {
+      try {
+        if (Hive.isBoxOpen(boxName)) {
+          await Hive.box(boxName).close();
+        }
+        if (await Hive.boxExists(boxName)) {
+          await Hive.deleteBoxFromDisk(boxName);
+          print('🧹 Boîte corrompue supprimée: $boxName');
+        }
+      } catch (e) {
+        print('⚠️ Erreur nettoyage $boxName: $e');
+      }
+    }
+  }
+
+  Future<void> _initializeBoxes() async {
+    // Pré-ouvre les boîtes principales
+    await _getBox<EnhancedUser>(_userBoxName);
+    await _getBox<Vaccination>(_vaccinationBoxName);
+    await _getBox<VaccineCategory>(_categoryBoxName);
+    await _getBox(_sessionBoxName);
+  }
+
+  // === GESTION SÉCURISÉE DES BOÎTES ===
   Future<Box<T>> _getBox<T>(String boxName) async {
+    // Vérifie le cache
+    if (_openBoxes.containsKey(boxName)) {
+      return _openBoxes[boxName]! as Box<T>;
+    }
+
+    // Vérifie les opérations en cours
     if (_boxCache.containsKey(boxName)) {
       return await _boxCache[boxName]!.future as Box<T>;
     }
@@ -50,343 +87,241 @@ class DatabaseService {
     _boxCache[boxName] = completer;
 
     try {
-      // FIXED: Handle type conflicts by closing and reopening with correct type
+      // Ferme la boîte si elle est ouverte avec un mauvais type
       if (Hive.isBoxOpen(boxName)) {
-        final existingBox = Hive.box(boxName);
-        await existingBox.close();
-        print('Fermeture de la boîte existante: $boxName');
+        try {
+          await Hive.box(boxName).close();
+        } catch (e) {
+          print('⚠️ Erreur fermeture boîte existante $boxName: $e');
+        }
       }
 
+      // Ouvre avec le bon type
       final box = await Hive.openBox<T>(boxName);
-      _lastAccess[boxName] = DateTime.now();
+      _openBoxes[boxName] = box;
+      
       completer.complete(box);
-      print('Boîte ouverte avec succès: $boxName (Type: $T)');
       return box;
     } catch (e) {
-      print('Échec de l\'ouverture de la boîte $boxName: $e');
+      print('❌ Erreur ouverture $boxName: $e');
       
-      // Try to delete corrupted box and recreate
+      // Tente de supprimer et recréer la boîte corrompue
       try {
-        if (Hive.isBoxOpen(boxName)) {
-          await Hive.box(boxName).close();
-        }
         await Hive.deleteBoxFromDisk(boxName);
-        print('Boîte corrompue supprimée: $boxName');
-        
         final box = await Hive.openBox<T>(boxName);
-        _lastAccess[boxName] = DateTime.now();
+        _openBoxes[boxName] = box;
         completer.complete(box);
-        print('Boîte recréée avec succès: $boxName');
+        print('✅ Boîte recréée: $boxName');
         return box;
       } catch (recreateError) {
-        print('Impossible de recréer la boîte: $recreateError');
-        _boxCache.remove(boxName);
         completer.completeError(recreateError);
+        _boxCache.remove(boxName);
         rethrow;
       }
+    } finally {
+      _boxCache.remove(boxName);
     }
   }
 
-  // === SYSTÈME D'AUDIT ===
-  Future<void> _logAuditEvent({
-    required String action,
-    required String entity,
-    String? entityId,
-    String? userId,
-    Map<String, dynamic>? metadata,
-  }) async {
-    try {
-      final auditBox = await _getBox<Map>(_auditBoxName);
-      await auditBox.add({
-        'timestamp': DateTime.now().toIso8601String(),
-        'action': action,
-        'entity': entity,
-        'entityId': entityId,
-        'userId': userId,
-        'metadata': metadata,
-        'platform': Platform.operatingSystem,
-      });
-    } catch (e) {
-      print('Échec de l\'enregistrement de l\'événement d\'audit: $e');
-    }
-  }
-
-  // ==== OPÉRATIONS UTILISATEUR ====
+  // === OPÉRATIONS UTILISATEUR AMÉLIORÉES ===
   
-  // Sauvegarde un nouvel utilisateur avec validation complète
   Future<void> saveUser(EnhancedUser user) async {
-    if (!_checkRateLimit('saveUser')) {
-      throw DatabaseException('Limite de taux dépassée pour la création d\'utilisateur');
-    }
-
     try {
-      print('=== SAUVEGARDE UTILISATEUR ===');
-      print('Utilisateur: ${user.name} (${user.email})');
-      print('A un sel: ${user.salt != null && user.salt!.isNotEmpty}');
-      print('Données valides: ${user.isDataValid}');
+      await initializeDatabase();
+      
+      print('💾 Sauvegarde utilisateur: ${user.email}');
+      
+      // Validation des données
+      if (user.email.trim().isEmpty) {
+        throw DatabaseException('Email requis');
+      }
+      if (user.name.trim().isEmpty) {
+        throw DatabaseException('Nom requis');
+      }
+      if (user.passwordHash.isEmpty) {
+        throw DatabaseException('Mot de passe requis');
+      }
 
       final box = await _getBox<EnhancedUser>(_userBoxName);
       
-      // Vérifie que l'utilisateur n'existe pas déjà
-      final existingUser = await _getUserByEmailInternal(user.email);
+      // Vérifie l'unicité de l'email
+      final existingUser = await _findUserByEmail(user.email);
       if (existingUser != null) {
-        throw DatabaseException('Un compte existe déjà avec cette adresse email');
+        throw DatabaseException('Un compte existe déjà avec cet email');
       }
       
-      // Valide les données avant sauvegarde
-      if (!user.isDataValid) {
-        throw DatabaseException('Données utilisateur invalides - sel ou hash manquant');
-      }
-      
-      // Sauvegarde dans la base de données
+      // Sauvegarde
       final key = await box.add(user);
-      print('Utilisateur sauvegardé avec la clé: $key');
-      
-      // Vérifie que la sauvegarde a réussi
-      final savedUser = box.get(key);
-      if (savedUser == null) {
-        throw DatabaseException('Erreur lors de la sauvegarde de l\'utilisateur');
-      }
-      
-      print('Utilisateur sauvegardé avec succès, données valides');
+      print('✅ Utilisateur sauvegardé avec la clé: $key');
       
       await _logAuditEvent(
-        action: 'CREATE',
+        action: 'CREATE_USER',
         entity: 'User',
         entityId: key.toString(),
         metadata: {'email': user.email, 'name': user.name},
       );
       
-      print('===============================');
     } catch (e) {
-      print('Erreur lors de la sauvegarde de l\'utilisateur: $e');
+      print('❌ Erreur sauvegarde utilisateur: $e');
       if (e is DatabaseException) rethrow;
-      throw DatabaseException('Erreur lors de la création de l\'utilisateur: $e');
+      throw DatabaseException('Erreur création utilisateur: $e');
     }
   }
 
-  // Récupère tous les utilisateurs actifs
-  Future<List<EnhancedUser>> getAllUsers() async {
-    if (!_checkRateLimit('getAllUsers')) {
-      throw DatabaseException('Limite de taux dépassée');
-    }
-
+  Future<EnhancedUser?> _findUserByEmail(String email) async {
     try {
       final box = await _getBox<EnhancedUser>(_userBoxName);
-      final users = box.values.where((user) => user.isActive).toList();
+      final lowerEmail = email.trim().toLowerCase();
       
-      print('=== CHARGEMENT TOUS UTILISATEURS ===');
-      print('Total utilisateurs actifs: ${users.length}');
-      for (int i = 0; i < users.length; i++) {
-        final user = users[i];
-        print('Utilisateur ${i + 1}: ${user.name} (${user.email})');
-        print('  Clé: ${user.key}');
-        print('  Dans boîte: ${user.isInBox}');
-        print('  A un sel: ${user.salt != null && user.salt!.isNotEmpty}');
-        print('  Données valides: ${user.isDataValid}');
+      for (final user in box.values) {
+        if (user.email.toLowerCase() == lowerEmail && user.isActive) {
+          return user;
+        }
       }
-      print('===================================');
+      return null;
+    } catch (e) {
+      print('❌ Erreur recherche email: $e');
+      return null;
+    }
+  }
+
+  Future<List<EnhancedUser>> getAllUsers() async {
+    try {
+      await initializeDatabase();
+      final box = await _getBox<EnhancedUser>(_userBoxName);
       
-      await _logAuditEvent(
-        action: 'READ_ALL',
-        entity: 'User',
-        metadata: {'count': users.length},
-      );
+      final users = box.values.where((user) => user.isActive).toList();
+      print('📋 ${users.length} utilisateur(s) actif(s) trouvé(s)');
       
       return users;
     } catch (e) {
-      print('Erreur lors de la récupération des utilisateurs: $e');
-      throw DatabaseException('Erreur lors de la récupération des utilisateurs: $e');
+      print('❌ Erreur récupération utilisateurs: $e');
+      throw DatabaseException('Erreur récupération utilisateurs: $e');
     }
   }
 
-  // Récupère un utilisateur par son ID
   Future<EnhancedUser?> getUserById(String userId) async {
     try {
+      await initializeDatabase();
       final box = await _getBox<EnhancedUser>(_userBoxName);
       
       final key = int.tryParse(userId);
-      if (key == null) {
-        print('Format d\'ID utilisateur invalide: $userId');
-        return null;
-      }
+      if (key == null) return null;
       
       final user = box.get(key);
+      return (user?.isActive == true) ? user : null;
+    } catch (e) {
+      print('❌ Erreur getUserById: $e');
+      return null;
+    }
+  }
+
+  Future<EnhancedUser?> getUserByEmail(String email) async {
+    try {
+      await initializeDatabase();
       
-      if (user != null && !user.isActive) {
-        print('Utilisateur trouvé mais inactif: ${user.email}');
-        return null;
+      if (email.trim().isEmpty) {
+        throw DatabaseException('Email vide');
       }
       
+      final user = await _findUserByEmail(email);
+      
       if (user != null) {
-        print('Utilisateur trouvé par ID: ${user.name} (${user.email})');
+        await _logAuditEvent(
+          action: 'READ_USER',
+          entity: 'User',
+          entityId: user.key?.toString() ?? 'unknown',
+        );
       }
       
       return user;
     } catch (e) {
-      print('Erreur lors de la récupération par ID: $e');
-      return null;
+      print('❌ Erreur getUserByEmail: $e');
+      if (e is DatabaseException) rethrow;
+      throw DatabaseException('Erreur recherche utilisateur: $e');
     }
   }
 
-  // Méthode interne pour chercher un utilisateur par email
-  Future<EnhancedUser?> _getUserByEmailInternal(String email) async {
-    try {
-      final box = await _getBox<EnhancedUser>(_userBoxName);
-      final sanitizedEmail = email.trim().toLowerCase();
-      
-      print('Recherche utilisateur avec email: $sanitizedEmail');
-      print('Total utilisateurs dans la boîte: ${box.length}');
-      
-      for (final user in box.values) {
-        if (user.email.toLowerCase() == sanitizedEmail && user.isActive) {
-          print('Utilisateur correspondant trouvé: ${user.name}');
-          print('  Clé: ${user.key}');
-          print('  Dans boîte: ${user.isInBox}');
-          print('  A un sel: ${user.salt != null && user.salt!.isNotEmpty}');
-          print('  Données valides: ${user.isDataValid}');
-          return user;
-        }
-      }
-      
-      print('Aucun utilisateur trouvé pour l\'email: $sanitizedEmail');
-      return null;
-    } catch (e) {
-      print('Erreur lors de la recherche par email: $e');
-      return null;
-    }
-  }
-
-  // Version publique de la recherche par email
-  Future<EnhancedUser?> getUserByEmail(String email) async {
-    if (!_checkRateLimit('getUserByEmail')) {
-      throw DatabaseException('Limite de taux dépassée');
-    }
-
-    if (email.trim().isEmpty) {
-      throw DatabaseException('L\'email ne peut pas être vide');
-    }
-
-    final user = await _getUserByEmailInternal(email);
-    
-    if (user != null) {
-      await _logAuditEvent(
-        action: 'READ',
-        entity: 'User',
-        entityId: user.key?.toString() ?? 'unknown',
-        metadata: {'searchEmail': email},
-      );
-    }
-    
-    return user;
-  }
-
-  // Vérifie si un email existe déjà
   Future<bool> emailExists(String email) async {
-    if (!_checkRateLimit('emailExists')) {
-      return false;
-    }
-
     try {
-      final user = await _getUserByEmailInternal(email);
+      final user = await _findUserByEmail(email);
       return user != null;
     } catch (e) {
-      print('Erreur lors de la vérification d\'existence d\'email: $e');
+      print('❌ Erreur emailExists: $e');
       return false;
     }
   }
 
-  // === AUTHENTIFICATION SÉCURISÉE ===
+  // === AUTHENTIFICATION ROBUSTE ===
   Future<EnhancedUser?> authenticateUser(String email, String password) async {
-    if (!_checkRateLimit('authenticateUser')) {
-      throw DatabaseException('Trop de tentatives de connexion. Réessayez plus tard.');
-    }
-
     try {
+      await initializeDatabase();
+      
       if (email.trim().isEmpty || password.isEmpty) {
         await Future.delayed(const Duration(milliseconds: 500));
-        print('Authentification échouée: email ou mot de passe vide');
         return null;
       }
 
-      print('=== DEBUG AUTHENTIFICATION ===');
-      print('Tentative d\'authentification: $email');
+      print('🔐 Tentative authentification: $email');
       
-      final user = await _getUserByEmailInternal(email);
+      final user = await _findUserByEmail(email);
       if (user == null) {
         await Future.delayed(const Duration(milliseconds: 500));
-        print('Authentification échouée: utilisateur non trouvé pour: $email');
+        print('❌ Utilisateur non trouvé');
         return null;
       }
       
-      print('Utilisateur trouvé: ${user.name}');
-      print('Clé utilisateur: ${user.key}');
-      print('Utilisateur dans boîte: ${user.isInBox}');
-      print('Sel utilisateur: ${user.salt}');
-      print('Longueur hash mot de passe: ${user.passwordHash.length}');
-
+      print('👤 Utilisateur trouvé: ${user.name}');
+      
+      // Vérifie les données utilisateur
       if (!user.isDataValid) {
-        print('Données utilisateur invalides - impossible d\'authentifier');
-        print('  Sel manquant: ${user.salt == null || (user.salt != null && user.salt!.isEmpty)}');
-        print('  Hash manquant: ${user.passwordHash.isEmpty}');
-        print('  Nom manquant: ${user.name.isEmpty}');
-        print('  Email manquant: ${user.email.isEmpty}');
-        print('==============================');
-        
+        print('❌ Données utilisateur invalides');
         await _logAuditEvent(
           action: 'FAILED_LOGIN',
           entity: 'User',
           entityId: user.key?.toString() ?? 'unknown',
-          metadata: {'email': email, 'reason': 'invalid_user_data'},
+          metadata: {'reason': 'invalid_data', 'email': email},
         );
-        
         return null;
       }
 
+      // Vérifie le mot de passe
       bool passwordValid = false;
       try {
         passwordValid = user.verifyPassword(password);
       } catch (e) {
-        print('La vérification du mot de passe a levé une erreur: $e');
-        print('Stack trace: ${StackTrace.current}');
-        print('==============================');
-        
+        print('❌ Erreur vérification mot de passe: $e');
         await _logAuditEvent(
           action: 'FAILED_LOGIN',
           entity: 'User',
           entityId: user.key?.toString() ?? 'unknown',
-          metadata: {'email': email, 'reason': 'verification_error', 'error': e.toString()},
+          metadata: {'reason': 'verification_error', 'email': email, 'error': e.toString()},
         );
-        
         return null;
       }
 
       if (!passwordValid) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        print('❌ Mot de passe invalide');
         await _logAuditEvent(
           action: 'FAILED_LOGIN',
           entity: 'User',
           entityId: user.key?.toString() ?? 'unknown',
-          metadata: {'email': email, 'reason': 'invalid_password'},
+          metadata: {'reason': 'invalid_password', 'email': email},
         );
-        await Future.delayed(const Duration(milliseconds: 500));
-        print('Authentification échouée: mot de passe invalide pour: $email');
-        print('==============================');
         return null;
       }
 
-      print('Authentification réussie pour: $email');
+      print('✅ Authentification réussie');
 
+      // Met à jour la dernière connexion
       try {
-        if (user.isInBox && user.key != null) {
-          user.lastLogin = DateTime.now();
+        user.lastLogin = DateTime.now();
+        if (user.isInBox) {
           await user.save();
-          print('Heure de dernière connexion mise à jour pour: ${user.email}');
-        } else {
-          print('Attention: utilisateur pas correctement persisté dans la boîte');
-          user.lastLogin = DateTime.now();
         }
-      } catch (saveError) {
-        print('Attention: impossible de sauvegarder l\'heure de connexion: $saveError');
+      } catch (e) {
+        print('⚠️ Impossible de sauvegarder la dernière connexion: $e');
       }
       
       await _logAuditEvent(
@@ -396,133 +331,87 @@ class DatabaseService {
         metadata: {'email': email},
       );
 
-      print('==============================');
       return user;
       
     } catch (e) {
-      print('Erreur d\'authentification: $e');
-      print('Stack trace: ${StackTrace.current}');
-      
-      await _logAuditEvent(
-        action: 'LOGIN_ERROR',
-        entity: 'System',
-        metadata: {'email': email, 'error': e.toString()},
-      );
-      
-      throw DatabaseException('Erreur d\'authentification: Une erreur interne s\'est produite');
+      print('❌ Erreur authentification: $e');
+      throw DatabaseException('Erreur authentification: $e');
     }
   }
 
   // === GESTION DES SESSIONS ===
   
-  Future<EnhancedUser?> getCurrentUser() async {
-    try {
-      final sessionBox = await _getBox(_sessionBoxName);
-      final currentUserKey = sessionBox.get('currentUserKey');
-      
-      if (currentUserKey != null) {
-        print('Récupération utilisateur actuel avec clé: $currentUserKey');
-        
-        if (await isSessionValid()) {
-          final user = await getUserById(currentUserKey.toString());
-          if (user != null) {
-            print('Utilisateur actuel trouvé: ${user.email}');
-            return user;
-          } else {
-            print('Aucun utilisateur trouvé pour la clé: $currentUserKey');
-            await clearCurrentUser();
-          }
-        } else {
-          print('Session expirée, nettoyage...');
-          await clearCurrentUser();
-        }
-      }
-      
-      print('Aucune session utilisateur actuelle trouvée');
-      return null;
-    } catch (e) {
-      print('Erreur lors de la récupération de l\'utilisateur actuel: $e');
-      return null;
-    }
-  }
-
   Future<void> setCurrentUser(EnhancedUser user) async {
     try {
+      await initializeDatabase();
       final sessionBox = await _getBox(_sessionBoxName);
-      
-      print('=== DEBUG CRÉATION SESSION ===');
-      print('Définition utilisateur actuel: ${user.email}');
       
       String? userKey;
       
       if (user.isInBox && user.key != null) {
         userKey = user.key.toString();
-        print('Utilisation clé utilisateur existante: $userKey');
       } else {
-        print('Utilisateur pas dans boîte, recherche par email: ${user.email}');
-        final foundUser = await _getUserByEmailInternal(user.email);
-        if (foundUser != null && foundUser.isInBox && foundUser.key != null) {
-          userKey = foundUser.key.toString();
-          print('Utilisateur trouvé avec clé: $userKey');
-          user = foundUser;
-        } else {
-          print('Tentative de sauvegarde d\'utilisateur d\'abord...');
-          final box = await _getBox<EnhancedUser>(_userBoxName);
-          final newKey = await box.add(user);
-          userKey = newKey.toString();
-          print('Utilisateur sauvegardé avec nouvelle clé: $userKey');
+        // Trouve l'utilisateur dans la base
+        final foundUser = await _findUserByEmail(user.email);
+        if (foundUser?.key != null) {
+          userKey = foundUser!.key.toString();
         }
       }
       
       if (userKey == null) {
-        throw DatabaseException('Impossible de créer une session: utilisateur invalide');
+        throw DatabaseException('Impossible de créer la session');
       }
       
       await sessionBox.put('currentUserKey', userKey);
       await sessionBox.put('sessionStart', DateTime.now().toIso8601String());
       
-      print('Session créée pour clé utilisateur: $userKey');
-      print('===============================');
+      print('✅ Session créée pour utilisateur: $userKey');
       
-      await _logAuditEvent(
-        action: 'SESSION_START',
-        entity: 'User',
-        entityId: userKey,
-        userId: userKey,
-      );
     } catch (e) {
-      print('Erreur de création de session: $e');
-      throw DatabaseException('Erreur lors de la création de session: $e');
+      print('❌ Erreur création session: $e');
+      throw DatabaseException('Erreur création session: $e');
+    }
+  }
+
+  Future<EnhancedUser?> getCurrentUser() async {
+    try {
+      await initializeDatabase();
+      final sessionBox = await _getBox(_sessionBoxName);
+      
+      final currentUserKey = sessionBox.get('currentUserKey');
+      if (currentUserKey == null) return null;
+      
+      if (await _isSessionValid()) {
+        return await getUserById(currentUserKey.toString());
+      } else {
+        await clearCurrentUser();
+        return null;
+      }
+      
+    } catch (e) {
+      print('❌ Erreur getCurrentUser: $e');
+      return null;
     }
   }
 
   Future<void> clearCurrentUser() async {
     try {
+      await initializeDatabase();
       final sessionBox = await _getBox(_sessionBoxName);
-      final currentUserKey = sessionBox.get('currentUserKey');
       
       await sessionBox.delete('currentUserKey');
       await sessionBox.delete('sessionStart');
       
-      if (currentUserKey != null) {
-        await _logAuditEvent(
-          action: 'SESSION_END',
-          entity: 'User',
-          entityId: currentUserKey.toString(),
-          userId: currentUserKey.toString(),
-        );
-      }
-      
-      print('Session effacée');
+      print('🧹 Session effacée');
     } catch (e) {
-      print('Erreur de nettoyage de session: $e');
+      print('❌ Erreur clearCurrentUser: $e');
     }
   }
 
-  Future<bool> isSessionValid() async {
+  Future<bool> _isSessionValid() async {
     try {
       final sessionBox = await _getBox(_sessionBoxName);
-      final sessionStartStr = sessionBox.get('sessionStart') as String?;
+      final sessionStartStr = sessionBox.get('sessionStart');
       
       if (sessionStartStr == null) return false;
       
@@ -531,21 +420,22 @@ class DatabaseService {
       
       return now.difference(sessionStart).inHours < 24;
     } catch (e) {
-      print('Erreur lors de la vérification de validité de session: $e');
       return false;
     }
   }
 
-  // === OPÉRATIONS DE VACCINATION ===
+  Future<bool> isSessionValid() async {
+    return await _isSessionValid();
+  }
+
+  // === OPÉRATIONS VACCINATION ===
   
   Future<void> saveVaccination(Vaccination vaccination) async {
-    if (!_checkRateLimit('saveVaccination')) {
-      throw DatabaseException('Limite de taux dépassée');
-    }
-
     try {
+      await initializeDatabase();
+      
       if (vaccination.vaccineName.trim().isEmpty) {
-        throw DatabaseException('Le nom du vaccin est requis');
+        throw DatabaseException('Nom du vaccin requis');
       }
       if (vaccination.userId.trim().isEmpty) {
         throw DatabaseException('Utilisateur invalide');
@@ -554,80 +444,48 @@ class DatabaseService {
       final box = await _getBox<Vaccination>(_vaccinationBoxName);
       final key = await box.add(vaccination);
       
-      print('Vaccination sauvegardée: ${vaccination.vaccineName} pour utilisateur ${vaccination.userId}');
+      print('✅ Vaccination sauvegardée: ${vaccination.vaccineName}');
       
       await _logAuditEvent(
-        action: 'CREATE',
+        action: 'CREATE_VACCINATION',
         entity: 'Vaccination',
         entityId: key.toString(),
         userId: vaccination.userId,
-        metadata: {
-          'vaccineName': vaccination.vaccineName,
-          'date': vaccination.date,
-        },
       );
+      
     } catch (e) {
-      print('Erreur lors de la sauvegarde de vaccination: $e');
+      print('❌ Erreur saveVaccination: $e');
       if (e is DatabaseException) rethrow;
-      throw DatabaseException('Erreur lors de la sauvegarde de la vaccination: $e');
+      throw DatabaseException('Erreur sauvegarde vaccination: $e');
     }
   }
 
-  // NOUVEAU: Sauvegarde multiple de vaccinations (pour les carnets scannés)
   Future<void> saveMultipleVaccinations(List<Vaccination> vaccinations) async {
-    if (!_checkRateLimit('saveMultipleVaccinations')) {
-      throw DatabaseException('Limite de taux dépassée');
-    }
-
     try {
+      await initializeDatabase();
       final box = await _getBox<Vaccination>(_vaccinationBoxName);
       
+      int saved = 0;
       for (final vaccination in vaccinations) {
         if (vaccination.vaccineName.trim().isNotEmpty && 
             vaccination.userId.trim().isNotEmpty) {
-          final key = await box.add(vaccination);
-          print('Vaccination sauvegardée: ${vaccination.vaccineName} - ${vaccination.date}');
-          
-          await _logAuditEvent(
-            action: 'CREATE_BATCH',
-            entity: 'Vaccination',
-            entityId: key.toString(),
-            userId: vaccination.userId,
-            metadata: {
-              'vaccineName': vaccination.vaccineName,
-              'date': vaccination.date,
-              'batchSize': vaccinations.length,
-            },
-          );
+          await box.add(vaccination);
+          saved++;
         }
       }
       
-      print('${vaccinations.length} vaccinations sauvegardées en lot');
+      print('✅ $saved/$vaccinations.length vaccinations sauvegardées');
+      
     } catch (e) {
-      print('Erreur lors de la sauvegarde multiple: $e');
-      throw DatabaseException('Erreur lors de la sauvegarde multiple: $e');
-    }
-  }
-
-  Future<List<Vaccination>> getAllVaccinations() async {
-    if (!_checkRateLimit('getAllVaccinations')) {
-      throw DatabaseException('Limite de taux dépassée');
-    }
-
-    try {
-      final box = await _getBox<Vaccination>(_vaccinationBoxName);
-      return box.values.toList();
-    } catch (e) {
-      throw DatabaseException('Erreur lors de la récupération des vaccinations: $e');
+      print('❌ Erreur saveMultipleVaccinations: $e');
+      throw DatabaseException('Erreur sauvegarde multiple: $e');
     }
   }
 
   Future<List<Vaccination>> getVaccinationsByUser(String userId) async {
-    if (!_checkRateLimit('getVaccinationsByUser')) {
-      throw DatabaseException('Limite de taux dépassée');
-    }
-
     try {
+      await initializeDatabase();
+      
       if (userId.trim().isEmpty) {
         throw DatabaseException('ID utilisateur invalide');
       }
@@ -637,6 +495,7 @@ class DatabaseService {
           .where((v) => v.userId == userId)
           .toList();
       
+      // Trie par date (plus récent en premier)
       vaccinations.sort((a, b) {
         try {
           final dateA = _parseDate(a.date);
@@ -647,11 +506,13 @@ class DatabaseService {
         }
       });
       
-      print('${vaccinations.length} vaccinations trouvées pour utilisateur $userId');
+      print('📋 ${vaccinations.length} vaccination(s) pour utilisateur $userId');
       return vaccinations;
+      
     } catch (e) {
+      print('❌ Erreur getVaccinationsByUser: $e');
       if (e is DatabaseException) rethrow;
-      throw DatabaseException('Erreur lors de la récupération des vaccinations: $e');
+      throw DatabaseException('Erreur récupération vaccinations: $e');
     }
   }
 
@@ -666,69 +527,47 @@ class DatabaseService {
         );
       }
     } catch (e) {
-      // Ignore parsing errors
+      // Ignore
     }
     return DateTime.now();
   }
 
   Future<void> deleteVaccination(String vaccinationId) async {
-    if (!_checkRateLimit('deleteVaccination')) {
-      throw DatabaseException('Limite de taux dépassée');
-    }
-
     try {
+      await initializeDatabase();
       final box = await _getBox<Vaccination>(_vaccinationBoxName);
       
       final key = int.tryParse(vaccinationId);
       if (key == null) {
-        throw DatabaseException('ID de vaccination invalide');
+        throw DatabaseException('ID vaccination invalide');
       }
       
       final vaccination = box.get(key);
-      
       if (vaccination == null) {
         throw DatabaseException('Vaccination introuvable');
       }
       
       await box.delete(key);
+      print('✅ Vaccination supprimée: ${vaccination.vaccineName}');
       
-      print('Vaccination supprimée: ${vaccination.vaccineName}');
-      
-      await _logAuditEvent(
-        action: 'DELETE',
-        entity: 'Vaccination',
-        entityId: vaccinationId,
-        userId: vaccination.userId,
-        metadata: {
-          'vaccineName': vaccination.vaccineName,
-          'date': vaccination.date,
-        },
-      );
     } catch (e) {
+      print('❌ Erreur deleteVaccination: $e');
       if (e is DatabaseException) rethrow;
-      throw DatabaseException('Erreur lors de la suppression: $e');
+      throw DatabaseException('Erreur suppression: $e');
     }
   }
 
-  // === OPÉRATIONS DE CATÉGORIES DE VACCINS ===
+  // === CATÉGORIES DE VACCINS ===
   
-  Future<List<VaccineCategory>> getAllVaccineCategories() async {
-    try {
-      final box = await _getBox<VaccineCategory>(_categoryBoxName);
-      return box.values.toList();
-    } catch (e) {
-      throw DatabaseException('Erreur lors de la récupération des catégories: $e');
-    }
-  }
-
   Future<void> initializeDefaultCategories() async {
     try {
+      await initializeDatabase();
       final box = await _getBox<VaccineCategory>(_categoryBoxName);
       
       if (box.isEmpty) {
-        print('Initialisation des catégories de vaccins par défaut...');
+        print('📋 Initialisation catégories par défaut...');
         
-        final defaultCategories = [
+        final categories = [
           VaccineCategory(
             name: 'Vaccinations obligatoires',
             iconType: 'check_circle',
@@ -749,94 +588,120 @@ class DatabaseService {
           ),
         ];
         
-        for (final category in defaultCategories) {
+        for (final category in categories) {
           await box.add(category);
         }
         
-        print('Catégories par défaut initialisées avec succès');
+        print('✅ Catégories initialisées');
       }
     } catch (e) {
-      print('Erreur lors de l\'initialisation des catégories par défaut: $e');
+      print('❌ Erreur initializeDefaultCategories: $e');
     }
   }
 
-  // === MAINTENANCE ===
+  Future<List<VaccineCategory>> getAllVaccineCategories() async {
+    try {
+      await initializeDatabase();
+      final box = await _getBox<VaccineCategory>(_categoryBoxName);
+      return box.values.toList();
+    } catch (e) {
+      print('❌ Erreur getAllVaccineCategories: $e');
+      return [];
+    }
+  }
+
+  // === AUDIT ===
+  Future<void> _logAuditEvent({
+    required String action,
+    required String entity,
+    String? entityId,
+    String? userId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final auditBox = await _getBox<Map>(_auditBoxName);
+      await auditBox.add({
+        'timestamp': DateTime.now().toIso8601String(),
+        'action': action,
+        'entity': entity,
+        'entityId': entityId,
+        'userId': userId,
+        'metadata': metadata,
+        'platform': Platform.operatingSystem,
+      });
+    } catch (e) {
+      print('⚠️ Erreur audit: $e');
+    }
+  }
+
+  // === MAINTENANCE ET NETTOYAGE ===
   
   Future<Map<String, int>> cleanupDatabase() async {
-    if (!_checkRateLimit('cleanupDatabase')) {
-      throw DatabaseException('Limite de taux dépassée pour le nettoyage');
-    }
-
     try {
+      await initializeDatabase();
+      
       int duplicatesRemoved = 0;
       int orphanedVaccinationsRemoved = 0;
-      int corruptUsersFixed = 0;
       
-      print('=== NETTOYAGE BASE DE DONNÉES DÉMARRÉ ===');
+      print('🧹 Démarrage du nettoyage de la base de données...');
       
       final userBox = await _getBox<EnhancedUser>(_userBoxName);
       final emailToUsers = <String, List<EnhancedUser>>{};
       
-      print('Total utilisateurs avant nettoyage: ${userBox.length}');
-      
+      // Groupe les utilisateurs par email
       for (final user in userBox.values) {
-        if (!user.isDataValid) {
-          print('Utilisateur corrompu trouvé: ${user.email} (sel ou hash manquant)');
-        } else {
+        if (user.isDataValid) {
           emailToUsers.putIfAbsent(user.email.toLowerCase(), () => []).add(user);
         }
       }
       
+      // Supprime les doublons (garde le plus récent)
       for (final users in emailToUsers.values) {
         if (users.length > 1) {
           users.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           
-          print('${users.length} utilisateurs en double trouvés pour: ${users.first.email}');
+          print('${users.length} doublons trouvés pour: ${users.first.email}');
           
           for (int i = 1; i < users.length; i++) {
             try {
               if (users[i].isInBox) {
                 await users[i].delete();
                 duplicatesRemoved++;
-                print('Utilisateur en double supprimé: ${users[i].email}');
+                print('Doublon supprimé: ${users[i].email}');
               }
             } catch (e) {
-              print('Erreur lors de la suppression d\'utilisateur en double: $e');
+              print('Erreur suppression doublon: $e');
             }
           }
         }
       }
       
+      // Nettoie les vaccinations orphelines
       final vaccinationBox = await _getBox<Vaccination>(_vaccinationBoxName);
       final activeUserIds = userBox.values
           .where((user) => user.isActive && user.key != null)
           .map((user) => user.key!.toString())
           .toSet();
       
-      final orphanedVaccinations = <dynamic>[];
+      final orphanedKeys = <dynamic>[];
       for (final vaccination in vaccinationBox.values) {
         if (!activeUserIds.contains(vaccination.userId)) {
-          orphanedVaccinations.add(vaccination.key);
+          orphanedKeys.add(vaccination.key);
         }
       }
       
-      for (final key in orphanedVaccinations) {
+      for (final key in orphanedKeys) {
         try {
           await vaccinationBox.delete(key);
           orphanedVaccinationsRemoved++;
         } catch (e) {
-          print('Erreur lors de la suppression de vaccination orpheline: $e');
+          print('Erreur suppression vaccination orpheline: $e');
         }
       }
-      
-      await _cleanupOldSessions();
-      await _cleanupOldAuditLogs();
       
       print('Nettoyage terminé:');
       print('- Doublons supprimés: $duplicatesRemoved');
       print('- Vaccinations orphelines supprimées: $orphanedVaccinationsRemoved');
-      print('- Utilisateurs corrompus détectés: $corruptUsersFixed');
-      print('=======================================');
       
       await _logAuditEvent(
         action: 'CLEANUP',
@@ -844,94 +709,39 @@ class DatabaseService {
         metadata: {
           'duplicatesRemoved': duplicatesRemoved,
           'orphanedVaccinationsRemoved': orphanedVaccinationsRemoved,
-          'corruptUsersFixed': corruptUsersFixed,
         },
       );
       
       return {
         'duplicateUsersRemoved': duplicatesRemoved,
         'orphanedVaccinationsRemoved': orphanedVaccinationsRemoved,
-        'corruptUsersFixed': corruptUsersFixed,
       };
     } catch (e) {
-      print('Erreur de nettoyage: $e');
+      print('❌ Erreur nettoyage: $e');
       throw DatabaseException('Erreur lors du nettoyage: $e');
     }
   }
-
-  Future<void> _cleanupOldSessions() async {
-    try {
-      final sessionBox = await _getBox(_sessionBoxName);
-      final sessionStartStr = sessionBox.get('sessionStart') as String?;
-      
-      if (sessionStartStr != null) {
-        final sessionStart = DateTime.parse(sessionStartStr);
-        if (DateTime.now().difference(sessionStart).inDays > 7) {
-          await sessionBox.clear();
-          print('Anciennes données de session effacées');
-        }
-      }
-    } catch (e) {
-      print('Échec du nettoyage des anciennes sessions: $e');
-    }
-  }
-
-  Future<void> _cleanupOldAuditLogs() async {
-    try {
-      final auditBox = await _getBox<Map>(_auditBoxName);
-      final cutoffDate = DateTime.now().subtract(const Duration(days: 90));
-      
-      final keysToDelete = <dynamic>[];
-      for (final entry in auditBox.toMap().entries) {
-        try {
-          final log = entry.value as Map;
-          final timestamp = DateTime.parse(log['timestamp'] as String);
-          if (timestamp.isBefore(cutoffDate)) {
-            keysToDelete.add(entry.key);
-          }
-        } catch (e) {
-          keysToDelete.add(entry.key);
-        }
-      }
-      
-      for (final key in keysToDelete) {
-        try {
-          await auditBox.delete(key);
-        } catch (e) {
-          print('Erreur lors de la suppression de log d\'audit: $e');
-        }
-      }
-      
-      if (keysToDelete.isNotEmpty) {
-        print('${keysToDelete.length} anciens logs d\'audit nettoyés');
-      }
-    } catch (e) {
-      print('Échec du nettoyage des anciens logs d\'audit: $e');
-    }
-  }
-
   Future<void> dispose() async {
     try {
-      print('Libération du service de base de données...');
+      print('🧹 Fermeture service base de données...');
       
-      for (final boxName in _boxCache.keys) {
+      for (final entry in _openBoxes.entries) {
         try {
-          if (Hive.isBoxOpen(boxName)) {
-            await Hive.box(boxName).close();
-            print('Boîte fermée: $boxName');
+          if (entry.value.isOpen) {
+            await entry.value.close();
           }
         } catch (e) {
-          print('Erreur lors de la fermeture de boîte $boxName: $e');
+          print('⚠️ Erreur fermeture ${entry.key}: $e');
         }
       }
       
+      _openBoxes.clear();
       _boxCache.clear();
-      _lastAccess.clear();
-      _operationTimestamps.clear();
+      _isInitialized = false;
       
-      print('Service de base de données libéré avec succès');
+      print('✅ Service fermé');
     } catch (e) {
-      print('Erreur lors de la libération: $e');
+      print('❌ Erreur dispose: $e');
     }
   }
 }
@@ -939,12 +749,9 @@ class DatabaseService {
 class DatabaseException implements Exception {
   final String message;
   final String? code;
-  final dynamic originalError;
 
-  const DatabaseException(this.message, [this.code, this.originalError]);
+  const DatabaseException(this.message, [this.code]);
 
   @override
-  String toString() {
-    return 'DatabaseException: $message${code != null ? ' (Code: $code)' : ''}';
-  }
+  String toString() => 'DatabaseException: $message';
 }
