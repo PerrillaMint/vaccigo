@@ -1,4 +1,4 @@
-// lib/main.dart - Version corrigée avec initialisation DB robuste
+// lib/main.dart - Version mise à jour avec support du fuzzy matching
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -73,6 +73,11 @@ void main() async {
       print('❌ Erreur initialisation DB: $e');
       // Continue quand même pour permettre la création manuelle
     }
+    
+    // === PRÉPARATION DU FUZZY MATCHING ===
+    // Le service VaccineNameCorrector est maintenant disponible
+    // et sera utilisé automatiquement par le parser amélioré
+    print('✅ Service de correction automatique des noms de vaccins prêt');
     
     runApp(MyApp(cameraInitialized: cameraInitialized));
     
