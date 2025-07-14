@@ -1,4 +1,4 @@
-// lib/services/vaccine_name_corrector.dart - Fuzzy string matching for vaccine name correction
+// lib/services/vaccine_name_corrector.dart - Updated with French vaccination card brands
 import 'dart:math';
 
 class MatchResult {
@@ -21,8 +21,8 @@ class MatchResult {
   });
 
   bool get isReliable => confidence >= 0.85;
-  bool get needsReview => confidence >= 0.70 && confidence < 0.85;
-  bool get shouldReject => confidence < 0.70;
+  bool get needsReview => confidence >= 0.60 && confidence < 0.85;
+  bool get shouldReject => confidence < 0.60;
 
   @override
   String toString() {
@@ -31,16 +31,160 @@ class MatchResult {
 }
 
 class VaccineNameCorrector {
-  // === FRENCH VACCINE DATABASE ===
+  // === ENHANCED FRENCH VACCINE DATABASE ===
+  // Updated with brands commonly found in French vaccination cards
   static const Map<String, List<String>> _frenchVaccineDatabase = {
-    // COVID-19 Vaccines
+    // === HEXAVALENT VACCINES (6-in-1) ===
+    'Infanrix Hexa (DTP-Coqueluche-Hib-Hépatite B)': [
+      'infanrix', 'infanrix hexa', 'infanrix-hexa', 'infanri', 'infanr',
+      'hexavalent', 'hexa', 'dtp-coqueluche-hib-hepatite b', 'infanrix6'
+    ],
+    'Hexyon (DTP-Coqueluche-Hib-Hépatite B)': [
+      'hexyon', 'hexyonb', 'hexyo', 'sanofi hexa', 'hexavalent sanofi'
+    ],
+    'Vaxelis (DTP-Coqueluche-Hib-Hépatite B)': [
+      'vaxelis', 'vaxeli', 'vaxel', 'hexavalent mcv'
+    ],
+
+    // === PENTAVALENT VACCINES (5-in-1) ===
+    'Pentalog (DTP-Coqueluche-Hib)': [
+      'pentalog', 'pental', 'pentalo', 'pentalogue', 'pentavac',
+      'pentavalent', 'penta', 'dtp-coqueluche-hib'
+    ],
+    'Infanrix Penta (DTP-Coqueluche-Hib)': [
+      'infanrix penta', 'infanrix-penta', 'infanrix5', 'pentavalent infanrix'
+    ],
+    'Pentavac (DTP-Coqueluche-Hib)': [
+      'pentavac', 'pentava', 'pentav', 'sanofi penta'
+    ],
+
+    // === DTP COMBINATIONS ===
+    'Tétravac (DTP-Coqueluche)': [
+      'tetravac', 'tetra', 'tétravac', 'tetrava', 'tetrav',
+      'dtp-coqueluche', 'tetravalent'
+    ],
+    'Repevax (DTP-Coqueluche rappel adolescent/adulte)': [
+      'repevax', 'repeva', 'repev', 'rep', 'rappel dtp', 'dtp rappel',
+      'coqueluche rappel', 'rappel adolescent'
+    ],
+    'Revaxis (DT-Polio rappel)': [
+      'revaxis', 'revaxi', 'revax', 'dt-polio', 'dtpolio', 'dtp sans coqueluche',
+      'rappel dt', 'diphterie tetanos polio'
+    ],
+    'Boostrix (DTP-Coqueluche rappel)': [
+      'boostrix', 'boostr', 'boost', 'gsk rappel'
+    ],
+
+    // === ROR (MMR) VACCINES ===
+    'Priorix (ROR - Rougeole-Oreillons-Rubéole)': [
+      'priorix', 'priori', 'prior', 'ror', 'mmr', 'rougeole oreillons rubeole',
+      'rougeole-oreillons-rubéole', 'ror priorix', 'gsk ror'
+    ],
+    'ROR-Vax (Rougeole-Oreillons-Rubéole)': [
+      'ror-vax', 'rorvax', 'ror vax', 'sanofi ror'
+    ],
+
+    // === PNEUMOCOCCAL VACCINES ===
+    'Prevenar 13 (Pneumocoque conjugué)': [
+      'prevenar', 'prevenar 13', 'prevena', 'preven', 'pneumo prevenar',
+      'pneumocoque prevenar', 'prevnar', 'prevnar 13', 'pfizer pneumo'
+    ],
+    'Pneumovax 23 (Pneumocoque polysaccharidique)': [
+      'pneumovax', 'pneumovax 23', 'pneumova', 'pneumov', 'pneumo 23',
+      'pneumocoque 23', 'msd pneumo'
+    ],
+    'Synflorix (Pneumocoque 10-valent)': [
+      'synflorix', 'synflori', 'synflor', 'pneumo 10', 'gsk pneumo'
+    ],
+
+    // === MENINGOCOCCAL VACCINES ===
+    'Méningitec (Méningocoque C)': [
+      'meningitec', 'meningo', 'meningite', 'meningocoque c',
+      'meningo c', 'pfizer meningo'
+    ],
+    'Menveo (Méningocoque ACWY)': [
+      'menveo', 'menve', 'meningocoque acwy', 'meningo acwy',
+      'gsk meningo', 'tetravalent meningo'
+    ],
+    'Nimenrix (Méningocoque ACWY)': [
+      'nimenrix', 'nimen', 'meningocoque acwy', 'pfizer acwy'
+    ],
+    'Bexsero (Méningocoque B)': [
+      'bexsero', 'bexser', 'bexs', 'meningocoque b', 'meningo b',
+      'gsk meningo b'
+    ],
+
+    // === HEPATITIS VACCINES ===
+    'Engerix B (Hépatite B)': [
+      'engerix', 'engerix b', 'engerix-b', 'enger', 'engeri',
+      'hepatite b', 'hep b', 'hbv', 'gsk hepatite'
+    ],
+    'Havrix (Hépatite A)': [
+      'havrix', 'havri', 'havr', 'hepatite a', 'hep a', 'hav',
+      'gsk hepatite a'
+    ],
+    'Twinrix (Hépatite A+B)': [
+      'twinrix', 'twinri', 'twin', 'hepatite a+b', 'hep a+b',
+      'hepatite ab', 'twinrix adulte'
+    ],
+    'HBVaxPro (Hépatite B)': [
+      'hbvaxpro', 'hbvax', 'hbv', 'msd hepatite b'
+    ],
+
+    // === INFLUENZA VACCINES ===
+    'Influvac (Grippe)': [
+      'influvac', 'influ', 'grippe influvac', 'mylan grippe', 'abbott grippe'
+    ],
+    'Vaxigrip (Grippe)': [
+      'vaxigrip', 'vaxigr', 'vaxi', 'grippe vaxigrip', 'sanofi grippe'
+    ],
+    'Fluarix (Grippe)': [
+      'fluarix', 'fluari', 'fluar', 'grippe fluarix', 'gsk grippe'
+    ],
+    'Immugrip (Grippe)': [
+      'immugrip', 'immugr', 'immu', 'pierre fabre grippe'
+    ],
+
+    // === HPV VACCINES ===
+    'Gardasil 9 (Papillomavirus HPV)': [
+      'gardasil', 'gardas', 'garda', 'gardasil 9', 'hpv gardasil',
+      'papillomavirus gardasil', 'msd hpv'
+    ],
+    'Cervarix (Papillomavirus HPV)': [
+      'cervarix', 'cervari', 'cerva', 'hpv cervarix', 'gsk hpv',
+      'papillomavirus cervarix'
+    ],
+
+    // === VARICELLA/ZOSTER ===
+    'Varilrix (Varicelle)': [
+      'varilrix', 'varilri', 'varil', 'varicelle', 'chickenpox',
+      'gsk varicelle'
+    ],
+    'Varivax (Varicelle)': [
+      'varivax', 'variva', 'variv', 'msd varicelle'
+    ],
+    'Zostavax (Zona)': [
+      'zostavax', 'zostava', 'zostav', 'zona', 'zoster', 'shingles',
+      'msd zona'
+    ],
+
+    // === HAEMOPHILUS ===
+    'Act-Hib (Haemophilus influenzae b)': [
+      'act-hib', 'acthib', 'act hib', 'hib', 'haemophilus',
+      'haemophilus b', 'sanofi hib'
+    ],
+    'Hiberix (Haemophilus influenzae b)': [
+      'hiberix', 'hiberi', 'hiber', 'gsk hib'
+    ],
+
+    // === COVID-19 VACCINES ===
     'COVID-19 Pfizer-BioNTech (Comirnaty)': [
       'pfizer', 'biontech', 'comirnaty', 'pfizer-biontech', 'covid-19 pfizer',
-      'covid pfizer', 'pfizer covid', 'comiraty', 'comirnaty pfizer'
+      'covid pfizer', 'pfizer covid', 'comiraty', 'tozinameran'
     ],
     'COVID-19 Moderna (Spikevax)': [
-      'moderna', 'spikevax', 'covid-19 moderna', 'covid moderna', 
-      'moderna covid', 'spikevax moderna', 'moderna spikevax'
+      'moderna', 'spikevax', 'covid-19 moderna', 'covid moderna',
+      'moderna covid', 'elasomeran'
     ],
     'COVID-19 AstraZeneca (Vaxzevria)': [
       'astrazeneca', 'vaxzevria', 'astra zeneca', 'covid-19 astrazeneca',
@@ -51,151 +195,58 @@ class VaccineNameCorrector {
       'janssen covid', 'johnson johnson', 'jansen'
     ],
 
-    // DTP and Combined Vaccines
+    // === TRAVEL VACCINES ===
+    'Stamaril (Fièvre jaune)': [
+      'stamaril', 'stamar', 'stama', 'fievre jaune', 'yellow fever',
+      'sanofi fievre jaune'
+    ],
+    'Typhim Vi (Typhoïde)': [
+      'typhim', 'typhim vi', 'typhi', 'typhoide', 'typhoid',
+      'sanofi typhoid'
+    ],
+    'Ixiaro (Encéphalite japonaise)': [
+      'ixiaro', 'ixiar', 'ixi', 'encephalite japonaise', 'japanese encephalitis'
+    ],
+    'Ticovac (Encéphalite à tiques)': [
+      'ticovac', 'ticova', 'tico', 'encephalite tiques', 'tick borne encephalitis',
+      'pfizer tbe'
+    ],
+    'Rabipur (Rage)': [
+      'rabipur', 'rabipu', 'rabip', 'rage', 'rabies', 'gsk rage'
+    ],
+    'Verorab (Rage)': [
+      'verorab', 'verora', 'veror', 'sanofi rage'
+    ],
+
+    // === OTHER COMMON VACCINES ===
+    'BCG (Tuberculose)': [
+      'bcg', 'tuberculose', 'tuberculosis', 'calmette guerin',
+      'ssi bcg', 'biomed bcg'
+    ],
+    'Rotarix (Rotavirus)': [
+      'rotarix', 'rotari', 'rotar', 'rotavirus', 'gsk rotavirus'
+    ],
+    'RotaTeq (Rotavirus)': [
+      'rotateq', 'rotat', 'msd rotavirus'
+    ],
+
+    // === GENERIC TERMS ===
     'DTP (Diphtérie-Tétanos-Poliomyélite)': [
       'dtp', 'dt-polio', 'dtpolio', 'diphterie tetanos polio',
-      'diphtérie tétanos poliomyélite', 'revaxis', 'dt polio'
+      'diphtérie tétanos poliomyélite'
     ],
-    'Pentavalent (DTP-Coqueluche-Hib)': [
-      'pentavalent', 'penta', 'dtp-coqueluche-hib', 'pentavac',
-      'dtcp-hib', 'infanrix penta', 'pentavac df'
+    'Coqueluche (Pertussis)': [
+      'coqueluche', 'pertussis', 'whooping cough', 'bordetella'
     ],
-    'Hexavalent (DTP-Coqueluche-Hib-Hépatite B)': [
-      'hexavalent', 'hexa', 'dtp-coqueluche-hib-hepatite',
-      'infanrix hexa', 'hexyon', 'vaxelis', 'hexyonb'
-    ],
-    'Tétravac (DTP-Coqueluche)': [
-      'tetravac', 'tetra', 'dtp-coqueluche', 'tetanos coqueluche',
-      'tétravac df', 'tetravac df'
-    ],
-    'Repevax (DTP-Coqueluche rappel)': [
-      'repevax', 'rep', 'rappel dtp', 'dtp rappel', 'coqueluche rappel'
-    ],
-
-    // ROR and MMR
-    'ROR (Rougeole-Oreillons-Rubéole)': [
-      'ror', 'mmr', 'rougeole oreillons rubeole', 'rougeole-oreillons-rubéole',
-      'priorix', 'ror-vax', 'rubeole rougeole oreillons'
-    ],
-    'Priorix (ROR)': [
-      'priorix', 'ror priorix', 'priorix ror', 'gsk ror'
-    ],
-
-    // Hepatitis Vaccines
-    'Hépatite B': [
-      'hepatite b', 'hep b', 'hbv', 'engerix', 'engerix b',
-      'hepatitis b', 'hépatite b', 'vhb'
-    ],
-    'Engerix B (Hépatite B)': [
-      'engerix', 'engerix b', 'engerix-b', 'hepatite b engerix'
-    ],
-    'Hépatite A': [
-      'hepatite a', 'hep a', 'hav', 'havrix', 'hépatite a',
-      'hepatitis a', 'vha'
-    ],
-    'Havrix (Hépatite A)': [
-      'havrix', 'hepatite a havrix', 'havrix 1440'
-    ],
-    'Hépatite A+B (Twinrix)': [
-      'twinrix', 'hepatite a+b', 'hep a+b', 'hepatite ab',
-      'twinrix adulte', 'hepatite a hepatite b'
-    ],
-
-    // Influenza
-    'Grippe saisonnière': [
-      'grippe', 'influenza', 'flu', 'grippe saisonniere',
-      'vaccin grippe', 'grippe annuelle'
-    ],
-    'Influvac (Grippe)': [
-      'influvac', 'grippe influvac', 'mylan grippe'
-    ],
-    'Vaxigrip (Grippe)': [
-      'vaxigrip', 'grippe vaxigrip', 'sanofi grippe'
-    ],
-    'Fluarix (Grippe)': [
-      'fluarix', 'grippe fluarix', 'gsk grippe'
-    ],
-
-    // Pneumococcal
     'Pneumocoque': [
       'pneumocoque', 'pneumo', 'pneumococcal', 'pneumococcus'
     ],
-    'Prevenar 13 (Pneumocoque)': [
-      'prevenar', 'prevenar 13', 'pneumo prevenar', 'pneumocoque prevenar',
-      'prevnar', 'prevnar 13'
+    'Méningocoque': [
+      'meningocoque', 'meningo', 'meningococcus', 'meningite'
     ],
-    'Pneumovax 23 (Pneumocoque)': [
-      'pneumovax', 'pneumovax 23', 'pneumo 23', 'pneumocoque 23'
-    ],
-
-    // Meningococcal
-    'Méningocoque C': [
-      'meningocoque c', 'meningo c', 'meningitec', 'meningococcus c',
-      'meningocoque', 'meningo'
-    ],
-    'Méningitec (Méningocoque C)': [
-      'meningitec', 'meningo meningitec'
-    ],
-    'Méningocoque ACWY': [
-      'meningocoque acwy', 'meningo acwy', 'menveo', 'nimenrix'
-    ],
-    'Méningocoque B': [
-      'meningocoque b', 'meningo b', 'bexsero', 'trumenba'
-    ],
-
-    // Haemophilus
-    'Haemophilus influenzae b (Hib)': [
-      'hib', 'haemophilus', 'haemophilus b', 'h influenzae',
-      'act-hib', 'hiberix'
-    ],
-
-    // HPV
-    'Papillomavirus humain (HPV)': [
-      'hpv', 'papillomavirus', 'gardasil', 'cervarix',
-      'papilloma', 'col utérus'
-    ],
-    'Gardasil 9 (HPV)': [
-      'gardasil', 'gardasil 9', 'hpv gardasil', 'papillomavirus gardasil'
-    ],
-    'Cervarix (HPV)': [
-      'cervarix', 'hpv cervarix', 'papillomavirus cervarix'
-    ],
-
-    // Travel Vaccines
-    'Fièvre jaune': [
-      'fievre jaune', 'yellow fever', 'stamaril', 'anti-amaril',
-      'amarile', 'fj'
-    ],
-    'Typhoïde': [
-      'typhoide', 'typhoid', 'typhim vi', 'tyavax',
-      'salmonella typhi', 'fievre typhoide'
-    ],
-    'Encéphalite japonaise': [
-      'encephalite japonaise', 'japanese encephalitis', 'ixiaro',
-      'je-vax', 'encephalite'
-    ],
-    'Encéphalite à tiques': [
-      'encephalite tiques', 'tick borne encephalitis', 'ticovac',
-      'fsme-immun', 'tbe'
-    ],
-    'Rage': [
-      'rage', 'rabies', 'rabipur', 'verorab', 'imovax rage'
-    ],
-
-    // Other Common Vaccines
-    'Varicelle': [
-      'varicelle', 'chickenpox', 'varivax', 'varilrix',
-      'zona-varicelle', 'vzv'
-    ],
-    'Zona (Zostavax)': [
-      'zona', 'zostavax', 'shingles', 'zoster', 'shingrix'
-    ],
-    'BCG (Tuberculose)': [
-      'bcg', 'tuberculose', 'tuberculosis', 'calmette guerin',
-      'monovax'
-    ],
-    'Coqueluche': [
-      'coqueluche', 'pertussis', 'whooping cough', 'bordetella'
+    'Grippe saisonnière': [
+      'grippe', 'influenza', 'flu', 'grippe saisonniere',
+      'vaccin grippe', 'grippe annuelle'
     ],
   };
 
@@ -333,6 +384,24 @@ class VaccineNameCorrector {
         .trim();
   }
 
+  /// Enhanced prefix matching for brand names
+  static double _calculatePrefixSimilarity(String s1, String s2) {
+    final minLength = min(s1.length, s2.length);
+    if (minLength < 3) return 0.0;
+    
+    int matchingChars = 0;
+    for (int i = 0; i < minLength; i++) {
+      if (s1[i] == s2[i]) {
+        matchingChars++;
+      } else {
+        break;
+      }
+    }
+    
+    // Boost score for good prefix matches
+    return matchingChars / max(s1.length, s2.length);
+  }
+
   /// Finds the best match for a vaccine name
   static MatchResult correctVaccineName(String ocrText) {
     if (ocrText.trim().isEmpty) {
@@ -356,7 +425,7 @@ class VaccineNameCorrector {
 
       // Check against standard name
       final standardSimilarity = _calculateWeightedSimilarity(processedInput, _preprocessText(standardName));
-      if (standardSimilarity > 0.5) {
+      if (standardSimilarity > 0.4) {
         matches.add(_MatchCandidate(
           standardName: standardName,
           matchedVariant: standardName,
@@ -367,12 +436,18 @@ class VaccineNameCorrector {
 
       // Check against all variants
       for (final variant in variants) {
-        final variantSimilarity = _calculateWeightedSimilarity(processedInput, _preprocessText(variant));
-        if (variantSimilarity > 0.5) {
+        final processedVariant = _preprocessText(variant);
+        final variantSimilarity = _calculateWeightedSimilarity(processedInput, processedVariant);
+        final prefixSimilarity = _calculatePrefixSimilarity(processedInput, processedVariant);
+        
+        // Combine weighted and prefix similarities
+        final combinedSimilarity = (variantSimilarity * 0.8) + (prefixSimilarity * 0.2);
+        
+        if (combinedSimilarity > 0.4) {
           matches.add(_MatchCandidate(
             standardName: standardName,
             matchedVariant: variant,
-            similarity: variantSimilarity,
+            similarity: combinedSimilarity,
             matchType: 'variant',
           ));
         }
@@ -403,20 +478,25 @@ class VaccineNameCorrector {
     }
     
     // Boost confidence for high-similarity prefix matches
-    if (confidence > 0.8 && _hasCommonPrefix(processedInput, _preprocessText(bestMatch.matchedVariant))) {
+    if (confidence > 0.7 && _hasCommonPrefix(processedInput, _preprocessText(bestMatch.matchedVariant))) {
+      confidence = min(1.0, confidence + 0.15);
+    }
+
+    // Boost confidence for common French vaccine brands
+    if (_isCommonFrenchBrand(bestMatch.matchedVariant)) {
       confidence = min(1.0, confidence + 0.1);
     }
 
-    // Penalty for very short matches
+    // Penalty for very short matches unless they're exact
     if (processedInput.length < 4 && confidence < 0.9) {
-      confidence *= 0.8;
+      confidence *= 0.9;
     }
 
     // Get alternative matches
     final alternatives = matches
         .skip(1)
         .take(3)
-        .where((match) => match.similarity > 0.7)
+        .where((match) => match.similarity > 0.6)
         .map((match) => match.standardName)
         .toList();
 
@@ -431,12 +511,23 @@ class VaccineNameCorrector {
     );
   }
 
+  /// Checks if a vaccine name is a common French brand
+  static bool _isCommonFrenchBrand(String name) {
+    final commonBrands = {
+      'infanrix', 'pentalog', 'repevax', 'revaxis', 'priorix', 'prevenar',
+      'meningitec', 'engerix', 'havrix', 'twinrix', 'vaxigrip', 'influvac',
+      'gardasil', 'cervarix', 'tetravac', 'hexyon', 'vaxelis'
+    };
+    
+    return commonBrands.contains(name.toLowerCase());
+  }
+
   /// Checks if two strings have a common prefix of at least 3 characters
   static bool _hasCommonPrefix(String s1, String s2) {
     final minLength = min(s1.length, s2.length);
     if (minLength < 3) return false;
     
-    for (int i = 0; i < min(minLength, 3); i++) {
+    for (int i = 0; i < min(minLength, 4); i++) {
       if (s1[i] != s2[i]) return false;
     }
     return true;
@@ -456,7 +547,7 @@ class VaccineNameCorrector {
 
       // Check against standard name
       final standardSimilarity = _calculateWeightedSimilarity(processedInput, _preprocessText(standardName));
-      if (standardSimilarity > 0.6) {
+      if (standardSimilarity > 0.5) {
         matches.add(_MatchCandidate(
           standardName: standardName,
           matchedVariant: standardName,
@@ -467,12 +558,17 @@ class VaccineNameCorrector {
 
       // Check against variants
       for (final variant in variants) {
-        final variantSimilarity = _calculateWeightedSimilarity(processedInput, _preprocessText(variant));
-        if (variantSimilarity > 0.6) {
+        final processedVariant = _preprocessText(variant);
+        final variantSimilarity = _calculateWeightedSimilarity(processedInput, processedVariant);
+        final prefixSimilarity = _calculatePrefixSimilarity(processedInput, processedVariant);
+        
+        final combinedSimilarity = (variantSimilarity * 0.8) + (prefixSimilarity * 0.2);
+        
+        if (combinedSimilarity > 0.5) {
           matches.add(_MatchCandidate(
             standardName: standardName,
             matchedVariant: variant,
-            similarity: variantSimilarity,
+            similarity: combinedSimilarity,
             matchType: 'variant',
           ));
         }
@@ -497,7 +593,11 @@ class VaccineNameCorrector {
           
           if (processedInput == _preprocessText(match.matchedVariant)) {
             confidence = 1.0;
-          } else if (confidence > 0.8 && _hasCommonPrefix(processedInput, _preprocessText(match.matchedVariant))) {
+          } else if (confidence > 0.7 && _hasCommonPrefix(processedInput, _preprocessText(match.matchedVariant))) {
+            confidence = min(1.0, confidence + 0.15);
+          }
+
+          if (_isCommonFrenchBrand(match.matchedVariant)) {
             confidence = min(1.0, confidence + 0.1);
           }
 
@@ -528,7 +628,7 @@ class VaccineNameCorrector {
     if (text.trim().length < 3) return false;
     
     final result = correctVaccineName(text);
-    return result.confidence > 0.5;
+    return result.confidence > 0.4;
   }
 }
 

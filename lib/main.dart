@@ -13,6 +13,8 @@ import 'services/multi_user_service.dart';
 // Import des services
 import 'services/database_service.dart';
 import 'services/camera_service.dart';
+import 'services/enhanced_french_vaccination_parser_with_fuzzy.dart'; // 🔧 ADDED: Enhanced parser
+import 'services/vaccine_name_corrector.dart'; // 🔧 ADDED: Fuzzy matching service
 
 // Import du thème et des écrans
 import 'theme/app_theme.dart';
@@ -75,9 +77,19 @@ void main() async {
     }
     
     // === PRÉPARATION DU FUZZY MATCHING ===
-    // Le service VaccineNameCorrector est maintenant disponible
-    // et sera utilisé automatiquement par le parser amélioré
-    print('✅ Service de correction automatique des noms de vaccins prêt');
+    // Test du service de correction automatique des noms de vaccins
+    try {
+      final testResult = VaccineNameCorrector.correctVaccineName('pentalog');
+      print('✅ Service de correction automatique des noms de vaccins prêt');
+      print('   Test: "pentalog" → "${testResult.standardizedName}" (confiance: ${(testResult.confidence * 100).toStringAsFixed(1)}%)');
+      
+      // Test du parser amélioré
+      final enhancedParser = EnhancedFrenchVaccinationParser();
+      print('✅ Parser français amélioré avec fuzzy matching prêt');
+      print('   Base de données: ${VaccineNameCorrector.getAllVaccineNames().length} vaccins référencés');
+    } catch (e) {
+      print('⚠️ Erreur initialisation fuzzy matching: $e');
+    }
     
     runApp(MyApp(cameraInitialized: cameraInitialized));
     

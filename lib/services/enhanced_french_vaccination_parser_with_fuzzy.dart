@@ -1,4 +1,5 @@
-// lib/services/enhanced_french_vaccination_parser_with_fuzzy.dart
+// lib/services/enhanced_french_vaccination_parser_with_fuzzy.dart - FIXED VERSION
+// Updated to better handle French vaccination cards with improved name recognition
 import 'dart:convert';
 import 'dart:io';
 import 'package:google_ml_kit/google_ml_kit.dart';
@@ -31,8 +32,8 @@ class VaccinationEntry {
     this.alternativeNames = const [],
   });
 
-  bool get isReliable => confidence >= 0.8 && nameConfidence >= 0.8;
-  bool get needsReview => confidence >= 0.7 || nameConfidence >= 0.7;
+  bool get isReliable => confidence >= 0.8 && nameConfidence >= 0.7;
+  bool get needsReview => confidence >= 0.6 || nameConfidence >= 0.6;
 
   @override
   String toString() {
@@ -57,7 +58,10 @@ class EnhancedFrenchVaccinationParser {
       
       // Print extracted text for debugging
       print('📄 Raw extracted text:');
-      print(extractedText.substring(0, extractedText.length > 500 ? 500 : extractedText.length));
+      final lines = extractedText.split('\n');
+      for (int i = 0; i < lines.length; i++) {
+        print('Line ${i + 1}: "${lines[i]}"');
+      }
       print('=' * 50);
       
       // Parse the vaccination entries with fuzzy matching
@@ -102,11 +106,14 @@ class EnhancedFrenchVaccinationParser {
     for (int i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
       
-      if (line.isEmpty || line.length < 5) continue;
+      if (line.isEmpty || line.length < 5) {
+        print('⏭️  Line ${i + 1}: TOO SHORT - "$line"');
+        continue;
+      }
       
       // Skip obvious header lines
       if (_isHeaderLine(line)) {
-        print('🏷️  Line ${i + 1}: HEADER - $line');
+        print('🏷️  Line ${i + 1}: HEADER - "$line"');
         continue;
       }
       
@@ -114,7 +121,7 @@ class EnhancedFrenchVaccinationParser {
       final dateMatch = _findDateInLine(line);
       
       if (dateMatch != null) {
-        print('📅 Line ${i + 1}: DATE FOUND - $line');
+        print('📅 Line ${i + 1}: DATE FOUND - "$line"');
         final vaccination = _parseVaccinationLineWithFuzzy(line, dateMatch, i + 1);
         
         if (vaccination != null) {
@@ -127,23 +134,30 @@ class EnhancedFrenchVaccinationParser {
             print('   Alternatives: ${vaccination.alternativeNames.join(', ')}');
           }
         } else {
-          print('❌ Line ${i + 1}: FAILED TO PARSE - $line');
+          print('❌ Line ${i + 1}: FAILED TO PARSE - "$line"');
         }
       } else {
-        print('⏭️  Line ${i + 1}: NO DATE - $line');
+        print('⏭️  Line ${i + 1}: NO DATE - "$line"');
       }
     }
     
     return _validateAndCleanVaccinations(vaccinations);
   }
 
-  // === DATE DETECTION ===
+  // === IMPROVED DATE DETECTION FOR FRENCH CARDS ===
   RegExpMatch? _findDateInLine(String line) {
-    // French date patterns - be flexible with separators
+    // Enhanced French date patterns - more flexible with separators and format
     final datePatterns = [
-      RegExp(r'\b(\d{1,2})[\/\.\-\s](\d{1,2})[\/\.\-\s](\d{2,4})\b'),  // DD/MM/YY or DD/MM/YYYY
-      RegExp(r'\b(\d{1,2})\s+(\d{1,2})\s+(\d{2,4})\b'),                // DD MM YY
-      RegExp(r'(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{2,4})'),          // More flexible
+      // DD.MM.YY format (common in French cards like "23.10.01")
+      RegExp(r'\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b'),
+      // DD/MM/YY format
+      RegExp(r'\b(\d{1,2})/(\d{1,2})/(\d{2,4})\b'),
+      // DD-MM-YY format
+      RegExp(r'\b(\d{1,2})-(\d{1,2})-(\d{2,4})\b'),
+      // DD MM YY format (with spaces)
+      RegExp(r'\b(\d{1,2})\s+(\d{1,2})\s+(\d{2,4})\b'),
+      // More flexible patterns
+      RegExp(r'(\d{1,2})[\.\/\-\s](\d{1,2})[\.\/\-\s](\d{2,4})'),
     ];
     
     for (final pattern in datePatterns) {
@@ -156,6 +170,7 @@ class EnhancedFrenchVaccinationParser {
         
         if (day != null && month != null && year != null &&
             day >= 1 && day <= 31 && month >= 1 && month <= 12) {
+          print('🎯 Date pattern matched: ${match.group(0)} (day: $day, month: $month, year: $year)');
           return match;
         }
       }
@@ -164,7 +179,7 @@ class EnhancedFrenchVaccinationParser {
     return null;
   }
 
-  // === VACCINATION LINE PARSING WITH FUZZY MATCHING ===
+  // === IMPROVED VACCINATION LINE PARSING WITH FUZZY MATCHING ===
   VaccinationEntry? _parseVaccinationLineWithFuzzy(String line, RegExpMatch dateMatch, int lineNumber) {
     try {
       // Extract and normalize date
@@ -175,6 +190,7 @@ class EnhancedFrenchVaccinationParser {
       String year = yearStr;
       if (yearStr.length == 2) {
         final yr = int.parse(yearStr);
+        // Assume years 00-30 are 2000s, 31-99 are 1900s
         year = yr <= 30 ? '20$yearStr' : '19$yearStr';
       }
       
@@ -188,57 +204,95 @@ class EnhancedFrenchVaccinationParser {
       
       print('🔍 Parsing line with fuzzy matching: "$line"');
       print('📅 Date: $formattedDate');
-      print('📝 Remaining: "$remainingLine"');
+      print('📝 Remaining after date removal: "$remainingLine"');
       
-      // Extract lot number (usually alphanumeric codes)
-      String lot = _extractLotNumber(remainingLine);
-      if (lot.isNotEmpty) {
-        remainingLine = remainingLine.replaceAll(lot, '').trim();
-        remainingLine = remainingLine.replaceAll(RegExp(r'\s+'), ' ').trim();
+      // For French vaccination cards, the format is typically:
+      // Date VaccineName LotNumber [Signature/Cachet]
+      // So we need to split the remaining line appropriately
+      
+      final parts = remainingLine.split(RegExp(r'\s+'));
+      print('📄 Split parts: ${parts.join(' | ')}');
+      
+      String vaccineName = '';
+      String lot = '';
+      
+      // Strategy: Try to identify lot number pattern first, then everything before it is vaccine name
+      int lotIndex = -1;
+      for (int i = 0; i < parts.length; i++) {
+        if (_looksLikeLotNumber(parts[i])) {
+          lotIndex = i;
+          lot = parts[i];
+          break;
+        }
       }
       
-      print('💊 Lot: "$lot"');
-      print('🩹 After lot removal: "$remainingLine"');
+      if (lotIndex > 0) {
+        // Everything before the lot number is the vaccine name
+        vaccineName = parts.sublist(0, lotIndex).join(' ');
+        print('💊 Lot found at index $lotIndex: "$lot"');
+        print('💉 Vaccine name (before lot): "$vaccineName"');
+      } else {
+        // No clear lot pattern found, try different strategy
+        // Look for common lot patterns in the entire remaining line
+        lot = _extractLotNumber(remainingLine);
+        if (lot.isNotEmpty) {
+          // Remove lot from remaining line to get vaccine name
+          vaccineName = remainingLine.replaceAll(lot, '').trim();
+          vaccineName = vaccineName.replaceAll(RegExp(r'\s+'), ' ').trim();
+        } else {
+          // No lot found, treat most of the line as vaccine name
+          // Skip obvious non-vaccine words at the end
+          final filteredParts = parts.where((part) => 
+            !_isSignatureWord(part) && 
+            !_isCommonNonVaccineWord(part) &&
+            part.length > 1
+          ).toList();
+          
+          if (filteredParts.length >= 2) {
+            vaccineName = filteredParts.take(2).join(' ');
+          } else if (filteredParts.isNotEmpty) {
+            vaccineName = filteredParts.first;
+          } else {
+            vaccineName = parts.isNotEmpty ? parts.first : 'Vaccination détectée';
+          }
+        }
+      }
+      
+      print('💊 Final lot: "$lot"');
+      print('💉 Final vaccine name: "$vaccineName"');
       
       // === FUZZY MATCHING FOR VACCINE NAME ===
-      String originalVaccineName = _extractRawVaccineName(remainingLine);
-      print('🔍 Raw vaccine name extracted: "$originalVaccineName"');
-      
-      // Apply fuzzy string matching correction
-      MatchResult fuzzyMatch;
-      if (originalVaccineName.isNotEmpty) {
-        fuzzyMatch = VaccineNameCorrector.correctVaccineName(originalVaccineName);
-        print('🎯 Fuzzy match result: $fuzzyMatch');
-      } else {
-        // Try to match the entire remaining line if no clear vaccine name
-        fuzzyMatch = VaccineNameCorrector.correctVaccineName(remainingLine);
-        originalVaccineName = remainingLine.isNotEmpty ? remainingLine : 'Vaccination détectée';
-        print('🎯 Fuzzy match on full line: $fuzzyMatch');
+      if (vaccineName.isEmpty) {
+        vaccineName = 'Vaccination détectée';
       }
       
-      // Use corrected name if confidence is high enough
+      // Apply fuzzy string matching correction
+      final fuzzyMatch = VaccineNameCorrector.correctVaccineName(vaccineName);
+      print('🎯 Fuzzy match result: $fuzzyMatch');
+      
+      // Use corrected name if confidence is sufficient
       String finalVaccineName;
       String standardizedName;
       double nameConfidence;
       List<String> alternatives = [];
       
-      if (fuzzyMatch.confidence >= 0.7) {
+      if (fuzzyMatch.confidence >= 0.5) { // Lower threshold for better detection
         finalVaccineName = fuzzyMatch.correctedName;
         standardizedName = fuzzyMatch.standardizedName;
         nameConfidence = fuzzyMatch.confidence;
         alternatives = fuzzyMatch.alternatives;
         print('✅ Using fuzzy corrected name: "$finalVaccineName" → "$standardizedName"');
       } else {
-        // Keep original but try to clean it up
-        finalVaccineName = originalVaccineName.isNotEmpty ? originalVaccineName : 'Vaccination détectée';
+        // Keep original but clean it up
+        finalVaccineName = _cleanVaccineName(vaccineName);
         standardizedName = 'Vaccination non standardisée';
         nameConfidence = fuzzyMatch.confidence;
         
         // Try to find multiple matches for manual review
-        final multipleMatches = VaccineNameCorrector.findMultipleMatches(originalVaccineName, maxResults: 3);
+        final multipleMatches = VaccineNameCorrector.findMultipleMatches(vaccineName, maxResults: 3);
         alternatives = multipleMatches.map((m) => m.standardizedName).toList();
         
-        print('⚠️  Low confidence match, keeping original: "$finalVaccineName"');
+        print('⚠️  Low confidence match, keeping cleaned original: "$finalVaccineName"');
         if (alternatives.isNotEmpty) {
           print('📋 Suggested alternatives: ${alternatives.join(', ')}');
         }
@@ -272,49 +326,53 @@ class EnhancedFrenchVaccinationParser {
     }
   }
 
-  // === RAW VACCINE NAME EXTRACTION ===
-  String _extractRawVaccineName(String text) {
-    if (text.isEmpty) return '';
+  // === IMPROVED LOT NUMBER DETECTION ===
+  bool _looksLikeLotNumber(String text) {
+    if (text.length < 3) return false;
     
-    // Remove common non-vaccine words
-    final excludeWords = {
-      'date', 'nom', 'lot', 'dose', 'signature', 'cachet', 'médecin', 
-      'dr', 'docteur', 'prof', 'centre', 'hôpital', 'pharmacie'
-    };
+    // Common French vaccination lot patterns
+    final lotPatterns = [
+      RegExp(r'^[A-Z]{1,4}[0-9]{3,8}$'),           // LV, EW0553, etc.
+      RegExp(r'^[0-9]{3,8}[A-Z]{1,3}$'),           // 12345A, 123456AB
+      RegExp(r'^[A-Z0-9]{5,12}$'),                 // U0602A, H0390-2
+      RegExp(r'^[A-Z]{1,3}[0-9]{2,6}[A-Z]{0,2}$'), // A12345, B123456C
+      RegExp(r'^[0-9]{2,4}[A-Z]{2,4}[0-9]{0,4}$'), // 05ABC123
+      RegExp(r'^D[0-9]{4,6}$'),                    // D05692 (common prefix)
+      RegExp(r'^[A-Z]{2}[0-9]{2}-[0-9]{1,3}$'),    // AB12-345
+      RegExp(r'^U[0-9]{4}-?[A-Z]?$'),              // U0602-A, U0602A
+    ];
     
-    // Split into words and filter
-    final words = text.toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s\-]'), ' ')
-        .split(RegExp(r'\s+'))
-        .where((word) => word.length > 2 && !excludeWords.contains(word))
-        .toList();
-    
-    if (words.isEmpty) return text.trim();
-    
-    // Take the longest sequence of words that could be a vaccine name
-    if (words.length == 1) {
-      return words.first;
-    } else if (words.length <= 3) {
-      return words.join(' ');
-    } else {
-      // For longer sequences, try to identify the vaccine name portion
-      return words.take(3).join(' ');
+    for (final pattern in lotPatterns) {
+      if (pattern.hasMatch(text)) {
+        return true;
+      }
     }
+    
+    return false;
   }
 
-  // === LOT NUMBER EXTRACTION ===
+  // === IMPROVED LOT NUMBER EXTRACTION ===
   String _extractLotNumber(String text) {
     if (text.isEmpty) return '';
     
-    // Common lot number patterns for French vaccines
+    // Split text into potential lot candidates
+    final words = text.split(RegExp(r'\s+'));
+    
+    for (final word in words) {
+      if (_looksLikeLotNumber(word)) {
+        print('🎯 Lot number found: $word');
+        return word;
+      }
+    }
+    
+    // Fallback: use regex patterns on the full text
     final lotPatterns = [
-      RegExp(r'\b([A-Z]{2,4}[0-9]{3,8})\b'),           // EW0553, FF1234
-      RegExp(r'\b([0-9]{4,8}[A-Z]{1,3})\b'),           // 12345A, 123456AB
+      RegExp(r'\b([A-Z]{1,4}[0-9]{3,8})\b'),           // LV, EW0553
+      RegExp(r'\b([0-9]{3,8}[A-Z]{1,3})\b'),           // 12345A, 123456AB
       RegExp(r'\b([A-Z0-9]{5,12})\b'),                 // U0602A, H0390-2
+      RegExp(r'\b(U[0-9]{4}-?[A-Z]?)\b'),              // U0602-A, U0602A
       RegExp(r'\b([A-Z]{1,3}[0-9]{2,6}[A-Z]{0,2})\b'), // A12345, B123456C
-      RegExp(r'\b([0-9]{2,4}[A-Z]{2,4}[0-9]{0,4})\b'), // 05ABC123
-      RegExp(r'\b(D[0-9]{4,6})\b'),                    // D05692 (common prefix)
-      RegExp(r'\b([A-Z]{2}[0-9]{2}-[0-9]{1,3})\b'),    // AB12-345
+      RegExp(r'\b(D[0-9]{4,6})\b'),                    // D05692
     ];
     
     for (final pattern in lotPatterns) {
@@ -324,7 +382,7 @@ class EnhancedFrenchVaccinationParser {
         
         // Validate it's not a date or other common text
         if (!_isDateLike(candidate) && !_isCommonWord(candidate)) {
-          print('🎯 Lot number found: $candidate');
+          print('🎯 Lot number found via regex: $candidate');
           return candidate;
         }
       }
@@ -333,17 +391,50 @@ class EnhancedFrenchVaccinationParser {
     return '';
   }
 
+  // === HELPER METHODS ===
+  bool _isSignatureWord(String word) {
+    final signatureWords = {
+      'signature', 'cachet', 'dr', 'docteur', 'médecin', 'prof', 'professeur'
+    };
+    return signatureWords.contains(word.toLowerCase());
+  }
+
+  bool _isCommonNonVaccineWord(String word) {
+    final nonVaccineWords = {
+      'et', 'ou', 'le', 'la', 'les', 'de', 'du', 'des', 'à', 'au', 'aux',
+      'par', 'pour', 'avec', 'sans', 'sur', 'sous', 'dans', 'date', 'nom',
+      'dose', 'mg', 'ml', 'cc', 'unité', 'unités'
+    };
+    return nonVaccineWords.contains(word.toLowerCase());
+  }
+
+  String _cleanVaccineName(String name) {
+    return name
+        .replaceAll(RegExp(r'[^\w\s\-]'), ' ')  // Remove special chars except hyphens
+        .replaceAll(RegExp(r'\s+'), ' ')        // Normalize whitespace
+        .trim()
+        .split(' ')
+        .where((word) => word.length > 1)
+        .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ');
+  }
+
   // === CONFIDENCE CALCULATION ===
   double _calculateOverallConfidence(String date, String vaccineName, String lot, String originalLine, double nameConfidence) {
-    double confidence = 0.3; // Base confidence
+    double confidence = 0.2; // Base confidence
     
-    // Date validation
+    // Date validation (high weight)
     if (date.isNotEmpty && _isValidDate(date)) {
       confidence += 0.3;
     }
     
-    // Vaccine name quality (heavily weighted)
-    confidence += nameConfidence * 0.3;
+    // Vaccine name quality (heavily weighted with fuzzy matching)
+    confidence += nameConfidence * 0.4;
+    
+    // Vaccine name length
+    if (vaccineName.length >= 3) {
+      confidence += 0.1;
+    }
     
     // Lot number presence
     if (lot.isNotEmpty) {
@@ -373,10 +464,11 @@ class EnhancedFrenchVaccinationParser {
     ];
     
     final lowerLine = line.toLowerCase();
-    final hasKeywords = headerKeywords.where((keyword) => lowerLine.contains(keyword)).length >= 2;
+    final keywordCount = headerKeywords.where((keyword) => lowerLine.contains(keyword)).length;
     final hasDate = _findDateInLine(line) != null;
     
-    return hasKeywords && !hasDate;
+    // More strict header detection - needs multiple keywords and no date
+    return keywordCount >= 2 && !hasDate;
   }
 
   bool _isValidDate(String dateStr) {
@@ -418,15 +510,19 @@ class EnhancedFrenchVaccinationParser {
       if (vaccination.vaccineName.isNotEmpty && 
           vaccination.date.isNotEmpty &&
           _isValidDate(vaccination.date) &&
-          vaccination.confidence >= 0.4) { // Lower threshold due to fuzzy matching
+          vaccination.confidence >= 0.3) { // Lower threshold
         validVaccinations.add(vaccination);
+        print('✅ Accepted vaccination: ${vaccination.vaccineName} (confidence: ${vaccination.confidence.toStringAsFixed(2)})');
       } else {
-        print('❌ Rejected vaccination: ${vaccination.vaccineName} (confidence: ${vaccination.confidence})');
+        print('❌ Rejected vaccination: ${vaccination.vaccineName} (confidence: ${vaccination.confidence.toStringAsFixed(2)})');
       }
     }
     
-    // Sort by line number to maintain original order
-    validVaccinations.sort((a, b) => a.lineNumber.compareTo(b.lineNumber));
+    // Sort by date (most recent first) or line number if dates are equal
+    validVaccinations.sort((a, b) {
+      final dateCompare = a.date.compareTo(b.date);
+      return dateCompare == 0 ? a.lineNumber.compareTo(b.lineNumber) : dateCompare;
+    });
     
     // Log summary
     final highConfidence = validVaccinations.where((v) => v.isReliable).length;
@@ -444,7 +540,9 @@ class EnhancedFrenchVaccinationParser {
   // === CONVERSION TO VACCINATION OBJECTS ===
   List<Vaccination> convertToVaccinations(List<VaccinationEntry> entries, String userId) {
     return entries.map((entry) => Vaccination(
-      vaccineName: entry.standardizedName.isNotEmpty ? entry.standardizedName : entry.vaccineName,
+      vaccineName: entry.standardizedName.isNotEmpty && entry.standardizedName != 'Vaccination non standardisée' 
+          ? entry.standardizedName 
+          : entry.vaccineName,
       lot: entry.lot.isNotEmpty ? entry.lot : null,
       date: entry.date,
       ps: entry.ps + (entry.needsReview ? ' (À vérifier)' : ''),
@@ -500,7 +598,10 @@ class EnhancedFrenchVaccinationParser {
     final highConfidence = entries.where((v) => v.isReliable).length;
     final needsReview = entries.where((v) => v.needsReview && !v.isReliable).length;
     final lowConfidence = entries.length - highConfidence - needsReview;
-    final standardizedCount = entries.where((v) => v.standardizedName != 'Vaccination non standardisée').length;
+    final standardizedCount = entries.where((v) => 
+        v.standardizedName.isNotEmpty && 
+        v.standardizedName != 'Vaccination non standardisée'
+    ).length;
     
     final avgConfidence = entries.map((v) => v.confidence).reduce((a, b) => a + b) / entries.length;
     final avgNameConfidence = entries.map((v) => v.nameConfidence).reduce((a, b) => a + b) / entries.length;
