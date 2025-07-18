@@ -1,7 +1,7 @@
-// lib/screens/onboarding/camera_scan_screen.dart - FIXED for full page scanning
+// lib/screens/onboarding/camera_scan_screen.dart - UPDATED to use unified enhanced service
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import '../../services/google_vision_service.dart';
+import '../../services/enhanced_google_vision_service.dart'; // ✅ CHANGED: Use unified enhanced version
 import '../../services/camera_service.dart';
 import '../../models/scanned_vaccination_data.dart';
 import '../../constants/app_colors.dart';
@@ -15,7 +15,7 @@ class CameraScanScreen extends StatefulWidget {
 
 class _CameraScanScreenState extends State<CameraScanScreen>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
-  final GoogleVisionService _visionService = GoogleVisionService();
+  final EnhancedGoogleVisionService _visionService = EnhancedGoogleVisionService(); // ✅ UPDATED
   CameraController? _cameraController;
   bool _isProcessing = false;
   bool _isInitialized = false;
@@ -45,6 +45,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _disposeCamera();
+    _visionService.dispose(); // ✅ ADDED: Dispose vision service
     super.dispose();
   }
 
@@ -685,7 +686,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  // ENHANCED: Full page capture and processing
+  // ✅ UPDATED: Full page capture and processing with enhanced service
   Future<void> _captureAndProcess() async {
     if (_isDisposed || _isProcessing || !_isMounted) return;
     
@@ -709,17 +710,52 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         throw Exception('Échec de la capture d\'image');
       }
       
-      debugPrint('📄 Processing full page with AI: $imagePath');
+      // ✅ UPDATED: Validate image before processing
+      final isValid = await EnhancedGoogleVisionService.validateImage(imagePath);
+      if (!isValid) {
+        throw Exception('Image invalide ou corrompue');
+      }
       
-      // Process the entire image with AI
-      ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
+      debugPrint('📄 Processing full page with enhanced AI: $imagePath');
+      
+      // ✅ UPDATED: Process with enhanced service (supports multi-vaccination)
+      final vaccinations = await _visionService.processVaccinationCard(imagePath);
+      
+      if (vaccinations.isEmpty) {
+        throw Exception('Aucune vaccination détectée');
+      }
+      
+      // Convert to ScannedVaccinationData for compatibility
+      final firstVaccination = vaccinations.first;
+      ScannedVaccinationData data = ScannedVaccinationData(
+        vaccineName: firstVaccination.vaccineName,
+        lot: firstVaccination.lot,
+        date: firstVaccination.date,
+        ps: firstVaccination.ps,
+        confidence: firstVaccination.confidence,
+      );
       
       if (_isMounted && !_isDisposed) {
-        Navigator.pushReplacementNamed(
-          context, 
-          '/scan-preview', 
-          arguments: data,
-        );
+        // Check for multi-vaccination scenario
+        if (vaccinations.length > 1) {
+          print('🔍 Multiple vaccinations detected: ${vaccinations.length}');
+          // Navigate to multi-vaccination screen
+          Navigator.pushReplacementNamed(
+            context, 
+            '/multi-vaccination-scan',
+            arguments: {
+              'imagePath': imagePath,
+              'userId': 'current', // Will be handled in the target screen
+            },
+          );
+        } else {
+          // Single vaccination - go to preview
+          Navigator.pushReplacementNamed(
+            context, 
+            '/scan-preview', 
+            arguments: data,
+          );
+        }
       }
     } catch (e) {
       debugPrint('Capture error: $e');
@@ -731,7 +767,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  // ENHANCED: Full page gallery selection
+  // ✅ UPDATED: Enhanced gallery selection with validation
   Future<void> _selectFromGallery() async {
     if (_isDisposed || _isProcessing || !_isMounted) return;
     
@@ -750,17 +786,52 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         return;
       }
       
-      debugPrint('📄 Processing full page gallery image with AI: $imagePath');
+      // ✅ UPDATED: Validate selected image
+      final isValid = await EnhancedGoogleVisionService.validateImage(imagePath);
+      if (!isValid) {
+        throw Exception('Image sélectionnée invalide');
+      }
       
-      // Process the entire selected image with AI
-      ScannedVaccinationData data = await _visionService.processVaccinationImage(imagePath);
+      debugPrint('📄 Processing full page gallery image with enhanced AI: $imagePath');
+      
+      // ✅ UPDATED: Process with enhanced service
+      final vaccinations = await _visionService.processVaccinationCard(imagePath);
+      
+      if (vaccinations.isEmpty) {
+        throw Exception('Aucune vaccination détectée dans l\'image');
+      }
+      
+      // Convert to ScannedVaccinationData for compatibility
+      final firstVaccination = vaccinations.first;
+      ScannedVaccinationData data = ScannedVaccinationData(
+        vaccineName: firstVaccination.vaccineName,
+        lot: firstVaccination.lot,
+        date: firstVaccination.date,
+        ps: firstVaccination.ps,
+        confidence: firstVaccination.confidence,
+      );
       
       if (_isMounted && !_isDisposed) {
-        Navigator.pushReplacementNamed(
-          context, 
-          '/scan-preview', 
-          arguments: data,
-        );
+        // Check for multi-vaccination scenario
+        if (vaccinations.length > 1) {
+          print('🔍 Multiple vaccinations detected from gallery: ${vaccinations.length}');
+          // Navigate to multi-vaccination screen
+          Navigator.pushReplacementNamed(
+            context, 
+            '/multi-vaccination-scan',
+            arguments: {
+              'imagePath': imagePath,
+              'userId': 'current', // Will be handled in the target screen
+            },
+          );
+        } else {
+          // Single vaccination - go to preview
+          Navigator.pushReplacementNamed(
+            context, 
+            '/scan-preview', 
+            arguments: data,
+          );
+        }
       }
     } catch (e) {
       debugPrint('Gallery selection error: $e');

@@ -1,7 +1,10 @@
-// lib/screens/vaccination/manual_entry_screen.dart - FIXED layout constraints and structure
+// lib/screens/vaccination/manual_entry_screen.dart - FIXED with user creation flow
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
+import '../../models/enhanced_user.dart';
+import '../../models/scanned_vaccination_data.dart';
+import '../../services/database_service.dart';
 
 class ManualEntryScreen extends StatefulWidget {
   const ManualEntryScreen({Key? key}) : super(key: key);
@@ -12,10 +15,20 @@ class ManualEntryScreen extends StatefulWidget {
 
 class _ManualEntryScreenState extends State<ManualEntryScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _databaseService = DatabaseService();
   final _vaccinController = TextEditingController();
   final _lotController = TextEditingController();
   final _dateController = TextEditingController();
   final _psController = TextEditingController();
+
+  EnhancedUser? _currentUser;
+  bool _isCheckingUser = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeScreen();
+  }
 
   @override
   void didChangeDependencies() {
@@ -42,12 +55,46 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     super.dispose();
   }
 
+  Future<void> _initializeScreen() async {
+    try {
+      final user = await _databaseService.getCurrentUser();
+      setState(() {
+        _currentUser = user;
+        _isCheckingUser = false;
+      });
+      
+      if (user == null) {
+        print('🔄 No user logged in - will handle in continue action');
+      } else {
+        print('✅ User logged in: ${user.name}');
+      }
+    } catch (e) {
+      print('❌ Error checking current user: $e');
+      setState(() {
+        _currentUser = null;
+        _isCheckingUser = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingUser) {
+      return _buildLoadingScreen();
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const CustomAppBar(
+      appBar: CustomAppBar(
         title: 'Saisie manuelle',
+        actions: [
+          if (_currentUser == null)
+            IconButton(
+              icon: const Icon(Icons.person_add, color: AppColors.warning),
+              onPressed: _redirectToUserCreation,
+              tooltip: 'Créer un compte',
+            ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -71,6 +118,11 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
                         
                         const SizedBox(height: 24),
                         
+                        // User status if not logged in
+                        if (_currentUser == null) _buildUserStatusCard(),
+                        
+                        if (_currentUser == null) const SizedBox(height: 24),
+                        
                         // Form fields
                         _buildFormFields(),
                         
@@ -92,6 +144,25 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingScreen() {
+    return const Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            SizedBox(height: 16),
+            Text(
+              'Vérification du compte utilisateur...',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
         ),
       ),
     );
@@ -140,13 +211,93 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Entrez ou modifiez les informations de vaccination',
-            style: TextStyle(
+          Text(
+            _currentUser != null
+                ? 'Entrez ou modifiez les informations de vaccination'
+                : 'Entrez les informations puis créez votre compte',
+            style: const TextStyle(
               fontSize: 14,
               color: AppColors.textSecondary,
             ),
             textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserStatusCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.warning.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_add,
+                  color: AppColors.warning,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Compte requis',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                    Text(
+                      'Créez votre compte pour sauvegarder cette vaccination',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  text: 'Créer un compte',
+                  style: AppButtonStyle.secondary,
+                  icon: Icons.person_add,
+                  onPressed: _redirectToUserCreation,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: AppButton(
+                  text: 'Se connecter',
+                  style: AppButtonStyle.text,
+                  icon: Icons.login,
+                  onPressed: () => Navigator.pushNamed(context, '/login'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -174,25 +325,25 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
         
         const SizedBox(height: 20),
         
-        // Lot number field
+        // Date field
+        _buildDateField(),
+        
+        const SizedBox(height: 20),
+        
+        // Lot number field (OPTIONAL)
         _buildTextField(
-          label: 'Numéro de lot',
+          label: 'Numéro de lot (optionnel)',
           hint: 'Ex: EW0553, FJ8529...',
           controller: _lotController,
           icon: Icons.confirmation_number,
-          isRequired: true,
+          isRequired: false,
           validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Le numéro de lot est requis';
+            if (value != null && value.isNotEmpty && value.length < 3) {
+              return 'Le numéro de lot doit contenir au moins 3 caractères';
             }
             return null;
           },
         ),
-        
-        const SizedBox(height: 20),
-        
-        // Date field
-        _buildDateField(),
         
         const SizedBox(height: 20),
         
@@ -429,12 +580,12 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
             'Inscrivez le nom exact tel qu\'il apparaît sur votre carnet',
           ),
           _buildHelpItem(
-            'Numéro de lot',
-            'Série de chiffres et lettres unique pour chaque vaccin',
-          ),
-          _buildHelpItem(
             'Date',
             'Date à laquelle vous avez reçu la vaccination',
+          ),
+          _buildHelpItem(
+            'Numéro de lot (optionnel)',
+            'Série de chiffres et lettres unique pour chaque vaccin',
           ),
           _buildHelpItem(
             'Informations supplémentaires',
@@ -493,49 +644,125 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        ElevatedButton.icon(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.pushReplacementNamed(
-                context, 
-                '/scan-preview',
-                arguments: {
-                  'vaccine': _vaccinController.text.trim(),
-                  'lot': _lotController.text.trim(),
-                  'date': _dateController.text.trim(),
-                  'ps': _psController.text.trim(),
-                },
-              );
-            }
-          },
-          icon: const Icon(Icons.preview),
-          label: const Text('Aperçu des informations'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        AppButton(
+          text: _currentUser != null
+              ? 'Aperçu des informations'
+              : 'Créer compte et continuer',
+          icon: _currentUser != null ? Icons.preview : Icons.person_add,
+          onPressed: _continueToNext,
+          width: double.infinity,
         ),
         
         const SizedBox(height: 12),
         
-        OutlinedButton.icon(
+        AppButton(
+          text: 'Scanner avec IA',
+          icon: Icons.camera_alt,
+          style: AppButtonStyle.secondary,
           onPressed: () => Navigator.pushReplacementNamed(context, '/camera-scan'),
-          icon: const Icon(Icons.camera_alt),
-          label: const Text('Scanner avec IA'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.secondary,
-            side: const BorderSide(color: AppColors.secondary),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+          width: double.infinity,
         ),
+        
+        if (_currentUser == null) ...[
+          const SizedBox(height: 16),
+          AppButton(
+            text: 'J\'ai déjà un compte',
+            style: AppButtonStyle.text,
+            icon: Icons.login,
+            onPressed: () => Navigator.pushNamed(context, '/login'),
+          ),
+        ],
       ],
+    );
+  }
+
+  void _continueToNext() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_currentUser != null) {
+      // User is logged in, continue to vaccination info
+      final scannedData = ScannedVaccinationData(
+        vaccineName: _vaccinController.text.trim(),
+        lot: _lotController.text.trim(),
+        date: _dateController.text.trim(),
+        ps: _psController.text.trim(),
+        confidence: 1.0, // Manual entry = 100% confidence
+      );
+      
+      Navigator.pushReplacementNamed(
+        context, 
+        '/vaccination-info',
+        arguments: scannedData,
+      );
+    } else {
+      // No user logged in, redirect to user creation
+      _redirectToUserCreation();
+    }
+  }
+
+  void _redirectToUserCreation() {
+    if (!mounted) return;
+    
+    // Validate form first if we have data
+    bool hasData = _vaccinController.text.trim().isNotEmpty || 
+                   _dateController.text.trim().isNotEmpty;
+    
+    if (hasData && !_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.warning, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Veuillez corriger les erreurs avant de continuer'),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+    
+    // Prepare vaccination data to pass to user creation
+    Map<String, String>? vaccinationData;
+    
+    if (hasData) {
+      vaccinationData = {
+        'vaccineName': _vaccinController.text.trim(),
+        'lot': _lotController.text.trim(),
+        'date': _dateController.text.trim(),
+        'ps': _psController.text.trim(),
+      };
+    }
+    
+    print('🔄 Redirecting to user creation with vaccination data');
+    
+    // Show a message to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.info, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('Créez votre compte pour sauvegarder cette vaccination'),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.info,
+        duration: Duration(seconds: 3),
+      ),
+    );
+    
+    // Navigate to enhanced user creation with vaccination data
+    Navigator.pushReplacementNamed(
+      context,
+      '/user-creation',
+      arguments: vaccinationData,
     );
   }
 }

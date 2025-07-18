@@ -1,4 +1,3 @@
-// lib/main.dart - Version mise à jour avec support du fuzzy matching
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -13,8 +12,8 @@ import 'services/multi_user_service.dart';
 // Import des services
 import 'services/database_service.dart';
 import 'services/camera_service.dart';
-import 'services/enhanced_french_vaccination_parser_with_fuzzy.dart'; // 🔧 ADDED: Enhanced parser
-import 'services/vaccine_name_corrector.dart'; // 🔧 ADDED: Fuzzy matching service
+import 'services/enhanced_french_vaccination_parser_with_fuzzy.dart';
+import 'services/vaccine_name_corrector.dart';
 
 // Import du thème et des écrans
 import 'theme/app_theme.dart';
@@ -27,7 +26,7 @@ import 'screens/onboarding/camera_scan_screen.dart';
 import 'screens/onboarding/scan_preview_screen.dart';
 import 'screens/onboarding/multi_vaccination_scan_screen.dart';
 import 'screens/vaccination/manual_entry_screen.dart';
-import 'screens/profile/enhanced_user_creation_screen.dart';
+import 'screens/profile/enhanced_user_creation_screen.dart'; // ✅ ENHANCED VERSION
 import 'screens/profile/additional_info_screen.dart';
 import 'screens/vaccination/vaccination_info_screen.dart';
 import 'screens/vaccination/vaccination_summary_screen.dart';
@@ -255,21 +254,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       initialRoute: '/',
       
       routes: {
-        '/': (context) => const WelcomeScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/forgot-password': (context) => const ForgotPasswordScreen(),
-        '/card-selection': (context) => const CardSelectionScreen(),
-        '/travel-options': (context) => const TravelOptionsScreen(),
-        '/camera-scan': (context) => const CameraScanScreen(),
-        '/scan-preview': (context) => const ScanPreviewScreen(),
-        '/manual-entry': (context) => const ManualEntryScreen(),
-        '/vaccination-info': (context) => const VaccinationInfoScreen(),
-        '/user-creation': (context) => const EnhancedUserCreationScreen(),
-        '/additional-info': (context) => const AdditionalInfoScreen(),
-        '/vaccination-summary': (context) => const VaccinationSummaryScreen(),
-        '/vaccination-management': (context) => const VaccinationManagementScreen(),
-        '/family-management': (context) => const FamilyManagementScreen(),
-      },
+  '/': (context) => const WelcomeScreen(),
+  '/login': (context) => const LoginScreen(),
+  '/forgot-password': (context) => const ForgotPasswordScreen(),
+  '/card-selection': (context) => const CardSelectionScreen(),
+  '/travel-options': (context) => const TravelOptionsScreen(),
+  '/camera-scan': (context) => const CameraScanScreen(),
+  '/scan-preview': (context) => const ScanPreviewScreen(),
+  '/manual-entry': (context) => const ManualEntryScreen(),
+  '/vaccination-info': (context) => const VaccinationInfoScreen(),
+  '/user-creation': (context) => const EnhancedUserCreationScreen(), // ✅ CHANGED: Use enhanced version
+  '/additional-info': (context) => const AdditionalInfoScreen(),
+  '/vaccination-summary': (context) => const VaccinationSummaryScreen(),
+  '/vaccination-management': (context) => const VaccinationManagementScreen(),
+  '/family-management': (context) => const FamilyManagementScreen(),
+},
       
       onGenerateRoute: (settings) {
         switch (settings.name) {

@@ -1,9 +1,10 @@
-// lib/screens/vaccination/vaccination_info_screen.dart - Version améliorée avec lot optionnel
+// lib/screens/vaccination/vaccination_info_screen.dart - FIXED with user creation flow
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../models/scanned_vaccination_data.dart';
 import '../../models/vaccination.dart';
+import '../../models/enhanced_user.dart';
 import '../../services/database_service.dart';
 
 class VaccinationInfoScreen extends StatefulWidget {
@@ -24,15 +25,17 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
   final _psController = TextEditingController();
   
   ScannedVaccinationData? _scannedData;
+  EnhancedUser? _currentUser;
   bool _isLoading = false;
   bool _isSaving = false;
+  bool _isCheckingUser = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadScannedData();
+      _initializeScreen();
     });
   }
 
@@ -43,6 +46,37 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
     _dateController.dispose();
     _psController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeScreen() async {
+    // First check if user is logged in
+    await _checkCurrentUser();
+    
+    // Then load scanned data
+    _loadScannedData();
+  }
+
+  Future<void> _checkCurrentUser() async {
+    try {
+      final user = await _databaseService.getCurrentUser();
+      setState(() {
+        _currentUser = user;
+        _isCheckingUser = false;
+      });
+      
+      // If no user is logged in, we'll redirect after data is loaded
+      if (user == null) {
+        print('🔄 No user logged in - will redirect to user creation after data loading');
+      } else {
+        print('✅ User logged in: ${user.name}');
+      }
+    } catch (e) {
+      print('❌ Error checking current user: $e');
+      setState(() {
+        _currentUser = null;
+        _isCheckingUser = false;
+      });
+    }
   }
 
   void _loadScannedData() {
@@ -66,6 +100,11 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
       }
       
       _populateFields();
+      
+      // If no user is logged in, redirect to user creation with vaccination data
+      if (_currentUser == null && !_isCheckingUser) {
+        _redirectToUserCreation();
+      }
     } catch (e) {
       print('❌ Erreur chargement données: $e');
       _scannedData = ScannedVaccinationData.fallback(
@@ -88,10 +127,53 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
     }
   }
 
+  void _redirectToUserCreation() {
+    if (!mounted) return;
+    
+    // Prepare vaccination data to pass to user creation
+    final vaccinationData = {
+      'vaccineName': _vaccineNameController.text.trim(),
+      'lot': _lotController.text.trim(),
+      'date': _dateController.text.trim(),
+      'ps': _psController.text.trim(),
+    };
+    
+    print('🔄 Redirecting to user creation with vaccination data');
+    
+    // Show a message to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.info, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('Créez votre compte pour sauvegarder cette vaccination'),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.info,
+        duration: Duration(seconds: 3),
+      ),
+    );
+    
+    // Navigate to enhanced user creation with vaccination data
+    Navigator.pushReplacementNamed(
+      context,
+      '/user-creation',
+      arguments: vaccinationData,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading || _scannedData == null) {
+    if (_isCheckingUser || _isLoading || _scannedData == null) {
       return _buildLoadingScreen();
+    }
+
+    // If no user and not checking anymore, show create account prompt
+    if (_currentUser == null) {
+      return _buildCreateAccountPrompt();
     }
 
     return Scaffold(
@@ -154,11 +236,185 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
             CircularProgressIndicator(color: AppColors.primary),
             SizedBox(height: 16),
             Text(
-              'Chargement des données...',
+              'Vérification du compte utilisateur...',
               style: TextStyle(color: AppColors.textSecondary),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCreateAccountPrompt() {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: const CustomAppBar(title: 'Créer un compte'),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      AppColors.primary.withOpacity(0.1),
+                      AppColors.secondary.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.primary.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.person_add,
+                        size: 32,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Compte requis',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Créez votre compte pour sauvegarder cette vaccination',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Vaccination preview
+              if (_scannedData != null) _buildVaccinationPreview(),
+              
+              const SizedBox(height: 32),
+              
+              // Action buttons
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AppButton(
+                    text: 'Créer mon compte',
+                    icon: Icons.person_add,
+                    onPressed: _redirectToUserCreation,
+                    width: double.infinity,
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  AppButton(
+                    text: 'J\'ai déjà un compte',
+                    style: AppButtonStyle.secondary,
+                    icon: Icons.login,
+                    onPressed: () => Navigator.pushNamed(context, '/login'),
+                    width: double.infinity,
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  AppButton(
+                    text: 'Retour',
+                    style: AppButtonStyle.text,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVaccinationPreview() {
+    return AppCard(
+      backgroundColor: AppColors.success.withOpacity(0.05),
+      border: Border.all(
+        color: AppColors.success.withOpacity(0.3),
+        width: 1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.vaccines, color: AppColors.success, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Vaccination à sauvegarder',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.success,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildPreviewItem('Vaccin', _vaccineNameController.text),
+          _buildPreviewItem('Date', _dateController.text),
+          if (_lotController.text.isNotEmpty)
+            _buildPreviewItem('Lot', _lotController.text),
+          if (_psController.text.isNotEmpty)
+            _buildPreviewItem('Notes', _psController.text),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 60,
+            child: Text(
+              '$label:',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isNotEmpty ? value : 'Non spécifié',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -661,22 +917,23 @@ class _VaccinationInfoScreenState extends State<VaccinationInfoScreen> {
       return;
     }
 
+    // Double-check user is still logged in
+    if (_currentUser == null) {
+      _redirectToUserCreation();
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
 
     try {
-      final user = await _databaseService.getCurrentUser();
-      if (user == null) {
-        throw Exception('Utilisateur non connecté');
-      }
-
       final vaccination = Vaccination(
         vaccineName: _vaccineNameController.text.trim(),
         lot: _lotController.text.trim().isNotEmpty ? _lotController.text.trim() : null, // Lot optionnel
         date: _dateController.text.trim(),
         ps: _psController.text.trim().isNotEmpty ? _psController.text.trim() : 'Non spécifié',
-        userId: user.key.toString(),
+        userId: _currentUser!.key.toString(),
       );
 
       await _databaseService.saveVaccination(vaccination);

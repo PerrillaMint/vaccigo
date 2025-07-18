@@ -1,4 +1,4 @@
-// lib/screens/onboarding/scan_preview_screen.dart - Version améliorée avec moins d'erreurs
+// lib/screens/onboarding/scan_preview_screen.dart - FIXED with user creation flow
 import 'package:flutter/material.dart';
 import 'dart:io';
 import '../../constants/app_colors.dart';
@@ -21,7 +21,9 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   
   String? _imagePath;
   ScannedVaccinationData? _scannedData;
+  EnhancedUser? _currentUser;
   bool _isAnalyzing = false;
+  bool _isCheckingUser = true;
   bool _hasMultipleVaccinations = false;
   int _detectedCount = 0;
   String? _analysisError;
@@ -29,7 +31,14 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _initializeScreen();
+  }
+
+  Future<void> _initializeScreen() async {
+    // First check if user is logged in
+    await _checkCurrentUser();
     
+    // Then load and analyze image data
     final arguments = ModalRoute.of(context)?.settings.arguments;
     
     // Gère différents types d'arguments
@@ -42,6 +51,28 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
       setState(() {
         _isAnalyzing = false;
         _detectedCount = 1;
+      });
+    }
+  }
+
+  Future<void> _checkCurrentUser() async {
+    try {
+      final user = await _databaseService.getCurrentUser();
+      setState(() {
+        _currentUser = user;
+        _isCheckingUser = false;
+      });
+      
+      if (user == null) {
+        print('🔄 No user logged in - will handle in process vaccinations');
+      } else {
+        print('✅ User logged in: ${user.name}');
+      }
+    } catch (e) {
+      print('❌ Error checking current user: $e');
+      setState(() {
+        _currentUser = null;
+        _isCheckingUser = false;
       });
     }
   }
@@ -119,6 +150,10 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isCheckingUser) {
+      return _buildLoadingView();
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: CustomAppBar(
@@ -184,11 +219,11 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
             ),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Vérifiez votre image',
                   style: TextStyle(
                     fontSize: 18,
@@ -196,10 +231,12 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                     color: AppColors.primary,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  'L\'IA a analysé votre carnet',
-                  style: TextStyle(
+                  _currentUser != null 
+                      ? 'L\'IA a analysé votre carnet'
+                      : 'Création de compte requise pour sauvegarder',
+                  style: const TextStyle(
                     fontSize: 14,
                     color: AppColors.textSecondary,
                   ),
@@ -207,6 +244,13 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               ],
             ),
           ),
+          if (_currentUser == null)
+            StatusBadge(
+              text: 'Compte requis',
+              type: StatusType.warning,
+              icon: Icons.person_add,
+              isCompact: true,
+            ),
         ],
       ),
     );
@@ -425,6 +469,35 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
               ),
             ),
           ],
+          
+          // Show account creation notice if no user logged in
+          if (_currentUser == null) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.person_add, size: 16, color: AppColors.warning),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Créez un compte pour sauvegarder cette vaccination',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.warning,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -507,28 +580,34 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Bouton principal selon le résultat
+        // Main action button
         if (_detectedCount > 0) ...[
           AppButton(
-            text: _hasMultipleVaccinations 
-                ? 'Traiter les $_detectedCount vaccinations'
-                : 'Continuer avec cette vaccination',
-            icon: _hasMultipleVaccinations ? Icons.list : Icons.vaccines,
+            text: _currentUser == null
+                ? 'Créer un compte et sauvegarder'
+                : _hasMultipleVaccinations 
+                    ? 'Traiter les $_detectedCount vaccinations'
+                    : 'Continuer avec cette vaccination',
+            icon: _currentUser == null
+                ? Icons.person_add
+                : _hasMultipleVaccinations ? Icons.list : Icons.vaccines,
             onPressed: _isAnalyzing ? null : _processVaccinations,
             width: double.infinity,
           ),
           const SizedBox(height: 12),
         ] else if (!_isAnalyzing) ...[
           AppButton(
-            text: 'Continuer avec saisie manuelle',
-            icon: Icons.edit,
-            onPressed: () => Navigator.pushReplacementNamed(context, '/manual-entry'),
+            text: _currentUser == null
+                ? 'Créer un compte et continuer'
+                : 'Continuer avec saisie manuelle',
+            icon: _currentUser == null ? Icons.person_add : Icons.edit,
+            onPressed: _currentUser == null ? _redirectToUserCreation : () => Navigator.pushReplacementNamed(context, '/manual-entry'),
             width: double.infinity,
           ),
           const SizedBox(height: 12),
         ],
         
-        // Boutons secondaires
+        // Secondary buttons
         Row(
           children: [
             Expanded(
@@ -545,11 +624,22 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 text: 'Saisie manuelle',
                 icon: Icons.edit,
                 style: AppButtonStyle.secondary,
-                onPressed: () => Navigator.pushReplacementNamed(context, '/manual-entry'),
+                onPressed: _currentUser == null ? _redirectToUserCreation : () => Navigator.pushReplacementNamed(context, '/manual-entry'),
               ),
             ),
           ],
         ),
+        
+        // Login option for existing users
+        if (_currentUser == null) ...[
+          const SizedBox(height: 16),
+          AppButton(
+            text: 'J\'ai déjà un compte',
+            style: AppButtonStyle.text,
+            icon: Icons.login,
+            onPressed: () => Navigator.pushNamed(context, '/login'),
+          ),
+        ],
         
         const SizedBox(height: 16),
         _buildImageQualityTips(),
@@ -596,14 +686,32 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     );
   }
 
-  Future<void> _processVaccinations() async {
-    try {
-      final user = await _databaseService.getCurrentUser();
-      if (user == null) {
-        _showErrorMessage('Erreur: Utilisateur non connecté');
-        return;
-      }
+  Widget _buildLoadingView() {
+    return const Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            SizedBox(height: 16),
+            Text(
+              'Vérification du compte utilisateur...',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Future<void> _processVaccinations() async {
+    if (_currentUser == null) {
+      _redirectToUserCreation();
+      return;
+    }
+
+    try {
       if (_hasMultipleVaccinations && _imagePath != null && _imagePath != 'data_provided') {
         // Multi-vaccination
         Navigator.pushNamed(
@@ -611,7 +719,7 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
           '/multi-vaccination-scan',
           arguments: {
             'imagePath': _imagePath!,
-            'userId': user.key.toString(),
+            'userId': _currentUser!.key.toString(),
           },
         );
       } else {
@@ -631,6 +739,48 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
     } catch (e) {
       _showErrorMessage('Erreur: $e');
     }
+  }
+
+  void _redirectToUserCreation() {
+    if (!mounted) return;
+    
+    // Prepare vaccination data to pass to user creation
+    Map<String, String>? vaccinationData;
+    
+    if (_scannedData != null) {
+      vaccinationData = {
+        'vaccineName': _scannedData!.vaccineName,
+        'lot': _scannedData!.lot,
+        'date': _scannedData!.date,
+        'ps': _scannedData!.ps,
+      };
+    }
+    
+    print('🔄 Redirecting to user creation with vaccination data');
+    
+    // Show a message to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.info, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('Créez votre compte pour sauvegarder cette vaccination'),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.info,
+        duration: Duration(seconds: 3),
+      ),
+    );
+    
+    // Navigate to enhanced user creation with vaccination data
+    Navigator.pushReplacementNamed(
+      context,
+      '/user-creation',
+      arguments: vaccinationData,
+    );
   }
 
   void _showHelpDialog() {
@@ -665,6 +815,11 @@ class _ScanPreviewScreenState extends State<ScanPreviewScreen> {
                 Text(
                   'L\'IA peut détecter plusieurs vaccinations sur une même page.',
                   style: TextStyle(fontStyle: FontStyle.italic, color: AppColors.textSecondary),
+                ),
+                SizedBox(height: 12),
+                Text(
+                  'Un compte utilisateur est requis pour sauvegarder vos vaccinations.',
+                  style: TextStyle(fontWeight: FontWeight.w500, color: AppColors.warning),
                 ),
               ],
             ),
