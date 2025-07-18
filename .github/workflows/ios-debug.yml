@@ -1,0 +1,22 @@
+name: iOS Debug Build
+
+on:
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.0'
+    - run: flutter pub get
+    - run: cd ios && pod install
+    - run: flutter build ios --debug --no-codesign
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ios-debug-build
+        path: build/ios/Runner.app
