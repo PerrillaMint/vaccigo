@@ -1,15 +1,16 @@
-// android/app/build.gradle - Minimal fix for SDK warnings
+// android/app/build.gradle - Updated for new Flutter Gradle plugin
+plugins {
+    id "com.android.application"
+    id "kotlin-android" 
+    // Remove the explicit flutter plugin - it's applied automatically
+}
+
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withReader('UTF-8') { reader ->
         localProperties.load(reader)
     }
-}
-
-def flutterRoot = localProperties.getProperty('flutter.sdk')
-if (flutterRoot == null) {
-    throw new RuntimeException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
 }
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
@@ -21,10 +22,6 @@ def flutterVersionName = localProperties.getProperty('flutter.versionName')
 if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
-
-apply plugin: 'com.android.application'
-apply plugin: 'kotlin-android'
-apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     namespace "com.example.vaccigo"
@@ -46,7 +43,7 @@ android {
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
-        multiDexEnabled true // Add this line
+        multiDexEnabled true
     }
 
     buildTypes {
