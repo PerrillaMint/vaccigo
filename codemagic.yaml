@@ -1,10 +1,10 @@
-# codemagic.yaml - Compatible with Flutter 3.16.x / Dart 3.2.6
+# codemagic.yaml - Fixed version to match your local setup
 workflows:
   ios-debug-build:
     name: iOS Debug Build
     environment:
-      flutter: 3.16.9  # Specify compatible Flutter version
-      xcode: latest
+      flutter: 3.16.9  # ✅ FIXED: Match your local Flutter version
+      xcode: 15.2      # Use slightly older Xcode for compatibility
       cocoapods: default
     triggering:
       events:
@@ -14,38 +14,59 @@ workflows:
         - pattern: '*'
           include: true
     scripts:
-      - name: Show versions
+      - name: Show environment versions
         script: |
+          echo "Flutter version:"
           flutter --version
+          echo "Dart version:"
           dart --version
+          echo "Xcode version:"
+          xcodebuild -version
           
-      - name: Get dependencies
+      - name: Clean and get dependencies
         script: |
-          # Clean previous builds
+          # Clean any cached builds
           flutter clean
           
-          # Get dependencies (should work with compatible versions)
-          flutter pub get
+          # Remove pubspec.lock to force fresh resolution
+          rm -f pubspec.lock
           
-          # Verify no conflicts
+          # Get dependencies with verbose output
+          flutter pub get --verbose
+          
+      - name: Verify dependencies
+        script: |
+          # Show what got resolved
           flutter pub deps
           
-      - name: Install CocoaPods
+      - name: Install iOS dependencies
         script: |
           cd ios
-          pod install --repo-update
+          # Clean CocoaPods cache
+          pod cache clean --all
+          # Install with repo update
+          pod install --repo-update --verbose
           
       - name: Build iOS Debug
         script: |
-          # Build debug version
+          # Build with verbose output for debugging
           flutter build ios --debug --no-codesign --verbose
+          
+      - name: List build artifacts
+        script: |
+          echo "Build artifacts:"
+          ls -la build/ios/
+          echo "iOS build contents:"
+          ls -la build/ios/Runner.app/ || echo "Runner.app not found"
           
     artifacts:
       - build/ios/Runner.app
+      - build/ios/iphoneos/Runner.app
       
     publishing:
       email:
         recipients:
-          - your-email@example.com
+          - your-email@example.com  # Replace with your email
         notify:
           success: true
+          failure: true
