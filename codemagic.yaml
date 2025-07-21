@@ -1,63 +1,51 @@
-# codemagic.yaml - iOS Debug Build Configuration
+# codemagic.yaml - Compatible with Flutter 3.16.x / Dart 3.2.6
 workflows:
-  ios-debug:
+  ios-debug-build:
     name: iOS Debug Build
     environment:
-      flutter: stable
+      flutter: 3.16.9  # Specify compatible Flutter version
       xcode: latest
       cocoapods: default
     triggering:
       events:
         - push
-        - manual  # Allow manual trigger
+        - manual
       branch_patterns:
-        - pattern: '*'  # Build from any branch
+        - pattern: '*'
           include: true
     scripts:
-      - name: Set up debug signing
+      - name: Show versions
         script: |
-          # Use automatic signing for debug builds
-          sed -i '' 's/DEVELOPMENT_TEAM = .*/DEVELOPMENT_TEAM = "";/' ios/Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/CODE_SIGN_STYLE = Manual/CODE_SIGN_STYLE = Automatic/' ios/Runner.xcodeproj/project.pbxproj
+          flutter --version
+          dart --version
           
-      - name: Get Flutter packages
+      - name: Get dependencies
         script: |
+          # Clean previous builds
+          flutter clean
+          
+          # Get dependencies (should work with compatible versions)
           flutter pub get
+          
+          # Verify no conflicts
+          flutter pub deps
           
       - name: Install CocoaPods
         script: |
-          cd ios && pod install
+          cd ios
+          pod install --repo-update
           
       - name: Build iOS Debug
         script: |
-          # Build debug version (faster, includes debug symbols)
-          flutter build ios --debug --no-codesign
+          # Build debug version
+          flutter build ios --debug --no-codesign --verbose
           
-      - name: Create Debug IPA
-        script: |
-          # Create IPA for distribution
-          cd ios
-          xcodebuild -workspace Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Debug \
-            -destination generic/platform=iOS \
-            -archivePath Runner.xcarchive \
-            archive
-            
-          xcodebuild -exportArchive \
-            -archivePath Runner.xcarchive \
-            -exportPath ../build/ios/ipa \
-            -exportOptionsPlist ExportOptions.plist
-            
     artifacts:
-      - build/ios/ipa/*.ipa
       - build/ios/Runner.app
-      - ios/Runner.xcarchive
       
     publishing:
       email:
         recipients:
-          - your-email@example.com  # Get notified when build completes
+          - your-email@example.com
         notify:
           success: true
-          failure: true

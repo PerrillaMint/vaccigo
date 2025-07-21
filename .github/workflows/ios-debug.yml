@@ -1,22 +1,139 @@
+# .github/workflows/ios-debug.yml
 name: iOS Debug Build
 
 on:
   push:
-    branches: [ main, develop ]
-  workflow_dispatch:
+    branches: [ main, develop, feature/* ]
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      build_number:
+        description: 'Build number'
+        required: false
+        default: '1'
 
 jobs:
-  build:
+  build-ios-debug:
     runs-on: macos-latest
+    
     steps:
-    - uses: actions/checkout@v4
-    - uses: subosito/flutter-action@v2
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.19.0'
-    - run: flutter pub get
-    - run: cd ios && pod install
-    - run: flutter build ios --debug --no-codesign
-    - uses: actions/upload-artifact@v4
+        channel: 'stable'
+        
+    - name: Flutter version
+      run: flutter --version
+      
+    - name: Install dependencies
+      run: flutter pub get
+      
+    - name: Run tests (optional)
+      run: flutter test
+      continue-on-error: true  # Don't fail build if tests fail
+      
+    - name: Setup iOS for debug build
+      run: |
+        # Clean any previous builds
+        flutter clean
+        
+        # Update iOS deployment target if needed
+        sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9]*\.[0-9]*/IPHONEOS_DEPLOYMENT_TARGET = 12.0/g' ios/Runner.xcodeproj/project.pbxproj
+        
+    - name: Install CocoaPods
+      run: |
+        cd ios
+        pod install --repo-update
+        
+    - name: Create ExportOptions.plist for debug
+      run: |
+        cat > ios/ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>method</key>
+            <string>development</string>
+            <key>teamID</key>
+            <string></string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>destination</key>
+            <string>export</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>stripSwiftSymbols</key>
+            <false/>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <false/>
+        </dict>
+        </plist>
+        EOF
+        
+    - name: Build Flutter iOS Debug
+      run: |
+        # Build debug version with no code signing
+        flutter build ios --debug --no-codesign
+        
+    - name: Build iOS Archive (Debug)
+      run: |
+        cd ios
+        
+        # Build archive
+        xcodebuild -workspace Runner.xcworkspace \
+          -scheme Runner \
+          -configuration Debug \
+          -destination generic/platform=iOS \
+          -archivePath build/Runner.xcarchive \
+          archive \
+          CODE_SIGN_IDENTITY="" \
+          CODE_SIGNING_REQUIRED=NO \
+          CODE_SIGNING_ALLOWED=NO
+          
+    - name: Export IPA (Debug)
+      run: |
+        cd ios
+        
+        # Export IPA
+        xcodebuild -exportArchive \
+          -archivePath build/Runner.xcarchive \
+          -exportPath build/ipa \
+          -exportOptionsPlist ExportOptions.plist \
+          -allowProvisioningUpdates
+          
+    - name: Upload Debug Artifacts
+      uses: actions/upload-artifact@v4
       with:
-        name: ios-debug-build
-        path: build/ios/Runner.app
+        name: ios-debug-build-${{ github.run_number }}
+        path: |
+          ios/build/ipa/*.ipa
+          ios/build/Runner.xcarchive
+        retention-days: 30
+        
+    - name: Create Release (Optional)
+      if: github.ref == 'refs/heads/main'
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: debug-v${{ github.run_number }}
+        name: Debug Build ${{ github.run_number }}
+        body: |
+          🐛 Debug iOS Build
+          
+          **Installation:**
+          - Download the IPA file
+          - Install via Xcode or 3uTools
+          - Or use TestFlight for distribution
+          
+          **Build Info:**
+          - Commit: ${{ github.sha }}
+          - Branch: ${{ github.ref_name }}
+          - Date: ${{ github.event.head_commit.timestamp }}
+        files: |
+          ios/build/ipa/*.ipa
+        draft: false
+        prerelease: true
