@@ -1,8 +1,7 @@
-// android/app/build.gradle - Updated for new Flutter Gradle plugin
 plugins {
     id "com.android.application"
-    id "kotlin-android" 
-    // Remove the explicit flutter plugin - it's applied automatically
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
 }
 
 def localProperties = new Properties()
@@ -25,7 +24,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.vaccigo"
-    compileSdkVersion 34
+    compileSdk 34
     ndkVersion flutter.ndkVersion
 
     compileOptions {
