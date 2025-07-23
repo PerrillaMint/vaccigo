@@ -19,6 +19,12 @@
           "ignoreFailures": true
         }
       ]
+    },
+    {
+      "name": "Flutter (lib/theme/app_theme.dart)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/theme/app_theme.dart"
     }
   ]
 }

@@ -15,8 +15,10 @@ import 'services/camera_service.dart';
 import 'services/enhanced_french_vaccination_parser_with_fuzzy.dart';
 import 'services/vaccine_name_corrector.dart';
 
-// Import du thème et des écrans
-import 'theme/app_theme.dart';
+// Import des constantes de couleurs
+import 'constants/app_colors.dart';
+
+// Import des écrans
 import 'screens/auth/welcome_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
@@ -26,7 +28,7 @@ import 'screens/onboarding/camera_scan_screen.dart';
 import 'screens/onboarding/scan_preview_screen.dart';
 import 'screens/onboarding/multi_vaccination_scan_screen.dart';
 import 'screens/vaccination/manual_entry_screen.dart';
-import 'screens/profile/enhanced_user_creation_screen.dart'; // ✅ ENHANCED VERSION
+import 'screens/profile/enhanced_user_creation_screen.dart';
 import 'screens/profile/additional_info_screen.dart';
 import 'screens/vaccination/vaccination_info_screen.dart';
 import 'screens/vaccination/vaccination_summary_screen.dart';
@@ -238,7 +240,39 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Vaccigo - Carnet de Vaccination',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      
+      // Basic theme configuration using AppColors directly
+      theme: ThemeData(
+        useMaterial3: true,
+        primaryColor: AppColors.primary,
+        scaffoldBackgroundColor: AppColors.background,
+        colorScheme: const ColorScheme.light(
+          primary: AppColors.primary,
+          secondary: AppColors.secondary,
+          surface: AppColors.surface,
+          background: AppColors.background,
+          error: AppColors.error,
+          onPrimary: AppColors.onPrimary,
+          onSecondary: AppColors.onSecondary,
+          onSurface: AppColors.onSurface,
+          onBackground: AppColors.textPrimary,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          foregroundColor: AppColors.primary,
+          titleTextStyle: TextStyle(
+            color: AppColors.primary,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+          ),
+          iconTheme: IconThemeData(
+            color: AppColors.primary,
+            size: 24,
+          ),
+        ),
+      ),
       
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -254,21 +288,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       initialRoute: '/',
       
       routes: {
-  '/': (context) => const WelcomeScreen(),
-  '/login': (context) => const LoginScreen(),
-  '/forgot-password': (context) => const ForgotPasswordScreen(),
-  '/card-selection': (context) => const CardSelectionScreen(),
-  '/travel-options': (context) => const TravelOptionsScreen(),
-  '/camera-scan': (context) => const CameraScanScreen(),
-  '/scan-preview': (context) => const ScanPreviewScreen(),
-  '/manual-entry': (context) => const ManualEntryScreen(),
-  '/vaccination-info': (context) => const VaccinationInfoScreen(),
-  '/user-creation': (context) => const EnhancedUserCreationScreen(), // ✅ CHANGED: Use enhanced version
-  '/additional-info': (context) => const AdditionalInfoScreen(),
-  '/vaccination-summary': (context) => const VaccinationSummaryScreen(),
-  '/vaccination-management': (context) => const VaccinationManagementScreen(),
-  '/family-management': (context) => const FamilyManagementScreen(),
-},
+        '/': (context) => const WelcomeScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/forgot-password': (context) => const ForgotPasswordScreen(),
+        '/card-selection': (context) => const CardSelectionScreen(),
+        '/travel-options': (context) => const TravelOptionsScreen(),
+        '/camera-scan': (context) => const CameraScanScreen(),
+        '/scan-preview': (context) => const ScanPreviewScreen(),
+        '/manual-entry': (context) => const ManualEntryScreen(),
+        '/vaccination-info': (context) => const VaccinationInfoScreen(),
+        '/user-creation': (context) => const EnhancedUserCreationScreen(),
+        '/additional-info': (context) => const AdditionalInfoScreen(),
+        '/vaccination-summary': (context) => const VaccinationSummaryScreen(),
+        '/vaccination-management': (context) => const VaccinationManagementScreen(),
+        '/family-management': (context) => const FamilyManagementScreen(),
+      },
       
       onGenerateRoute: (settings) {
         switch (settings.name) {
@@ -344,7 +378,7 @@ class ErrorDisplay extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2C5F66),
+                      color: AppColors.primary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -375,7 +409,7 @@ class ErrorDisplay extends StatelessWidget {
                     icon: const Icon(Icons.refresh),
                     label: const Text('Redémarrer'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2C5F66),
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 32,
