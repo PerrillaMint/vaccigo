@@ -23,9 +23,9 @@ dependencies:
   # HTTP requests
   http: ^1.2.0
   
-  # Camera and image handling
-  camera: ^0.10.6
-  image_picker: ^1.0.8
+  # Camera and image handling - Using compatible versions
+  camera: ^0.10.5+5
+  image_picker: ^1.0.4
   
   # Permissions
   permission_handler: ^11.3.1
@@ -51,9 +51,15 @@ dev_dependencies:
   build_runner: ^2.4.9
   flutter_lints: ^2.0.3
 
-# Fix plugin compatibility issues
+# Force compatible plugin versions to fix V1 embedding issues
 dependency_overrides:
-  flutter_plugin_android_lifecycle: ^2.0.20
+  flutter_plugin_android_lifecycle: ^2.0.17
+  camera_android: ^0.10.8+16
+  camera_avfoundation: ^0.9.16+4
+  camera_platform_interface: ^2.7.4
+  image_picker_android: ^0.8.8+3
+  image_picker_ios: ^0.8.8+4
+  image_picker_platform_interface: ^2.9.1
 
 flutter:
   uses-material-design: true

@@ -114,7 +114,7 @@ packages:
     source: hosted
     version: "0.10.6"
   camera_android:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: camera_android
       sha256: b350ac087f111467e705b2b76cc1322f7f5bdc122aa83b4b243b0872f390d229
@@ -122,7 +122,7 @@ packages:
     source: hosted
     version: "0.10.9+2"
   camera_avfoundation:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: camera_avfoundation
       sha256: "7c28969a975a7eb2349bc2cb2dfe3ad218a33dba9968ecfb181ce08c87486655"
@@ -130,7 +130,7 @@ packages:
     source: hosted
     version: "0.9.17+3"
   camera_platform_interface:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: camera_platform_interface
       sha256: b3ede1f171532e0d83111fe0980b46d17f1aa9788a07a2fbed07366bbdbb9061
@@ -526,7 +526,7 @@ packages:
     source: hosted
     version: "1.0.8"
   image_picker_android:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: image_picker_android
       sha256: "844c6da4e4f2829dffdab97816bca09d0e0977e8dcef7450864aba4e07967a58"
@@ -542,7 +542,7 @@ packages:
     source: hosted
     version: "3.0.2"
   image_picker_ios:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: image_picker_ios
       sha256: "917a5cadd67d052554cfb258595e54217de53fac5b52939426e26319a02e6297"
@@ -566,7 +566,7 @@ packages:
     source: hosted
     version: "0.2.1+1"
   image_picker_platform_interface:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: image_picker_platform_interface
       sha256: fa4e815e6fcada50e35718727d83ba1c92f1edf95c0b4436554cec301b56233b
