@@ -51,14 +51,19 @@ dev_dependencies:
   build_runner: ^2.4.9
   flutter_lints: ^2.0.3
 
+# Fix plugin compatibility issues
+dependency_overrides:
+  flutter_plugin_android_lifecycle: ^2.0.20
+
 flutter:
   uses-material-design: true
 
-  # Assets
-  assets:
-    - assets/images/
-    - assets/logos/
-    - assets/icons/
+  # Assets (commented out until directories exist)
+  # Uncomment and create directories when you have assets to include
+  # assets:
+  #   - assets/images/
+  #   - assets/logos/
+  #   - assets/icons/
 
   # Fonts (optional - uncomment if you have custom fonts)
   # fonts:
