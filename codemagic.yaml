@@ -7,9 +7,6 @@ workflows:
       flutter: 3.19.0
       xcode: 15.2
       cocoapods: default
-      vars:
-        # Disable Android completely
-        SKIP_ANDROID_BUILD: true
     triggering:
       events:
         - push
@@ -20,58 +17,43 @@ workflows:
     scripts:
       - name: Show environment versions
         script: |
+          echo "=== BUILDING iOS ONLY - NO ANDROID ==="
           echo "Flutter version:"
           flutter --version
-          echo "Dart version:"
-          dart --version
           echo "Xcode version:"
           xcodebuild -version
           
       - name: Clean and get dependencies
         script: |
-          # Clean any cached builds
           flutter clean
-          
-          # Remove pubspec.lock to force fresh resolution
           rm -f pubspec.lock
-          
-          # Get dependencies with verbose output
           flutter pub get --verbose
-          
-      - name: Verify dependencies
-        script: |
-          # Show what got resolved
-          flutter pub deps
           
       - name: Install iOS dependencies
         script: |
           cd ios
-          # Clean CocoaPods cache
           pod cache clean --all
-          # Install with repo update
           pod install --repo-update --verbose
           
-      - name: Build iOS Debug ONLY
+      - name: Build iOS Debug ONLY (No Android)
         script: |
-          # Build iOS debug without code signing
+          echo "=== BUILDING iOS DEBUG - SKIPPING ANDROID ==="
           flutter build ios --debug --no-codesign --verbose
           
-      - name: List build artifacts
+      - name: List iOS build artifacts
         script: |
-          echo "Build artifacts:"
+          echo "iOS build artifacts:"
           ls -la build/ios/
-          echo "iOS build contents:"
           find build/ios/ -name "*.app" -type d
           
     artifacts:
       - build/ios/Runner.app
-      - build/ios/iphoneos/Runner.app
       - build/ios/**/*.app
       
     publishing:
       email:
         recipients:
-          - your-email@example.com  # Replace with your email
+          - your-email@example.com
         notify:
           success: true
           failure: true

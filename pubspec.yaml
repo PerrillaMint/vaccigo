@@ -54,11 +54,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Assets
-  assets:
-    - assets/images/
-    - assets/logos/
-    - assets/icons/
+  # Assets (commented out - create directories if you have assets)
+  # assets:
+  #   - assets/images/
+  #   - assets/logos/
+  #   - assets/icons/
 
   # Fonts (optional - uncomment if you have custom fonts)
   # fonts:
