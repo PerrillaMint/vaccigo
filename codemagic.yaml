@@ -1,11 +1,15 @@
-# codemagic.yaml - Fixed version to match your local setup
 workflows:
-  ios-debug-build:
-    name: iOS Debug Build
+  ios-debug-only:
+    name: iOS Debug Build Only
+    max_build_duration: 120
+    instance_type: mac_mini_m1
     environment:
-      flutter: 3.16.9  # ✅ FIXED: Match your local Flutter version
-      xcode: 15.2      # Use slightly older Xcode for compatibility
+      flutter: 3.19.0
+      xcode: 15.2
       cocoapods: default
+      vars:
+        # Disable Android completely
+        SKIP_ANDROID_BUILD: true
     triggering:
       events:
         - push
@@ -47,9 +51,9 @@ workflows:
           # Install with repo update
           pod install --repo-update --verbose
           
-      - name: Build iOS Debug
+      - name: Build iOS Debug ONLY
         script: |
-          # Build with verbose output for debugging
+          # Build iOS debug without code signing
           flutter build ios --debug --no-codesign --verbose
           
       - name: List build artifacts
@@ -57,11 +61,12 @@ workflows:
           echo "Build artifacts:"
           ls -la build/ios/
           echo "iOS build contents:"
-          ls -la build/ios/Runner.app/ || echo "Runner.app not found"
+          find build/ios/ -name "*.app" -type d
           
     artifacts:
       - build/ios/Runner.app
       - build/ios/iphoneos/Runner.app
+      - build/ios/**/*.app
       
     publishing:
       email:

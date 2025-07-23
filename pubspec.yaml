@@ -23,9 +23,9 @@ dependencies:
   # HTTP requests
   http: ^1.2.0
   
-  # Camera and image handling - Using much older, compatible versions
-  camera: 0.10.3+2
-  image_picker: 0.8.7+4
+  # Camera and image handling
+  camera: ^0.10.6
+  image_picker: ^1.0.8
   
   # Permissions
   permission_handler: ^11.3.1
@@ -42,6 +42,7 @@ dependencies:
   # Utilities
   collection: ^1.18.0
   meta: ^1.10.0
+  intl: ^0.18.1
   path: ^1.8.3
 
 dev_dependencies:
@@ -54,8 +55,16 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Assets (commented out until directories exist)
-  # assets:
-  #   - assets/images/
-  #   - assets/logos/
-  #   - assets/icons/
+  # Assets
+  assets:
+    - assets/images/
+    - assets/logos/
+    - assets/icons/
+
+  # Fonts (optional - uncomment if you have custom fonts)
+  # fonts:
+  #   - family: CustomFont
+  #     fonts:
+  #       - asset: fonts/CustomFont-Regular.ttf
+  #       - asset: fonts/CustomFont-Bold.ttf
+  #         weight: 700
